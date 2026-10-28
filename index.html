@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>逃出大海 — Escape the Sea</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-scene="title">
+<canvas id="cv"></canvas>
+<div id="scan"></div>
+<div id="fade"></div>
+
+<!-- ===== HUD (sea) ===== -->
+<div id="hud">
+  <div class="res-row">
+    <div class="chip"><i class="dot plastic"></i><b id="r-plastic">0</b><i>塑膠</i></div>
+    <div class="chip"><i class="dot wood"></i><b id="r-wood">0</b><i>木材</i></div>
+    <div class="chip"><i class="dot metal"></i><b id="r-metal">0</b><i>金屬</i></div>
+    <div class="chip alien"><i class="dot alloy"></i><b id="r-alloy">0</b><i>外星合金</i></div>
+  </div>
+  <div class="bars">
+    <div class="bar"><span>生命</span><div class="track"><div id="bar-hp" class="fill hp"></div></div><em id="v-hp">100</em></div>
+    <div class="bar"><span>氧氣</span><div class="track"><div id="bar-ox" class="fill ox"></div></div><em id="v-ox">100</em></div>
+    <div class="bar"><span>體力</span><div class="track"><div id="bar-st" class="fill st"></div></div><em id="v-st">100</em></div>
+  </div>
+  <div id="quest" class="quest"></div>
+  <div id="idle" class="idle"></div>
+  <div id="basetag" class="basetag"></div>
+  <div id="zone" class="basetag"></div>
+</div>
+<div id="hint">WASD 游動　·　Shift 衝刺　·　滑鼠 瞄準／發射　·　B 基地　·　C 裝備　·　J 任務　·　Esc 暫停　·　M 靜音</div>
+<div id="toasts"></div>
+
+<!-- ===== TITLE ===== -->
+<div id="title" class="screen">
+  <div class="title-inner">
+    <div class="kicker">海洋生存 · 基地建造 · 星際復仇</div>
+    <h1>逃出大海</h1>
+    <div class="en">E S C A P E &nbsp; T H E &nbsp; S E A</div>
+    <p class="blurb">外星飛船的一炮把你打進海裡，暗湧把你沖到無人的海域。<br>
+    收集海上漂流垃圾、建造會自己長大的自動化基地、派出 BOT 出海，<br>
+    最後造一艘太空船飛上月球——把帳算清楚。</p>
+    <div class="tbtns">
+      <button id="btn-start" class="primary">開始遊戲</button>
+      <button id="btn-continue" class="ghost" hidden>繼續遊戲</button>
+      <button id="btn-help" class="ghost">操作說明</button>
+    </div>
+    <div class="ctrl">WASD 游動 · Shift 衝刺 · 滑鼠瞄準 / 點擊發射 · B 基地 · C 裝備 · J 任務 · M 靜音</div>
+  </div>
+</div>
+
+<!-- ===== INTRO ===== -->
+<div id="intro" class="screen" hidden>
+  <div class="intro-inner">
+    <div id="intro-text"></div>
+    <div class="intro-foot">
+      <span id="intro-step">1 / 5</span>
+      <button id="intro-next" class="primary">繼續 ▸</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ENDING ===== -->
+<div id="ending" class="screen" hidden>
+  <div class="ending-inner">
+    <div class="kicker" id="end-kicker">任務完成</div>
+    <h1 id="end-title">你贏了</h1>
+    <p id="end-text" class="blurb"></p>
+    <div id="end-stats" class="end-stats"></div>
+    <button id="end-again" class="primary">重新開始</button>
+  </div>
+</div>
+
+<!-- ===== MODAL ===== -->
+<div id="modal">
+  <div class="modal-box">
+    <div class="modal-head"><h2>標題</h2><button id="modal-x" aria-label="關閉">✕</button></div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-foot" id="modal-foot"></div>
+  </div>
+</div>
+
+<script src="js/core.js"></script>
+<script src="js/base.js"></script>
+<script src="js/sea.js"></script>
+<script src="js/space.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
