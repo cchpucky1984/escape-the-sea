@@ -129,7 +129,7 @@ function hurtPlayer(n) {
   if (P.inv > 0 || sea.dead) return;
   if (playerInSafe()) return;
   P.hp -= n;
-  P.inv = 1.2;
+  P.inv = 1.4;
   sea.shake = Math.min(16, sea.shake + 7);
   sfx('hurt');
   float(P.x, P.y - 20, '-' + n, '#ff8f8f');
@@ -445,7 +445,8 @@ function updateSea(dt) {
 
   /* hazards */
   sea.hazT -= dt;
-  const hazLimit = Z.hazCap;
+  const nearBoss = sea.bosses.some(b => b.alive && Math.hypot(P.x - b.x, P.y - b.y) < 1000);
+  const hazLimit = nearBoss ? 2 : Z.hazCap;
   if (sea.hazT <= 0 && sea.hazards.length < hazLimit) {
     spawnHazard();
     sea.hazT = rnd(3.2, 7.5) / Z.aggr;
