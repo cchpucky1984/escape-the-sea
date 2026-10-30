@@ -17,10 +17,17 @@ const sea = {
 /* 距離基地越遠 → 資源越豐富、怪物越多越兇 */
 function seaZone(d) {
   if (d < 800)  return { id: 0, name: '近海', mult: 1,   hazCap: 2, aggr: 1,    color: '#8ee6a4', tip: '資源 ×1 · 威脅低' };
-  if (d < 1600) return { id: 1, name: '外海', mult: 1.6, hazCap: 4, aggr: 1.12, color: '#6fe3ff', tip: '資源 ×1.6 · 威脅中' };
-  if (d < 2600) return { id: 2, name: '深海', mult: 2.3, hazCap: 6, aggr: 1.26, color: '#ffd166', tip: '資源 ×2.3 · 威脅高' };
-  return { id: 3, name: '遠洋', mult: 3.2, hazCap: 8, aggr: 1.42, color: '#ff9aa8', tip: '資源 ×3.2 · 極度危險' };
+  if (d < 1600) return { id: 1, name: '外海', mult: 1.3, hazCap: 4, aggr: 1.12, color: '#6fe3ff', tip: '資源 ×1.3 · 威脅中' };
+  if (d < 2600) return { id: 2, name: '深海', mult: 1.6, hazCap: 6, aggr: 1.26, color: '#ffd166', tip: '資源 ×1.6 · 威脅高' };
+  return { id: 3, name: '遠洋', mult: 2.0, hazCap: 8, aggr: 1.42, color: '#ff9aa8', tip: '資源 ×2 · 極度危險' };
 }
+
+const BOSS_SPOTS = [
+  { id: 'nw', name: '西北守衛', x: -2400, y: -2400 },
+  { id: 'ne', name: '東北守衛', x: 2400, y: -2400 },
+  { id: 'sw', name: '西南守衛', x: -2400, y: 2400 },
+  { id: 'se', name: '東南守衛', x: 2400, y: 2400 }
+];
 
 const PTYPES = [['plastic', 40], ['wood', 26], ['metal', 22], ['air', 7], ['crate', 5]];
 function weightedPickupType() {
@@ -47,7 +54,11 @@ function initSea(fresh) {
     sea.specks.push({ x: rnd(0, VW), y: rnd(0, VH), r: rnd(0.6, 2.2), v: rnd(6, 26), a: rnd(0.08, 0.3) });
   }
   for (let i = 0; i < 16; i++) sea.fish.push(newFish(true));
-  for (let i = 0; i < 40; i++) spawnPickup(true);
+  sea.bosses = BOSS_SPOTS.filter(b => !game.bossesKilled.includes(b.id)).map(b => ({
+    id: b.id, name: b.name, x: b.x, y: b.y,
+    hp: 20, maxhp: 20, alive: true, t: rnd(0, 6), cool: rnd(1.5, 3),
+    ang: 0, r: 46, hit: 0
+  }));
   syncBots();
   if (fresh) toast('你被暗湧沖到大海中央 — 先收集漂流垃圾（WASD 游動）');
 }
@@ -114,17 +125,17 @@ function playerInSafe() {
 }
 
 function hurtPlayer(n) {
-  const P = sea.player, S = calcStats();
+  const P = sea.player;
   if (P.inv > 0 || sea.dead) return;
-  if (playerInSafe()) return;             /* 安全圈內完全免疫 */
-  const dmg = n * (1 - S.armor);
-  P.hp -= dmg;
-  P.inv = 0.9;
+  if (playerInSafe()) return;
+  P.hp -= n;
+  P.inv = 1.2;
   sea.shake = Math.min(16, sea.shake + 7);
   sfx('hurt');
-  float(P.x, P.y - 20, '-' + Math.round(dmg), '#ff8f8f');
+  float(P.x, P.y - 20, '-' + n, '#ff8f8f');
   burst(P.x, P.y, 8, '#ff9a8b', 120);
-  if (P.hp <= 0) seaDeath();
+  renderHearts(P.hp, calcStats().maxhp);
+  if (P.hp <= 0) { P.hp = 0; seaDeath(); }
 }
 
 function seaDeath() {
@@ -232,6 +243,106 @@ function damageHazard(h, dmg, fromTower) {
   }
 }
 
+function killSeaBoss(b) {
+  b.alive = false;
+  if (!game.bossesKilled.includes(b.id)) game.bossesKilled.push(b.id);
+  game.tech = Math.min(4, game.tech + 1);
+  addRes('metal', 10);
+  addRes('alloy', 3);
+  addRes('plastic', 8);
+  game.stats.bosses = (game.stats.bosses || 0) + 1;
+  game.stats.kills++;
+  for (let i = 0; i < 46; i++) {
+    burst(b.x + rnd(-50, 50), b.y + rnd(-50, 50), 3, i % 3 ? '#ffd166' : '#c9a6ff', 330);
+  }
+  sea.shake = 22;
+  sfx('boom'); sfx('quest');
+  toast('擊敗' + b.name + ' — 取得科技碎片 ' + game.tech + '/4', 'gold');
+  if (game.tech >= 4) setTimeout(() => toast('4 塊碎片齊集！到火箭研發中心研發「火箭護盾科技」', 'gold'), 1400);
+  saveGame();
+  refreshHud();
+}
+
+function drawSeaBoss(b) {
+  const t = sea.t;
+  ctx.save();
+  ctx.translate(b.x, b.y);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(0, 0, 10, 0, 0, 150);
+  g.addColorStop(0, 'rgba(180,120,255,.30)');
+  g.addColorStop(0.6, 'rgba(255,80,140,.10)');
+  g.addColorStop(1, 'rgba(120,60,220,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, 150, 0, 7); ctx.fill();
+  ctx.restore();
+
+  /* 外環 */
+  ctx.save();
+  ctx.rotate(t * 0.35);
+  ctx.strokeStyle = 'rgba(200,160,255,.55)';
+  ctx.lineWidth = 5;
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.arc(0, 0, 62, i * 2.1, i * 2.1 + 1.2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  /* 觸手 */
+  ctx.strokeStyle = 'rgba(150,110,220,.55)';
+  ctx.lineWidth = 6;
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * Math.PI * 2 + t * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * 34, Math.sin(a) * 34);
+    ctx.quadraticCurveTo(
+      Math.cos(a + 0.4) * 58, Math.sin(a + 0.4) * 58 + Math.sin(t * 2 + i) * 8,
+      Math.cos(a + 0.18) * 80, Math.sin(a + 0.18) * 80
+    );
+    ctx.stroke();
+  }
+
+  /* 本體 */
+  ctx.save();
+  ctx.rotate(b.ang || 0);
+  ctx.fillStyle = b.hit > 0 ? '#ffffff' : '#2a1f42';
+  ctx.beginPath();
+  ctx.moveTo(0, -42); ctx.lineTo(34, -20); ctx.lineTo(34, 20); ctx.lineTo(0, 42);
+  ctx.lineTo(-34, 20); ctx.lineTo(-34, -20);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(210,170,255,.8)';
+  ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.restore();
+
+  /* 核心 */
+  const pulse = 0.6 + Math.sin(t * 4) * 0.4;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const cg = ctx.createRadialGradient(0, 0, 2, 0, 0, 40 * pulse);
+  cg.addColorStop(0, 'rgba(255,230,255,.9)');
+  cg.addColorStop(0.35, 'rgba(255,90,150,.7)');
+  cg.addColorStop(1, 'rgba(255,60,120,0)');
+  ctx.fillStyle = cg;
+  ctx.beginPath(); ctx.arc(0, 0, 40 * pulse, 0, 7); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = '#ffd9e3';
+  ctx.beginPath(); ctx.arc(0, 0, 9, 0, 7); ctx.fill();
+
+  /* 血條 + 名稱 */
+  const w = 96;
+  ctx.fillStyle = 'rgba(0,0,0,.55)';
+  ctx.fillRect(-w / 2, -70, w, 6);
+  ctx.fillStyle = '#ff5d73';
+  ctx.fillRect(-w / 2, -70, w * clamp(b.hp / b.maxhp, 0, 1), 6);
+  ctx.textAlign = 'center';
+  ctx.font = '700 10px "Microsoft JhengHei",system-ui';
+  ctx.fillStyle = 'rgba(220,190,255,.9)';
+  ctx.fillText(b.name, 0, -78);
+  ctx.restore();
+}
+
 /* ---------- update ---------- */
 function updateSea(dt) {
   if (sea.dead) return;
@@ -285,8 +396,13 @@ function updateSea(dt) {
 
   if (dBase < R) {
     P.ox = Math.min(S.maxox, P.ox + S.maxox * 0.55 * dt);
-    P.hp = Math.min(S.maxhp, P.hp + 16 * dt);
     P.st = 100;
+    if (P.hp < S.maxhp) {
+      P.hp = S.maxhp;
+      renderHearts(P.hp, S.maxhp);
+      float(P.x, P.y - 26, '維修完成', '#8ee6a4');
+      sfx('deposit');
+    }
     sea.safeT = 0.6;
   } else if (sea.safeT > 0) sea.safeT -= dt;
 
@@ -307,10 +423,10 @@ function updateSea(dt) {
 
   /* pickups */
   sea.spawnT -= dt;
-  const pMax = 40 + Z.id * 7;
+  const pMax = 13 + Z.id * 3;
   if (sea.spawnT <= 0 && sea.pickups.length < pMax) {
     spawnPickup(false);
-    sea.spawnT = 0.18 / Z.mult;
+    sea.spawnT = 0.95 / Z.mult;
   }
   for (const p of sea.pickups) {
     if (!p.alive) continue;
@@ -373,7 +489,7 @@ function updateSea(dt) {
       h.x += Math.cos(ang) * sp * dt;
       h.y += Math.sin(ang) * sp * dt;
       h.ang = lerpAngle(h.ang || ang, ang, 1 - Math.exp(-5 * dt));
-      if (d < 30) hurtPlayer(12 * dm);
+      if (d < 30) hurtPlayer(2);
       if (Math.random() < 0.4) burst(h.x - Math.cos(h.ang) * 16, h.y - Math.sin(h.ang) * 16, 1, '#bfe9ff', 40);
     } else if (h.type === 'drone') {
       const want = 330;
@@ -383,19 +499,44 @@ function updateSea(dt) {
       h.cool -= dt;
       if (h.cool <= 0 && d < 760) {
         h.cool = 2.3 / aggr;
-        sea.ebullets.push({ x: h.x, y: h.y, vx: Math.cos(ang) * 210 * aggr, vy: Math.sin(ang) * 210 * aggr, life: 4, r: 6, dmg: 9 * dm, alive: true });
+        sea.ebullets.push({ x: h.x, y: h.y, vx: Math.cos(ang) * 210 * aggr, vy: Math.sin(ang) * 210 * aggr, life: 4, r: 6, dmg: 1, alive: true });
         tone(240, 0.12, 'sawtooth', 0.08, 120);
       }
-      if (d < 42) hurtPlayer(9 * dm);
+      if (d < 42) hurtPlayer(1);
     } else {
       const c = currentAt(h.x, h.y, sea.t);
       h.x += Math.cos(h.t * 0.7) * 12 * dt + c.x * 0.6 * dt;
       h.y += Math.sin(h.t * 0.95) * 12 * dt + c.y * 0.6 * dt;
-      if (d < 34) hurtPlayer(8);
+      if (d < 34) hurtPlayer(1);
     }
     if (d > 1600) h.alive = false;
   }
   if (sea.hazards.some(h => !h.alive)) sea.hazards = sea.hazards.filter(h => h.alive);
+
+  /* 四角守衛 */
+  for (const b of sea.bosses) {
+    if (!b.alive) continue;
+    b.t += dt;
+    if (b.hit > 0) b.hit -= dt;
+    const bdx = P.x - b.x, bdy = P.y - b.y;
+    const bd = Math.hypot(bdx, bdy) || 1;
+    if (bd < 1100 && !inSafe) {
+      const sp = bd > 240 ? 36 : 0;
+      b.x += bdx / bd * sp * dt;
+      b.y += bdy / bd * sp * dt;
+      b.ang = lerpAngle(b.ang, Math.atan2(bdy, bdx), 1 - Math.exp(-3 * dt));
+      b.cool -= dt;
+      if (b.cool <= 0 && bd < 780) {
+        b.cool = 2.5;
+        for (let i = 0; i < 8; i++) {
+          const a2 = b.t * 0.6 + i / 8 * Math.PI * 2;
+          sea.ebullets.push({ x: b.x, y: b.y, vx: Math.cos(a2) * 165, vy: Math.sin(a2) * 165, life: 4.5, r: 7, dmg: 1, alive: true });
+        }
+        tone(110, 0.3, 'sawtooth', 0.12, 50);
+      }
+      if (bd < b.r + 20) hurtPlayer(2);
+    }
+  }
 
   /* player bullets */
   for (const b of sea.bullets) {
@@ -408,6 +549,19 @@ function updateSea(dt) {
         damageHazard(h, b.dmg, false);
         b.alive = false;
         break;
+      }
+    }
+    if (b.alive) {
+      for (const bo of sea.bosses) {
+        if (!bo.alive) continue;
+        if (Math.hypot(bo.x - b.x, bo.y - b.y) < bo.r + 6) {
+          bo.hp -= b.dmg;
+          bo.hit = 0.15;
+          float(bo.x + rnd(-12, 12), bo.y - bo.r - 4, String(b.dmg), '#ffffff');
+          b.alive = false;
+          if (bo.hp <= 0) killSeaBoss(bo);
+          break;
+        }
       }
     }
   }
@@ -551,6 +705,12 @@ function drawSea() {
     if (!h.alive) continue;
     if (h.x < cam.x - 140 || h.x > cam.x + VW + 140 || h.y < cam.y - 140 || h.y > cam.y + VH + 140) continue;
     drawHazard(h);
+  }
+
+  for (const bo of sea.bosses) {
+    if (!bo.alive) continue;
+    if (bo.x < cam.x - 200 || bo.x > cam.x + VW + 200 || bo.y < cam.y - 200 || bo.y > cam.y + VH + 200) continue;
+    drawSeaBoss(bo);
   }
 
   /* tower beams */
@@ -942,6 +1102,18 @@ function drawRadar() {
     const dx = (b.x - P.x) * scale, dy = (b.y - P.y) * scale;
     ctx.fillStyle = '#ffd166';
     ctx.beginPath(); ctx.arc(dx, dy, 2, 0, 7); ctx.fill();
+  }
+
+  for (const bo of sea.bosses) {
+    if (!bo.alive) continue;
+    const dx = (bo.x - P.x) * scale, dy = (bo.y - P.y) * scale;
+    const dd = Math.hypot(dx, dy) || 1;
+    const k2 = dd > R - 9 ? (R - 9) / dd : 1;
+    ctx.fillStyle = '#c9a6ff';
+    ctx.beginPath(); ctx.arc(dx * k2, dy * k2, 3.2, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(201,166,255,.7)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(dx * k2, dy * k2, 5.5 + Math.sin(sea.t * 3) * 1.5, 0, 7); ctx.stroke();
   }
 
   ctx.fillStyle = '#ffffff';

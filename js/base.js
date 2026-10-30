@@ -693,6 +693,113 @@ function drawStructure(s, t) {
     ctx.fillText('BOT', 0, 18);
   }
 
+  else if (s.type === 'equip') {
+    /* 裝備房：工作台 + 工具牆 */
+    ctx.fillStyle = '#33454f';
+    ctx.beginPath(); ctx.roundRect(-32, -22, 64, 46, 5); ctx.fill();
+    ctx.strokeStyle = 'rgba(142,230,164,.45)'; ctx.lineWidth = 1.4; ctx.stroke();
+    /* 屋頂 */
+    ctx.fillStyle = '#3f5866';
+    ctx.beginPath();
+    ctx.moveTo(-34, -22); ctx.lineTo(0, -38); ctx.lineTo(34, -22);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(180,240,255,.25)'; ctx.stroke();
+    /* 工作台 */
+    ctx.fillStyle = '#8a6a3f';
+    ctx.fillRect(-26, 2, 52, 10);
+    ctx.fillStyle = '#6b4f2b';
+    ctx.fillRect(-26, 12, 52, 3);
+    /* 工具 */
+    ctx.fillStyle = '#cfd9e6';
+    ctx.fillRect(-20, -12, 3, 12);
+    ctx.fillRect(-13, -12, 3, 9);
+    ctx.fillStyle = '#ffd166';
+    ctx.fillRect(-4, -12, 9, 4);
+    ctx.fillStyle = '#8ee6a4';
+    ctx.beginPath(); ctx.arc(12, -8, 5, 0, 7); ctx.fill();
+    ctx.fillStyle = '#0c2028';
+    ctx.beginPath(); ctx.arc(12, -8, 2, 0, 7); ctx.fill();
+    /* 掛牌 */
+    ctx.fillStyle = 'rgba(142,230,164,.9)';
+    ctx.font = '700 10px "Microsoft JhengHei",system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('裝備', 0, -26);
+  }
+
+  else if (s.type === 'rnd') {
+    /* 火箭研發中心 */
+    ctx.fillStyle = '#2b3f4d';
+    ctx.beginPath(); ctx.roundRect(-32, -18, 64, 42, 5); ctx.fill();
+    ctx.strokeStyle = 'rgba(155,234,255,.45)'; ctx.lineWidth = 1.4; ctx.stroke();
+    /* 玻璃幕牆 */
+    ctx.fillStyle = 'rgba(90,200,255,.25)';
+    ctx.fillRect(-24, -10, 26, 18);
+    ctx.strokeStyle = 'rgba(155,234,255,.5)'; ctx.lineWidth = 1;
+    ctx.strokeRect(-24, -10, 26, 18);
+    /* 屏幕數據 */
+    ctx.fillStyle = 'rgba(155,234,255,.75)';
+    for (let i = 0; i < 3; i++) ctx.fillRect(-21 + i * 8, -6 + (i % 2) * 4, 5, 2);
+    /* 火箭模型 */
+    ctx.fillStyle = '#dfe9f2';
+    ctx.beginPath();
+    ctx.moveTo(18, -6); ctx.lineTo(24, 6); ctx.lineTo(12, 6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ff6b6b';
+    ctx.fillRect(16, 6, 4, 4);
+    /* 天線碟 */
+    ctx.save();
+    ctx.translate(0, -22);
+    ctx.rotate(-0.4 + Math.sin(t * 0.6) * 0.12);
+    ctx.strokeStyle = '#9db4c0'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -10); ctx.stroke();
+    ctx.fillStyle = '#c9d9e3';
+    ctx.beginPath(); ctx.ellipse(0, -12, 10, 4.5, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(155,234,255,.8)';
+    ctx.beginPath(); ctx.arc(0, -12, 2, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+
+  else if (s.type === 'satellite') {
+    /* 衛星光束發生器 */
+    ctx.fillStyle = '#22333f';
+    ctx.beginPath(); ctx.roundRect(-30, 2, 60, 26, 5); ctx.fill();
+    ctx.strokeStyle = 'rgba(127,212,255,.5)'; ctx.lineWidth = 1.4; ctx.stroke();
+    /* 基座環 */
+    ctx.fillStyle = '#2e4a5a';
+    ctx.beginPath(); ctx.ellipse(0, 2, 22, 8, 0, 0, 7); ctx.fill();
+    /* 支架 */
+    ctx.strokeStyle = '#9db4c0'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(0, -18); ctx.stroke();
+    /* 大碟 */
+    ctx.save();
+    ctx.translate(0, -24);
+    ctx.rotate(Math.sin(t * 0.4) * 0.15);
+    const dg = ctx.createLinearGradient(0, -12, 0, 10);
+    dg.addColorStop(0, '#dff3ff');
+    dg.addColorStop(1, '#7fa8bd');
+    ctx.fillStyle = dg;
+    ctx.beginPath(); ctx.ellipse(0, 0, 26, 12, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(127,212,255,.8)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.ellipse(0, 0, 26, 12, 0, 0, 7); ctx.stroke();
+    ctx.fillStyle = '#eaf9ff';
+    ctx.beginPath(); ctx.arc(0, -2, 3.4, 0, 7); ctx.fill();
+    ctx.restore();
+    /* 藍光 */
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const bg4 = ctx.createLinearGradient(0, -34, 0, -80);
+    bg4.addColorStop(0, 'rgba(120,220,255,.45)');
+    bg4.addColorStop(1, 'rgba(120,220,255,0)');
+    ctx.fillStyle = bg4;
+    ctx.beginPath(); ctx.moveTo(-12, -34); ctx.lineTo(-4, -80); ctx.lineTo(4, -80); ctx.lineTo(12, -34);
+    ctx.closePath(); ctx.fill();
+    const cg4 = ctx.createRadialGradient(0, -24, 2, 0, -24, 40);
+    cg4.addColorStop(0, 'rgba(150,230,255,.5)');
+    cg4.addColorStop(1, 'rgba(150,230,255,0)');
+    ctx.fillStyle = cg4;
+    ctx.beginPath(); ctx.arc(0, -24, 40, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+
   else if (s.type === 'dock') {
     /* 發射台 */
     ctx.fillStyle = '#37474f';

@@ -23,6 +23,20 @@ function setScene(s) {
   if (s === 'sea') refreshHud();
 }
 
+/* ---------- 作弊碼：標題畫面輸入 cheat ---------- */
+let cheatBuf = '';
+function cheatStrike() {
+  game.cheat = true;
+  const tag = $('cheat-tag');
+  if (tag) tag.hidden = false;
+  document.body.classList.add('shake');
+  setTimeout(() => document.body.classList.remove('shake'), 620);
+  try { localStorage.setItem('escape-the-sea-cheat', '1'); } catch (e) {}
+  sfx('boss');
+  setTimeout(() => sfx('win'), 260);
+  toast('YOU CHEATER!!! — 開局後會彈出免費裝備', 'gold');
+}
+
 /* ---------- 鍵盤 ---------- */
 window.addEventListener('keydown', (e) => {
   const k = (e.key || '').toLowerCase();
@@ -30,6 +44,11 @@ window.addEventListener('keydown', (e) => {
   if (e.repeat) { KEYS[k] = true; return; }
   KEYS[k] = true;
   initAudio();
+
+  if (game.scene === 'title' && k.length === 1) {
+    cheatBuf = (cheatBuf + k).slice(-5);
+    if (cheatBuf === 'cheat' && !game.cheat) cheatStrike();
+  }
 
   if (k === 'escape') {
     if (modalEl.classList.contains('show')) closeModal();
@@ -206,7 +225,8 @@ function beginGame() {
   setScene('sea');
   refreshHud();
   saveGame();
-  toast('目標：收集垃圾 → 建造基地 → 飛上月球');
+  toast('目標：收集垃圾 → 建造基地 → 攻入母船');
+  if (game.cheat) setTimeout(() => { if (game.scene === 'sea' && !game.paused) openCheat(); }, 700);
 }
 
 $('btn-start').onclick = () => {

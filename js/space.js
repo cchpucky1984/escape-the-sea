@@ -19,7 +19,11 @@ function startLaunch() {
 
 function initLaunch() {
   const L = launch;
-  L.prog = 0; L.hp = 130; L.maxhp = 130;
+  const S0 = calcStats();
+  L.hullMax = 80 + (S0.maxhp - 3) * 20 + S0.shield * 25;
+  L.gunLv = S0.gunLv;
+  L.speed = 195 + S0.speed * 0.55;
+  L.prog = 0; L.hp = L.hullMax; L.maxhp = L.hullMax;
   L.x = VW / 2; L.y = VH * 0.76;
   L.rocks = []; L.stars = []; L.fighters = []; L.pdb = []; L.ebullets = [];
   L.t = 0; L.spawnT = 0.7; L.fighterT = 2.5; L.pdCool = 0;
@@ -48,7 +52,7 @@ function updateLaunch(dt) {
   let dir = 0;
   if (keys['a'] || keys['arrowleft']) dir--;
   if (keys['d'] || keys['arrowright']) dir++;
-  L.x = clamp(L.x + dir * 380 * dt, 46, VW - 46);
+  L.x = clamp(L.x + dir * (L.speed || 380) * dt, 46, VW - 46);
   const boost = !!(keys['w'] || keys['arrowup']);
   L.y = lerp(L.y, boost ? VH * 0.7 : VH * 0.77, 1 - Math.exp(-3 * dt));
   L.prog = Math.min(100, L.prog + (3.1 + (boost ? 1.6 : 0)) * dt);
@@ -87,7 +91,7 @@ function updateLaunch(dt) {
     L.fighters.push({
       x: fromLeft ? -40 : VW + 40, y: rnd(80, VH * 0.42),
       vx: fromLeft ? rnd(90, 150) : -rnd(90, 150), vy: rnd(10, 40),
-      hp: 2, t: rnd(0, 6), fire: rnd(0.7, 1.8), hit: 0
+      hp: 6, maxhp: 6, t: rnd(0, 6), fire: rnd(0.7, 1.8), hit: 0, shieldT: 0
     });
   }
   for (const f of L.fighters) {
@@ -135,8 +139,17 @@ function updateLaunch(dt) {
     for (const f of L.fighters) {
       if (f.dead) continue;
       if (Math.hypot(f.x - b.x, f.y - b.y) < 22) {
-        b.alive = false; f.hp--; f.hit = 0.15;
-        if (f.hp <= 0) { f.dead = true; sfx('boom'); game.stats.kills++; }
+        b.alive = false;
+        const gl = L.gunLv || 0;
+        if (gl < 3) {
+          f.shieldT = 0.45;
+          f.hit = 0.1;
+          tone(180, 0.12, 'sine', 0.12, 90);
+        } else {
+          f.hp -= (1 + gl);
+          f.hit = 0.15;
+          if (f.hp <= 0) { f.dead = true; sfx('boom'); game.stats.kills++; }
+        }
         break;
       }
     }
@@ -284,6 +297,17 @@ function drawLaunch() {
   for (const f of L.fighters) {
     ctx.save();
     ctx.translate(f.x, f.y);
+    if (f.shieldT > 0) {
+      f.shieldT -= 0.016;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(150,220,255,.85)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(0, 0, 27, 0, 7); ctx.stroke();
+      ctx.fillStyle = 'rgba(150,220,255,.12)';
+      ctx.beginPath(); ctx.arc(0, 0, 27, 0, 7); ctx.fill();
+      ctx.restore();
+    }
     ctx.rotate(f.vx > 0 ? 0.18 : Math.PI - 0.18);
     ctx.fillStyle = f.hit > 0 ? '#fff' : '#3a1f33';
     ctx.beginPath();
@@ -291,6 +315,12 @@ function drawLaunch() {
     ctx.lineTo(-16, 9); ctx.lineTo(4, 12);
     ctx.closePath(); ctx.fill();
     ctx.strokeStyle = 'rgba(255,120,150,.8)'; ctx.lineWidth = 1.4; ctx.stroke();
+    if (f.hp < f.maxhp) {
+      ctx.fillStyle = 'rgba(0,0,0,.5)';
+      ctx.fillRect(-16, -26, 32, 4);
+      ctx.fillStyle = '#ff6b6b';
+      ctx.fillRect(-16, -26, 32 * (f.hp / f.maxhp), 4);
+    }
     ctx.fillStyle = '#ff4d6d';
     ctx.beginPath(); ctx.arc(2, 0, 3.6, 0, 7); ctx.fill();
     ctx.restore();
@@ -319,9 +349,9 @@ function drawLaunch() {
   ctx.restore();
 
   if (L.flash > 0) {
-    ctx.fillStyle = `rgba(255,240,210,${L.flash * 0.5})`;
+    ctx.fillStyle = `rgba(255,240,210,${L.flash * 0.28})`;
     ctx.fillRect(0, 0, VW, VH);
-    L.flash = Math.max(0, L.flash - 0.03);
+    L.flash = Math.max(0, L.flash - 0.05);
   }
 
   drawLaunchHud();
@@ -424,7 +454,12 @@ function drawLaunchHud() {
   ctx.textAlign = 'center';
   ctx.font = '12px "Microsoft JhengHei",system-ui';
   ctx.fillStyle = 'rgba(160,210,230,.7)';
-  ctx.fillText('A / D 閃避　·　W 加速上升　·　防禦炮自動反擊', VW / 2, VH - 26);
+  const gl = L.gunLv || 0;
+  ctx.fillText('A / D 閃避　·　W 加速上升　·　艦炮等級 Lv' + gl + (gl < 3 ? '（打不穿戰機護盾）' : ''), VW / 2, VH - 26);
+  if (gl < 3) {
+    ctx.fillStyle = 'rgba(255,150,160,.85)';
+    ctx.fillText('武器等級不足 3 — 外星戰機有護盾，只能靠閃避', VW / 2, VH - 44);
+  }
   ctx.restore();
 }
 
@@ -769,7 +804,8 @@ const moon = {
   aliens: [], bullets: [], ebullets: [], boss: null,
   wave: 0, waveT: 0, t: 0, banner: 0, bannerText: '', state: 'fight', endT: 0,
   stars: [], shake: 0, kills: 0, dust: [], rocks: [],
-  allies: [], alliance: false, radio: 0, radioText: ''
+  allies: [], alliance: false, radio: 0, radioText: '',
+  beam: null, beam1: false, beam2: false, shieldHint: 0
 };
 
 function moonView() {
@@ -789,12 +825,15 @@ function initMoon() {
   M.wave = 0; M.waveT = 0; M.t = 0; M.banner = 0; M.state = 'fight'; M.endT = 0; M.shake = 0; M.kills = 0;
   M.stars = []; M.dust = []; M.rocks = [];
   M.allies = []; M.alliance = false; M.radio = 0; M.radioText = '';
+  M.beam = null; M.beam1 = false; M.beam2 = false; M.shieldHint = 0;
   for (let i = 0; i < 200; i++) M.stars.push({ x: rnd(0, 1), y: rnd(0, 1), r: rnd(0.4, 1.7), p: rnd(0, 6.3) });
   for (let i = 0; i < 40; i++) M.dust.push({ x: rnd(0, ARENA.w), y: rnd(ARENA.h * 0.58, ARENA.h), r: rnd(14, 60) });
   for (let i = 0; i < 26; i++) M.rocks.push({ x: rnd(20, ARENA.w - 20), y: rnd(ARENA.h * 0.62, ARENA.h - 20), s: rnd(4, 14) });
   setScene('moon');
   nextWave();
-  toast('已進入母船內部 — 目標：核心反應爐');
+  const gl2 = calcStats().gunLv;
+  if (gl2 < 4) toast('武器未滿級 — 傷害只剩 ' + (gl2 < 3 ? '0%（護盾無效）' : '10%'), 'gold');
+  else toast('已進入母船內部 — 目標：核心反應爐');
 }
 
 function addAlien(type, x, y) {
@@ -865,12 +904,14 @@ function fireMoon() {
   const P = moon.p, S = calcStats();
   if (P.cool > 0 || moon.state !== 'fight') return;
   P.cool = S.fireRate;
+  const gl2 = S.gunLv;
+  const mult = gl2 < 3 ? 0 : (gl2 >= 4 ? 1 : 0.1);
   const mw = window.MOUSE ? screenToArena(window.MOUSE.x, window.MOUSE.y) : { x: P.x, y: P.y - 200 };
   const ang = Math.atan2(mw.y - P.y, mw.x - P.x);
   P.ang = ang;
   moon.bullets.push({
     x: P.x + Math.cos(ang) * 20, y: P.y + Math.sin(ang) * 20,
-    vx: Math.cos(ang) * 760, vy: Math.sin(ang) * 760, life: 1.1, dmg: S.dmg, ang
+    vx: Math.cos(ang) * 760, vy: Math.sin(ang) * 760, life: 1.1, dmg: S.dmg * mult, ang, shielded: gl2 < 3
   });
   tone(640, 0.05, 'square', 0.07, 260);
 }
@@ -1017,7 +1058,38 @@ function updateMoon(dt) {
     }
     if (Math.hypot(P.x - B.x, P.y - B.y) < B.r + 16) hurtMoon(13);
     /* 同盟軍登場 */
-    if (!M.alliance && B.hp < B.maxhp * 0.55) callAlliance();
+    if (!M.alliance && B.hp < B.maxhp * 0.50) callAlliance();
+  }
+
+  /* 衛星光束：90% → 打掉到 60%；10% → 直接終結 */
+  if (M.shieldHint > 0) M.shieldHint -= dt;
+  if (countType('satellite') > 0 && M.boss && M.state === 'fight') {
+    if (!M.beam1 && M.boss.hp <= M.boss.maxhp * 0.9) {
+      M.beam1 = true;
+      M.beam = { stage: 1, t: 0, applied: false, x: M.boss.x };
+      M.bannerText = '衛星光束 · 鎖定核心';
+      M.banner = 1.8;
+      sfx('wave');
+    }
+    if (!M.beam2 && M.boss.hp <= M.boss.maxhp * 0.1) {
+      M.beam2 = true;
+      M.beam = { stage: 2, t: 0, applied: false, x: M.boss.x };
+      M.bannerText = '衛星光束 · 最終一擊';
+      M.banner = 1.8;
+      sfx('wave');
+    }
+  }
+  if (M.beam) {
+    M.beam.t += dt;
+    if (M.boss) M.beam.x = M.boss.x;
+    if (M.beam.t > 0.55 && !M.beam.applied && M.boss) {
+      M.beam.applied = true;
+      M.shake = 26;
+      M.boss.hit = 0.4;
+      if (M.beam.stage === 1) { M.boss.hp = M.boss.maxhp * 0.6; sfx('boom'); }
+      else { M.boss.hp = 0; sfx('boom'); moonWin(); }
+    }
+    if (M.beam.t > 1.9) M.beam = null;
   }
 
   /* 玩家子彈 */
@@ -1029,6 +1101,13 @@ function updateMoon(dt) {
     for (const a of M.aliens) {
       if (a.dead) continue;
       if (Math.hypot(a.x - b.x, a.y - b.y) < a.r + 5) {
+        if (b.shielded) {
+          b.dead = true; hitDone = true;
+          M.shieldHint = 0.8;
+          M.ebullets.push({ x: a.x, y: a.y, vx: rnd(-40, 40), vy: rnd(-40, 40), life: 0.35, r: 9, dmg: 0, boom: true });
+          tone(200, 0.1, 'sine', 0.1, 120);
+          break;
+        }
         a.hp -= b.dmg; a.hit = 0.14; b.dead = true; hitDone = true;
         if (a.hp <= 0) {
           a.dead = true; M.kills++; game.stats.kills++;
@@ -1042,8 +1121,15 @@ function updateMoon(dt) {
       }
     }
     if (!hitDone && M.boss && Math.hypot(M.boss.x - b.x, M.boss.y - b.y) < M.boss.r) {
-      M.boss.hp -= b.dmg; M.boss.hit = 0.12; b.dead = true;
-      if (M.boss.hp <= 0) { M.boss.hp = 0; moonWin(); }
+      b.dead = true;
+      if (b.shielded) {
+        M.shieldHint = 0.8;
+        M.ebullets.push({ x: b.x, y: b.y, vx: rnd(-60, 60), vy: rnd(-60, 60), life: 0.4, r: 12, dmg: 0, boom: true });
+        tone(200, 0.1, 'sine', 0.1, 120);
+      } else {
+        M.boss.hp -= b.dmg; M.boss.hit = 0.12;
+        if (M.boss.hp <= 0) { M.boss.hp = 0; moonWin(); }
+      }
     }
   }
   M.bullets = M.bullets.filter(b => !b.dead);
@@ -1267,6 +1353,50 @@ function drawMoon() {
   ctx.restore();
 
   drawAstronaut(P);
+
+  if (M.beam) {
+    const bx = M.beam.x, prog = clamp(M.beam.t / 0.55, 0, 1);
+    const w = 64 + 70 * Math.sin(Math.min(1, M.beam.t) * Math.PI);
+    const by0 = -20;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const bg = ctx.createLinearGradient(0, by0, 0, ARENA.h * 0.45);
+    bg.addColorStop(0, 'rgba(90,170,255,0)');
+    bg.addColorStop(0.2, 'rgba(120,200,255,.55)');
+    bg.addColorStop(0.7, 'rgba(150,225,255,.85)');
+    bg.addColorStop(1, 'rgba(210,245,255,.95)');
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.moveTo(bx - w * 0.5, by0);
+    ctx.lineTo(bx + w * 0.5, by0);
+    ctx.lineTo(bx + w * 0.22, ARENA.h * 0.45);
+    ctx.lineTo(bx - w * 0.22, ARENA.h * 0.45);
+    ctx.closePath();
+    ctx.globalAlpha = 0.4 + prog * 0.6;
+    ctx.fill();
+    /* 外暈 */
+    const og = ctx.createLinearGradient(bx - w, 0, bx + w, 0);
+    og.addColorStop(0, 'rgba(80,170,255,0)');
+    og.addColorStop(0.5, 'rgba(120,210,255,.28)');
+    og.addColorStop(1, 'rgba(80,170,255,0)');
+    ctx.fillStyle = og;
+    ctx.fillRect(bx - w, by0, w * 2, ARENA.h * 0.48);
+    /* 核心 */
+    ctx.fillStyle = 'rgba(240,252,255,.95)';
+    ctx.fillRect(bx - 14, by0, 28, ARENA.h * 0.45);
+    ctx.fillStyle = 'rgba(255,255,255,1)';
+    ctx.fillRect(bx - 5, by0, 10, ARENA.h * 0.45);
+    /* 衝擊環 */
+    const by = M.boss ? M.boss.y : ARENA.h * 0.3;
+    for (let i = 0; i < 3; i++) {
+      const rr = 30 + i * 34 + (M.beam.t * 160) % 38;
+      ctx.strokeStyle = `rgba(170,235,255,${0.5 - i * 0.14})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(bx, by, rr, 0, 7); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   ctx.restore();
 
   drawMoonHud();
@@ -1279,7 +1409,7 @@ function drawMoon() {
     ctx.font = '900 40px "Microsoft JhengHei",system-ui';
     ctx.fillStyle = 'rgba(0,0,0,.6)';
     ctx.fillText(M.bannerText, VW / 2 + 2, VH * 0.46 + 2);
-    ctx.fillStyle = M.bannerText.indexOf('同盟') >= 0 ? '#9fe4ff' : (moon.wave >= 3 ? '#ffb3c1' : '#cdefff');
+    ctx.fillStyle = (M.bannerText.indexOf('同盟') >= 0 || M.bannerText.indexOf('衛星') >= 0) ? '#9fe4ff' : (moon.wave >= 3 ? '#ffb3c1' : '#cdefff');
     ctx.fillText(M.bannerText, VW / 2, VH * 0.46);
     ctx.restore();
   }
@@ -1505,27 +1635,40 @@ function drawAstronaut(P) {
 function drawMoonHud() {
   const M = moon, P = M.p;
   ctx.save();
-  const w = 220, x = 26, y = VH - 64;
+  const maxh = P.maxhp;
+  const w = 26 + maxh * 17, x = 26, y = VH - 58;
   ctx.fillStyle = 'rgba(2,10,18,.7)';
   ctx.strokeStyle = 'rgba(255,120,140,.3)';
-  ctx.beginPath(); ctx.roundRect(x, y, w, 40, 8); ctx.fill(); ctx.stroke();
-  ctx.font = '700 11px "Microsoft JhengHei",system-ui';
-  ctx.fillStyle = '#ffb3c3';
+  ctx.beginPath(); ctx.roundRect(x, y, w, 42, 8); ctx.fill(); ctx.stroke();
   ctx.textAlign = 'left';
-  ctx.fillText('太空裝', x + 12, y + 17);
-  ctx.fillStyle = 'rgba(0,0,0,.55)';
-  ctx.beginPath(); ctx.roundRect(x + 12, y + 23, w - 24, 9, 5); ctx.fill();
-  const hg = ctx.createLinearGradient(x, 0, x + w, 0);
-  hg.addColorStop(0, '#ff5d73'); hg.addColorStop(1, '#ffb36b');
-  ctx.fillStyle = hg;
-  ctx.beginPath(); ctx.roundRect(x + 12, y + 23, (w - 24) * clamp(P.hp / P.maxhp, 0, 1), 9, 5); ctx.fill();
-  ctx.fillStyle = '#ffd9df'; ctx.font = '10px system-ui';
-  ctx.fillText(Math.ceil(P.hp) + ' / ' + P.maxhp, x + 12, y + 46);
+  for (let i = 0; i < maxh; i++) {
+    const hx = x + 16 + i * 17, hy = y + 20;
+    ctx.beginPath();
+    ctx.moveTo(hx, hy + 5);
+    ctx.bezierCurveTo(hx - 9, hy - 3, hx - 4.5, hy - 11, hx, hy - 5);
+    ctx.bezierCurveTo(hx + 4.5, hy - 11, hx + 9, hy - 3, hx, hy + 5);
+    ctx.closePath();
+    if (i < Math.ceil(P.hp)) { ctx.fillStyle = '#ff5d73'; ctx.fill(); ctx.strokeStyle = 'rgba(255,190,205,.8)'; }
+    else { ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,120,140,.3)'; }
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
 
   ctx.textAlign = 'center';
   ctx.font = '700 13px "Microsoft JhengHei",system-ui';
   ctx.fillStyle = 'rgba(180,230,255,.75)';
   ctx.fillText(M.boss ? '母船核心' : '外星母船 · 內部　第 ' + M.wave + ' 波', VW / 2, 34);
+  const glh = calcStats().gunLv;
+  if (glh < 4) {
+    ctx.font = '700 10.5px "Microsoft JhengHei",system-ui';
+    ctx.fillStyle = 'rgba(255,150,160,.85)';
+    ctx.fillText(glh < 3 ? '武器 Lv' + glh + ' — 外星人有護盾，攻擊無效' : '武器 Lv' + glh + ' — 傷害只有 10%（滿級才全額）', VW / 2, 64);
+  }
+  if (M.shieldHint > 0) {
+    ctx.font = '700 20px "Microsoft JhengHei",system-ui';
+    ctx.fillStyle = 'rgba(150,220,255,' + clamp(M.shieldHint, 0, 1) + ')';
+    ctx.fillText('護盾無效', VW / 2, VH * 0.6);
+  }
 
   if (M.boss) {
     const bw = Math.min(520, VW * 0.5), bx = VW / 2 - bw / 2, by = 46;

@@ -121,9 +121,9 @@ const RESMETA = {
 const UPG = [
   { id: 'fin', name: '推進蛙鞋', ch: '鞋', c: '#6fe3ff', max: 4, desc: l => `游泳速度 +${l * 18}%`,
     costs: [{ plastic: 8 }, { plastic: 16, metal: 8 }, { metal: 20, alloy: 3 }, { metal: 30, alloy: 6 }] },
-  { id: 'tank', name: '鈦合金氧氣瓶', ch: '瓶', c: '#9beaff', max: 4, desc: l => `氧氣上限 +${l * 25} · 消耗 -${l * 14}%`,
+  { id: 'tank', name: '鈦合金氧氣瓶', ch: '瓶', c: '#9beaff', max: 4, desc: l => `氧氣 +${l * 25} · 消耗 -${l * 14}%`,
     costs: [{ plastic: 10 }, { plastic: 18, metal: 6 }, { metal: 22, alloy: 3 }, { metal: 32, alloy: 6 }] },
-  { id: 'suit', name: '深海潛水衣', ch: '衣', c: '#8ee6a4', max: 4, desc: l => `生命上限 +${l * 25} · 減傷 ${l * 9}%`,
+  { id: 'suit', name: '深海潛水衣', ch: '衣', c: '#8ee6a4', max: 4, desc: l => `最大生命 ${3 + l} HP（每級 +1）`,
     costs: [{ wood: 8, plastic: 6 }, { wood: 14, metal: 10 }, { metal: 24, alloy: 4 }, { metal: 36, alloy: 8 }] },
   { id: 'magnet', name: '磁力收集器', ch: '磁', c: '#ffd166', max: 4, desc: l => `收集範圍 +${l * 44}`,
     costs: [{ metal: 8, plastic: 6 }, { metal: 16, plastic: 10 }, { metal: 24, alloy: 3 }, { metal: 34, alloy: 6 }] },
@@ -137,16 +137,22 @@ const STRUCTS = {
               desc: '每 5 秒 +1 塑膠 · +1 木材', cost: { plastic: 12, wood: 10 } },
   recycler: { name: '分解工坊',   ch: '爐', c: '#ffb36b', max: 3, tag: '生產', tagCls: 'prod',
               desc: '每 5 秒 +1 金屬', cost: { metal: 14, wood: 8 } },
+  botdock:  { name: 'BOT 船塢',   ch: '機', c: '#ffd166', max: 3, tag: '自動化', tagCls: 'auto',
+              desc: '派出一台 BOT 自動出海收集物資', cost: { metal: 24, plastic: 14, alloy: 2 } },
+  equip:    { name: '裝備房',     ch: '裝', c: '#8ee6a4', max: 1, tag: '必要', tagCls: '',
+              desc: '解鎖裝備升級（C 面板）', cost: { metal: 16, wood: 12, plastic: 10 } },
+  rnd:      { name: '火箭研發中心', ch: '研', c: '#9beaff', max: 1, tag: '必要', tagCls: '',
+              desc: '解鎖火箭科技與超級武器', cost: { metal: 26, plastic: 16, alloy: 2 } },
   tower:    { name: '防禦炮塔',   ch: '塔', c: '#ff9aa8', max: 3, tag: '防禦', tagCls: 'def',
               desc: '自動射擊 360 範圍內的威脅', cost: { metal: 18, wood: 8 } },
   reverse:  { name: '外星逆向工程', ch: '碟', c: '#c9a6ff', max: 3, tag: '稀有', tagCls: '',
               desc: '每 10 秒 +1 外星合金', cost: { metal: 22, alloy: 3 } },
-  botdock:  { name: 'BOT 船塢',   ch: '機', c: '#ffd166', max: 3, tag: '自動化', tagCls: 'auto',
-              desc: '派出一台 BOT 自動出海收集物資', cost: { metal: 24, plastic: 14, alloy: 2 } },
+  satellite:{ name: '衛星光束發生器', ch: '衛', c: '#7fd4ff', max: 1, tag: '超級武器', tagCls: 'auto',
+              desc: '決戰時呼叫軌道衛星光束', cost: { metal: 45, plastic: 30, alloy: 8 }, req: 'rnd' },
   dock:     { name: '火箭工坊',   ch: '箭', c: '#6fe3ff', max: 1, tag: '必要', tagCls: '',
               desc: '解鎖太空船組裝與發射', cost: { metal: 20, wood: 14, plastic: 12 } }
 };
-const STRUCT_KEYS = ['net', 'recycler', 'tower', 'reverse', 'botdock', 'dock'];
+const STRUCT_KEYS = ['equip', 'rnd', 'dock', 'net', 'recycler', 'botdock', 'tower', 'reverse', 'satellite'];
 
 const PARTS = [
   { id: 'hull', name: '船體', ch: '體', c: '#cfd9e6', desc: '耐壓艙體與隔熱層', cost: { plastic: 12, metal: 10, wood: 6 } },
@@ -167,23 +173,32 @@ const INTRO_LINES = [
 const QUESTS = [
   { id: 'collect', text: '收集 15 件海上垃圾', sub: '游過漂流垃圾就會自動吸進背包',
     prog: () => Math.min(15, game.stats.collected) + ' / 15', done: () => game.stats.collected >= 15,
-    reward: { plastic: 8, wood: 6 } },
-  { id: 'net', text: '建造第一座自動收集網', sub: '按 B 打開基地，建築會讓平台擴張',
+    reward: { plastic: 6, wood: 5 } },
+  { id: 'net', text: '建造第一座自動收集網', sub: '按 B（要游回基地附近才能建造）',
     prog: () => countType('net') + ' / 1', done: () => countType('net') >= 1,
+    reward: { metal: 6 } },
+  { id: 'equip', text: '建造裝備房', sub: '有裝備房才能升級裝備',
+    prog: () => countType('equip') + ' / 1', done: () => countType('equip') >= 1,
     reward: { metal: 8 } },
-  { id: 'bot', text: '建造 BOT 船塢，派機械人出海', sub: 'BOT 會自己撿垃圾並帶回基地',
-    prog: () => countType('botdock') + ' / 1', done: () => countType('botdock') >= 1,
-    reward: { metal: 10, alloy: 2 } },
-  { id: 'harpoon', text: '把壓縮魚槍升級到 Lv2', sub: '按 C 升級裝備，用來對付鯊魚與無人機',
+  { id: 'harpoon', text: '把壓縮魚槍升級到 Lv2', sub: '按 C 升級裝備（需在基地附近）',
     prog: () => 'Lv ' + game.up.harpoon + ' / 2', done: () => game.up.harpoon >= 2,
-    reward: { metal: 8 } },
-  { id: 'dock', text: '建造火箭工坊', sub: '基地要有工坊才能組裝太空船',
-    prog: () => countType('dock') + ' / 1', done: () => countType('dock') >= 1,
-    reward: { plastic: 12, wood: 10 } },
+    reward: { metal: 6 } },
+  { id: 'rnd', text: '建造火箭研發中心', sub: '解鎖火箭科技與超級武器',
+    prog: () => countType('rnd') + ' / 1', done: () => countType('rnd') >= 1,
+    reward: { alloy: 1 } },
+  { id: 'tech', text: '擊敗海域四角的守衛，收集 4 塊科技碎片', sub: '四角各一隻守衛，雷達上是紫色標記',
+    prog: () => game.tech + ' / 4', done: () => game.tech >= 4,
+    reward: { metal: 12, alloy: 2 } },
+  { id: 'shield', text: '在研發中心解鎖火箭護盾科技', sub: '需要 4 塊科技碎片',
+    prog: () => 'Lv ' + (game.up.shield || 0) + ' / 1', done: () => (game.up.shield || 0) >= 1,
+    reward: {} },
   { id: 'parts', text: '組裝 4 個太空船零件', sub: '按 C 在「太空船」區建造',
     prog: () => partCount() + ' / 4', done: () => partCount() === 4,
-    reward: { metal: 12, alloy: 3 } },
-  { id: 'launch', text: '發射太空船', sub: '按 C 按下發射，前往月球',
+    reward: { metal: 10, alloy: 2 } },
+  { id: 'maxgun', text: '把壓縮魚槍升到最高級', sub: '母船內部：未滿級傷害只有 10%',
+    prog: () => 'Lv ' + game.up.harpoon + ' / 4', done: () => game.up.harpoon >= 4,
+    reward: { metal: 10 } },
+  { id: 'launch', text: '發射太空船', sub: '按 C 按下發射，前往母船',
     prog: () => game.stats.launched ? '1 / 1' : '0 / 1', done: () => !!game.stats.launched,
     reward: {} },
   { id: 'boss', text: '擊敗母船核心', sub: '攻入外星母船，擊毀反應爐核心',
@@ -198,12 +213,16 @@ const OLD_KEY = 'escape-the-sea-v1';
 const game = {
   scene: 'title', paused: false, muted: false,
   res: { plastic: 0, wood: 0, metal: 0, alloy: 0 },
-  up:  { fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0 },
+  up:  { fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0, shield: 0 },
   base: { structures: [] },
   parts: { hull: false, engine: false, fuel: false, nav: false },
-  stats: { collected: 0, kills: 0, time: 0, deaths: 0, launched: false, won: false, botCollected: 0, built: 0 },
+  stats: { collected: 0, kills: 0, time: 0, deaths: 0, launched: false, won: false, botCollected: 0, built: 0, bosses: 0 },
   quest: { claimed: [] },
-  pos: { x: 1000, y: 700 }
+  pos: { x: 1000, y: 700 },
+  tech: 0,
+  bossesKilled: [],
+  cheat: false,
+  cheatUp: { fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0 }
 };
 window.game = game;
 
@@ -217,16 +236,19 @@ Object.defineProperty(game, 'mod', {
 });
 
 function calcStats() {
-  const u = game.up;
+  const u = game.up, c = game.cheatUp || {};
+  const lv = (k) => (u[k] || 0) + (c[k] || 0);
   return {
-    speed: 152 * (1 + 0.18 * u.fin),
-    maxhp: 100 + 25 * u.suit,
-    maxox: 100 + 25 * u.tank,
-    oxRate: Math.max(0.3, 1 - 0.14 * u.tank),
-    magnet: 92 + 44 * u.magnet,
-    dmg: 1 + u.harpoon,
-    fireRate: 0.42 * Math.pow(0.86, u.harpoon),
-    armor: Math.min(0.45, 0.09 * u.suit)
+    speed: 152 * (1 + 0.18 * lv('fin')),
+    maxhp: 3 + lv('suit'),
+    maxox: 100 + 25 * lv('tank'),
+    oxRate: Math.max(0.3, 1 - 0.14 * lv('tank')),
+    magnet: 92 + 44 * lv('magnet'),
+    dmg: 1 + lv('harpoon'),
+    fireRate: 0.42 * Math.pow(0.86, lv('harpoon')),
+    armor: 0,
+    shield: u.shield || 0,
+    gunLv: lv('harpoon')
   };
 }
 
@@ -267,7 +289,8 @@ function saveGame() {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       res: game.res, up: game.up, base: game.base, parts: game.parts,
-      stats: game.stats, quest: game.quest, pos: game.pos, muted: muted
+      stats: game.stats, quest: game.quest, pos: game.pos, muted: muted,
+      tech: game.tech, bossesKilled: game.bossesKilled, cheat: game.cheat, cheatUp: game.cheatUp
     }));
   } catch (e) { /* ignore */ }
 }
@@ -291,6 +314,10 @@ function loadGame() {
     game.base.structures = (s.base && Array.isArray(s.base.structures)) ? s.base.structures.filter(x => x && STRUCTS[x.type]) : [];
     game.quest.claimed = (s.quest && Array.isArray(s.quest.claimed)) ? s.quest.claimed : [];
     if (s.pos && typeof s.pos.x === 'number') game.pos = { x: s.pos.x, y: s.pos.y };
+    game.tech = s.tech || 0;
+    game.bossesKilled = Array.isArray(s.bossesKilled) ? s.bossesKilled : [];
+    game.cheat = !!s.cheat;
+    game.cheatUp = Object.assign({ fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0 }, s.cheatUp || {});
     muted = !!s.muted; game.muted = muted;
     return true;
   } catch (e) { return false; }
@@ -310,16 +337,20 @@ function migrateV1(old) {
   return out;
 }
 function resetGame() {
+  const keepCheat = !!game.cheat;
   try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(OLD_KEY); } catch (e) {}
   game.res = { plastic: 0, wood: 0, metal: 0, alloy: 0 };
-  game.up = { fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0 };
+  game.up = { fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0, shield: 0 };
   game.base = { structures: [] };
   game.parts = { hull: false, engine: false, fuel: false, nav: false };
-  game.stats = { collected: 0, kills: 0, time: 0, deaths: 0, launched: false, won: false, botCollected: 0, built: 0 };
+  game.stats = { collected: 0, kills: 0, time: 0, deaths: 0, launched: false, won: false, botCollected: 0, built: 0, bosses: 0 };
   game.quest = { claimed: [] };
   game.pos = { x: 1000, y: 700 };
+  game.tech = 0;
+  game.bossesKilled = [];
+  game.cheat = keepCheat;
+  game.cheatUp = { fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0 };
 }
-
 /* ---------- 資源 ---------- */
 function addRes(k, n) {
   if (!(k in game.res)) return;
@@ -356,6 +387,19 @@ function toast(msg, cls) {
 
 /* ---------- HUD ---------- */
 let hudT = 0;
+const HEART_SVG = '<svg viewBox="0 0 24 24"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 018-2.6A4.5 4.5 0 0120 10c0 5.8-8 11-8 11z"/></svg>';
+let heartSig = '';
+function renderHearts(hp, max) {
+  const el = $('hearts');
+  if (!el) return;
+  const sig = Math.ceil(hp) + '/' + max;
+  if (sig === heartSig) return;
+  heartSig = sig;
+  let h = '';
+  for (let i = 0; i < max; i++) h += `<span class="heart ${i < Math.ceil(hp) ? 'on' : 'off'}">${HEART_SVG}</span>`;
+  el.innerHTML = h;
+}
+
 function refreshHud() {
   for (const k of ['plastic', 'wood', 'metal', 'alloy']) {
     const el = $('r-' + k);
@@ -364,12 +408,9 @@ function refreshHud() {
   const S = calcStats();
   const P = (typeof sea !== 'undefined' && sea.player) ? sea.player : null;
   if (P) {
-    $('bar-hp').style.width = clamp(P.hp / S.maxhp * 100, 0, 100) + '%';
+    renderHearts(P.hp, S.maxhp);
     $('bar-ox').style.width = clamp(P.ox / S.maxox * 100, 0, 100) + '%';
     $('bar-st').style.width = clamp(P.st, 0, 100) + '%';
-    $('v-hp').textContent = Math.ceil(P.hp) + '/' + S.maxhp;
-    $('v-ox').textContent = Math.ceil(P.ox) + '/' + S.maxox;
-    $('v-st').textContent = Math.ceil(P.st);
   }
   $('quest').innerHTML = questHtml();
   $('idle').textContent = idleText();
@@ -381,7 +422,6 @@ function refreshHud() {
       <span>怪物上限 <b>${zp.hazCap}</b></span>`;
   }
 }
-
 function idleText() {
   const inc = baseIncomePer5();
   const parts = [];
@@ -402,9 +442,14 @@ function baseTagHtml() {
     <span>基地 <b>${game.base.structures.length}</b> 座</span>
     <span>平台 <b>${tiles}</b> 格</span>
     <span>安全圈 <b>${Math.round(baseRadius())}</b> m</span>
-    <span>BOT <b>${bots}</b>/${maxBots}</span>`;
+    <span>BOT <b>${bots}</b>/${maxBots}</span>
+    <span>科技碎片 <b>${game.tech}</b>/4</span>`;
 }
 
+function atBase() {
+  if (typeof sea === 'undefined' || !sea.player) return false;
+  return Math.hypot(sea.player.x, sea.player.y) < baseRadius() + 90;
+}
 function questHtml() {
   const total = QUESTS.length;
   const done = game.quest.claimed.length;
@@ -454,6 +499,11 @@ $('modal-x').onclick = closeModal;
 /* ---------- 基地面板 ---------- */
 function openBase() {
   if (game.scene !== 'sea') return;
+  if (!atBase()) {
+    sfx('deny');
+    toast('要游回基地安全圈，才能建造與升級');
+    return;
+  }
   const inc = baseIncomePer5();
   const rev = countType('reverse');
   const incTxt = [];
@@ -469,18 +519,20 @@ function openBase() {
       <div class="row"><span>安全圈半徑</span><b class="hi">${Math.round(baseRadius())} m</b></div>
       <div class="row"><span>BOT 艦隊</span><b>${countType('botdock')} / 3　<span style="color:#7fa3b4">（自動出海收集）</span></b></div>
       <div class="row"><span>每 5 秒產出</span><b>${incTxt.length ? incTxt.join(' · ') : '—'}</b></div>
-      <div class="row"><span>砲塔防禦</span><b>${countType('tower')} 座 · 射程 360</b></div>
+      <div class="row"><span>科技碎片</span><b class="${game.tech >= 4 ? 'hi' : ''}">${game.tech} / 4 ${game.tech >= 4 ? '· 已可研發護盾' : '· 擊敗四角守衛'}</b></div>
     </div>
   </div>`;
 
   h += '<p class="muted">每次建造都會在平台上多佔一格，基地會一格格長大。敵怪無法進入安全圈。</p><div class="grid">';
   for (const k of STRUCT_KEYS) {
     const def = STRUCTS[k], n = countType(k), maxed = n >= def.max, cost = structureCost(k);
+    const locked = def.req && !countType(def.req);
     h += `<div class="card${maxed ? ' maxed' : ''}">
       <div class="card-h"><span class="ico" style="--c:${def.c}">${def.ch}</span><b>${def.name}</b>
         <span class="tag ${def.tagCls}">${def.tag}</span><span class="lv">${n}/${def.max}</span></div>
       <p>${def.desc}</p>
       ${maxed ? '<div class="done">已達上限</div>'
+        : locked ? `<div class="done" style="color:#ffb3a0">需要：${STRUCTS[def.req].name}</div>`
         : `<div class="cost">${costHtml(cost)}</div>
            <button data-build="${k}">建造（第 ${n + 1} 座）</button>`}
     </div>`;
@@ -493,6 +545,7 @@ function openBase() {
     btn.onclick = () => {
       const t = btn.dataset.build;
       if (countType(t) >= STRUCTS[t].max) return;
+      if (STRUCTS[t].req && !countType(STRUCTS[t].req)) { toast('需要先建造' + STRUCTS[STRUCTS[t].req].name); return; }
       const cost = structureCost(t);
       if (!pay(cost)) { toast('資源不足'); return; }
       addStructure(t);
@@ -505,36 +558,74 @@ function openBase() {
 }
 
 /* ---------- 裝備 / 太空船面板 ---------- */
+const SHIELD_COSTS = [{ metal: 30, alloy: 4 }, { metal: 45, alloy: 7 }, { metal: 60, alloy: 10 }];
+
 function openCraft() {
   if (game.scene !== 'sea') return;
-  let h = '';
+  if (!atBase()) {
+    sfx('deny');
+    toast('要游回基地安全圈，才能升級裝備與發射');
+    return;
+  }
+  const hasEquip = countType('equip') > 0;
+  const hasRnd = countType('rnd') > 0;
+  const canShield = hasRnd && game.tech >= 4;
   const pc = partCount();
   const ready = pc === 4 && countType('dock') > 0;
 
-  h += '<h3 style="margin:0 0 10px;font-size:14px;color:#9fe4ff;letter-spacing:.1em">裝備升級</h3><div class="grid">';
+  let h = '';
+
+  /* ---- 裝備 ---- */
+  h += '<h3 style="margin:0 0 10px;font-size:14px;color:#9fe4ff;letter-spacing:.1em">裝備升級'
+     + (hasEquip ? '' : '　<span style="color:#ff9a8b;font-size:12px">— 需先建造「裝備房」</span>') + '</h3><div class="grid">';
   for (const u of UPG) {
     const lv = game.up[u.id] || 0;
     const maxed = lv >= u.max;
     const cost = u.costs[lv];
-    h += `<div class="card${maxed ? ' maxed' : ''}">
+    h += `<div class="card${maxed ? ' maxed' : ''}${hasEquip ? '' : ' locked'}">
       <div class="card-h"><span class="ico" style="--c:${u.c}">${u.ch}</span><b>${u.name}</b><span class="lv">Lv ${lv}/${u.max}</span></div>
       <p>${u.desc(lv)}</p>
       ${maxed ? '<div class="done">已達最高等級</div>'
+        : !hasEquip ? '<div class="done" style="color:#ffb3a0">需要裝備房</div>'
         : `<div class="cost">${costHtml(cost)}</div>
            <button data-buy-up="${u.id}">${lv ? '升級至 Lv ' + (lv + 1) : '製作'}</button>`}
     </div>`;
   }
   h += '</div>';
 
+  /* ---- 火箭科技 ---- */
+  const sl = game.up.shield || 0;
+  h += `<h3 style="margin:22px 0 10px;font-size:14px;color:#9beaff;letter-spacing:.1em">火箭科技
+     <span style="color:#7fa3b4;font-size:11.5px">（速度＝蛙鞋　武器＝魚槍　裝甲＝潛水衣）</span></h3><div class="grid">`;
+  h += `<div class="card${sl >= 3 ? ' maxed' : ''}">
+    <div class="card-h"><span class="ico" style="--c:#9beaff">盾</span><b>火箭護盾科技</b><span class="lv">Lv ${sl}/3</span></div>
+    <p>升空與登艦時，船體額外 +25 裝甲，並減少砲火傷害</p>
+    ${sl >= 3 ? '<div class="done">已達最高等級</div>'
+      : !hasRnd ? '<div class="done" style="color:#ffb3a0">需要火箭研發中心</div>'
+      : game.tech < 4 ? `<div class="done" style="color:#ffb3a0">需要 4 塊科技碎片（${game.tech}/4）</div>`
+      : `<div class="cost">${costHtml(SHIELD_COSTS[sl])}</div>
+         <button data-buy-shield="1">${sl ? '升級至 Lv ' + (sl + 1) : '研發護盾'}</button>`}
+  </div>`;
+  h += `<div class="card${countType('satellite') ? ' maxed' : ''}">
+    <div class="card-h"><span class="ico" style="--c:#7fd4ff">衛</span><b>衛星光束發生器</b>
+      <span class="lv">${countType('satellite') ? '已建造' : '未建造'}</span></div>
+    <p>決戰時呼叫軌道衛星，兩發藍色光束直接打穿母船核心（在基地 B 建造）</p>
+    ${countType('satellite') ? '<div class="done">✓ 已就緒</div>'
+      : hasRnd ? '<div class="done" style="color:#8ee6a4">可在基地面板建造（金屬 45 · 塑膠 30 · 合金 8）</div>'
+      : '<div class="done" style="color:#ffb3a0">需要火箭研發中心</div>'}
+  </div>`;
+  h += '</div>';
+
+  /* ---- 太空船 ---- */
   h += '<h3 style="margin:22px 0 10px;font-size:14px;color:#ffd98a;letter-spacing:.1em">太空船零件　' + pc + ' / 4</h3><div class="grid">';
-  for (const p of PARTS) {
-    const built = game.parts[p.id];
+  for (const p2 of PARTS) {
+    const built = game.parts[p2.id];
     h += `<div class="card${built ? ' maxed' : ''}">
-      <div class="card-h"><span class="ico" style="--c:${p.c}">${p.ch}</span><b>${p.name}</b><span class="lv">${built ? '完成' : '未建造'}</span></div>
-      <p>${p.desc}</p>
+      <div class="card-h"><span class="ico" style="--c:${p2.c}">${p2.ch}</span><b>${p2.name}</b><span class="lv">${built ? '完成' : '未建造'}</span></div>
+      <p>${p2.desc}</p>
       ${built ? '<div class="done">✓ 已安裝</div>'
-        : `<div class="cost">${costHtml(p.cost)}</div>
-           <button data-buy-part="${p.id}">建造零件</button>`}
+        : `<div class="cost">${costHtml(p2.cost)}</div>
+           <button data-buy-part="${p2.id}">建造零件</button>`}
     </div>`;
   }
   h += '</div>';
@@ -542,21 +633,24 @@ function openCraft() {
   h += `<div class="launchbar">
     <div>
       <div class="lbl">${ready ? '太空船組裝完成，隨時可以發射。' : '發射條件：4 個零件 + 火箭工坊 ×1'}</div>
-      <div class="sub">${ready ? '月球軌道上偵測到外星旗艦。' : '零件進度 ' + pc + '/4' + (countType('dock') ? '' : ' · 尚未建造火箭工坊（B 基地）')}</div>
+      <div class="sub">${ready ? '月球軌道上偵測到外星母船。' : '零件進度 ' + pc + '/4' + (countType('dock') ? '' : ' · 尚未建造火箭工坊')}</div>
     </div>
     <button class="primary" id="btn-launch" style="margin-left:auto" ${ready ? '' : 'disabled'}>發射太空船 →</button>
   </div>`;
 
-  openModal('裝備與太空船', h, [{ label: '關閉 (Esc)' }]);
+  if (game.cheat) h += '<div style="margin-top:12px"><button class="ghost" id="btn-cheatpanel">開啟作弊裝備（免費）</button></div>';
+
+  openModal('裝備 · 火箭科技 · 太空船', h, [{ label: '關閉 (Esc)' }]);
 
   modalBody.querySelectorAll('[data-buy-up]').forEach(btn => {
     btn.onclick = () => {
+      if (!hasEquip) { toast('需要裝備房'); return; }
       const u = UPG.find(x => x.id === btn.dataset.buyUp);
       const lv = game.up[u.id] || 0;
       if (lv >= u.max) return;
       if (!pay(u.costs[lv])) { toast('資源不足'); return; }
       game.up[u.id] = lv + 1;
-      if (u.id === 'suit') sea.player.hp += 25;
+      if (u.id === 'suit') sea.player.hp += 1;
       if (u.id === 'tank') sea.player.ox += 25;
       sfx('build'); toast(u.name + ' → Lv ' + (lv + 1));
       saveGame(); refreshHud(); openCraft();
@@ -564,16 +658,57 @@ function openCraft() {
   });
   modalBody.querySelectorAll('[data-buy-part]').forEach(btn => {
     btn.onclick = () => {
-      const p = PARTS.find(x => x.id === btn.dataset.buyPart);
-      if (game.parts[p.id]) return;
-      if (!pay(p.cost)) { toast('資源不足'); return; }
-      game.parts[p.id] = true;
-      sfx('build'); toast(p.name + ' 建造完成');
+      const p2 = PARTS.find(x => x.id === btn.dataset.buyPart);
+      if (game.parts[p2.id]) return;
+      if (!pay(p2.cost)) { toast('資源不足'); return; }
+      game.parts[p2.id] = true;
+      sfx('build'); toast(p2.name + ' 建造完成');
       saveGame(); refreshHud(); openCraft();
     };
   });
+  const sb = modalBody.querySelector('[data-buy-shield]');
+  if (sb) sb.onclick = () => {
+    if (!hasRnd || game.tech < 4) return;
+    const lv = game.up.shield || 0;
+    if (lv >= 3) return;
+    if (!pay(SHIELD_COSTS[lv])) { toast('資源不足'); return; }
+    game.up.shield = lv + 1;
+    sfx('build'); toast('火箭護盾科技 → Lv ' + (lv + 1));
+    saveGame(); refreshHud(); openCraft();
+  };
   const lb = $('btn-launch');
   if (lb) lb.onclick = () => { closeModal(); startLaunch(); };
+  const cb = $('btn-cheatpanel');
+  if (cb) cb.onclick = () => openCheat();
+}
+
+/* ---------- 作弊 ---------- */
+function openCheat() {
+  let h = '<p class="muted" style="color:#ff9aa8">作弊模式：以下升級完全免費，與正常升級疊加，整場有效。</p><div class="grid">';
+  for (const u of UPG) {
+    const cl = game.cheatUp[u.id] || 0;
+    h += `<div class="card${cl >= 4 ? ' maxed' : ''}">
+      <div class="card-h"><span class="ico" style="--c:${u.c}">${u.ch}</span><b>${u.name}</b><span class="lv">+${cl}</span></div>
+      <p>${u.desc((game.up[u.id] || 0) + cl)}</p>
+      ${cl >= 4 ? '<div class="done">作弊已滿</div>'
+        : `<button data-cheat="${u.id}">免費升級</button>`}
+    </div>`;
+  }
+  h += '</div>';
+  openModal('YOU CHEATER!!! — 免費裝備', h, [{ label: '收下 (Esc)', cls: 'primary' }]);
+  modalBody.querySelectorAll('[data-cheat]').forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.dataset.cheat;
+      game.cheatUp[id] = Math.min(4, (game.cheatUp[id] || 0) + 1);
+      sfx('build');
+      saveGame();
+      const S = calcStats();
+      if (id === 'suit') sea.player.hp = Math.min(S.maxhp, sea.player.hp + 1);
+      if (id === 'tank') sea.player.ox = Math.min(S.maxox, sea.player.ox + 25);
+      refreshHud();
+      openCheat();
+    };
+  });
 }
 
 /* ---------- 任務 / 說明 / 暫停 ---------- */
@@ -608,15 +743,16 @@ function openHelp() {
 }
 
 function openPause() {
-  if (game.scene !== 'sea' && game.scene !== 'moon' && game.scene !== 'launch') return;
-  openModal('已暫停', `<p class="muted">海面暫時靜了下來。你的基地仍在自動生產。</p>`,
-    [
-      { label: '繼續遊戲', cls: 'primary' },
-      { label: muted ? '音效：關閉' : '音效：開啟', keepOpen: true,
-        onClick: () => { muted = !muted; game.muted = muted; applyMute(); saveGame(); openPause(); } },
-      { label: '操作說明', onClick: () => setTimeout(openHelp, 10) },
-      { label: '重新開始', cls: 'danger', onClick: () => { resetGame(); location.reload(); } }
-    ]);
+  if (game.scene !== 'sea' && game.scene !== 'moon' && game.scene !== 'launch' && game.scene !== 'dock') return;
+  const btns = [
+    { label: '繼續遊戲', cls: 'primary' },
+    { label: muted ? '音效：關閉' : '音效：開啟', keepOpen: true,
+      onClick: () => { muted = !muted; game.muted = muted; applyMute(); saveGame(); openPause(); } },
+    { label: '操作說明', onClick: () => setTimeout(openHelp, 10) }
+  ];
+  if (game.cheat) btns.push({ label: '作弊裝備', onClick: () => setTimeout(openCheat, 10) });
+  btns.push({ label: '重新開始', cls: 'danger', onClick: () => { game.cheat = false; resetGame(); location.reload(); } });
+  openModal('已暫停', '<p class="muted">海面暫時靜了下來。你的基地仍在自動生產。</p>', btns);
 }
 
 /* ---------- 任務結算 ---------- */
