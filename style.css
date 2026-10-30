@@ -197,3 +197,5 @@ body.shake{animation:shakeAll .5s linear}
   border-bottom:1px dashed rgba(255,255,255,.07);color:#a9c8d6}
 .keyrow kbd{background:rgba(111,227,255,.12);border:1px solid rgba(111,227,255,.28);border-radius:6px;
   padding:2px 9px;font-family:inherit;font-size:12px;color:#dff4ff}
+
+.ver{margin-top:10px;font-size:10.5px;color:#4f6b7a;letter-spacing:.28em}
