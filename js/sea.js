@@ -110,15 +110,57 @@ function currentAt(x, y, t) {
   return { x: Math.cos(y * 0.001 + t * 0.15) * 20 * a, y: Math.sin(x * 0.0013 - t * 0.18) * 18 * a };
 }
 function float(x, y, text, color) {
+  const F = fxAPI();
+  if (F && typeof F.text === 'function') {
+    F.text(x, y, text, { col: color || '#dff4ff', size: 15, rise: 26, life: 1.3 });
+    return;
+  }
   sea.floats.push({ x, y, text, color: color || '#dff4ff', life: 1.3, max: 1.3 });
 }
 function burst(x, y, n, color, spd) {
+  const F = fxAPI();
+  if (F && typeof F.burst === 'function') {
+    F.burst(x, y, { n, spd: [20, spd || 140], life: [0.4, 0.9], size: [1.5, 4], col: fxCol(color) });
+    return;
+  }
   for (let i = 0; i < n; i++) {
     const a = rnd(0, Math.PI * 2), s = rnd(20, spd || 140);
     sea.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rnd(0.4, 0.9), max: 0.9, size: rnd(1.5, 4), color: color || '#9fe8ff' });
   }
 }
 sea.burst = burst;
+
+/* ---------- v0.4 FX 橋接（js/fx.js 存在時走粒子池；缺席時退回舊 canvas 粒子） ---------- */
+function fxAPI() { return (typeof window !== 'undefined' && window.fx) ? window.fx : null; }
+/* 舊 burst/float 的色票 → fx 粒子 token（粒子只吃固定 8 色） */
+function fxCol(c) {
+  if (!c) return 'cyan';
+  const s = String(c).toLowerCase();
+  if (s.indexOf('ffd') >= 0 || s.indexOf('ffe') >= 0) return 'gold';
+  if (s.indexOf('ffb3') >= 0) return 'orange';
+  if (s.indexOf('ff9a') >= 0 || s.indexOf('ff8') >= 0 || s.indexOf('ff6') >= 0 || s.indexOf('ff5d') >= 0 || s.indexOf('ff4') >= 0) return 'red';
+  if (s.indexOf('c9a') >= 0 || s.indexOf('c3a') >= 0 || s.indexOf('b892') >= 0) return 'violet';
+  if (s.indexOf('8ee6') >= 0 || s.indexOf('c8ff') >= 0) return 'green';
+  if (s.indexOf('6fe3') >= 0 || s.indexOf('9fe8') >= 0 || s.indexOf('dff4') >= 0 || s.indexOf('9ff4') >= 0 ||
+      s.indexOf('bdf3') >= 0 || s.indexOf('bfe9') >= 0 || s.indexOf('190') >= 0) return 'cyan';
+  if (s.indexOf('7fd') >= 0) return 'blue';
+  return 'white';
+}
+function fxLin(key, fn) { const F = fxAPI(); return (F && F.grad && F.grad.lin) ? F.grad.lin(key, fn) : fn(); }
+function fxRad(key, fn) { const F = fxAPI(); return (F && F.grad && F.grad.rad) ? F.grad.rad(key, fn) : fn(); }
+function shakeSea(px, ms) {
+  const F = fxAPI();
+  if (F && typeof F.shake === 'function') { F.shake(px, ms || 160); return; }
+  sea.shake = Math.min(22, (sea.shake || 0) + px);
+}
+function fxRing(x, y, r1, col, life) {
+  const F = fxAPI();
+  if (F && typeof F.ring === 'function') F.ring(x, y, { r0: 3, r1: r1 || 36, life: life || 0.26, w: 2, col: col || 'white' });
+}
+function fxSpark(x, y, opts) {
+  const F = fxAPI();
+  if (F && typeof F.spark === 'function') F.spark(x, y, opts || {});
+}
 
 function playerInSafe() {
   return Math.hypot(sea.player.x, sea.player.y) < baseRadius();
@@ -130,10 +172,14 @@ function hurtPlayer(n) {
   if (playerInSafe()) return;
   P.hp -= n;
   P.inv = 1.4;
-  sea.shake = Math.min(16, sea.shake + 7);
+  shakeSea(7, 180);
   sfx('hurt');
+  sfx('hit');
   float(P.x, P.y - 20, '-' + n, '#ff8f8f');
   burst(P.x, P.y, 8, '#ff9a8b', 120);
+  fxSpark(P.x, P.y, { n: 5, col: 'red', spd: [90, 240] });
+  const F = fxAPI();
+  if (F && typeof F.flash === 'function') F.flash('#ff4050', 140);
   renderHearts(P.hp, calcStats().maxhp);
   if (P.hp <= 0) { P.hp = 0; seaDeath(); }
 }
@@ -176,10 +222,13 @@ function collectPickup(p) {
     if (Math.random() < 0.6 + Z.id * 0.08) addRes('alloy', Math.max(1, Math.round(Z.id * 0.6)));
     float(p.x, p.y, '補給箱！', '#ffe28a');
     burst(p.x, p.y, 12, '#ffd166', 150);
+    fxRing(p.x, p.y, 54, 'gold', 0.32);
+    fxSpark(p.x, p.y, { n: 6, col: 'gold', spd: [120, 300] });
     sfx('build');
   } else if (p.type === 'air') {
     sea.player.ox = Math.min(S.maxox, sea.player.ox + 30);
     float(p.x, p.y, '+ 氧氣', '#8ff3ff');
+    fxRing(p.x, p.y, 30, 'cyan', 0.24);
     sfx('air');
   } else {
     const base = (p.type === 'alloy') ? 1 : 2;
@@ -188,6 +237,7 @@ function collectPickup(p) {
     game.stats.collected += amt;
     float(p.x, p.y, '+' + amt + ' ' + RESMETA[p.type].name + (Z.id ? ' ×' + Z.mult : ''), RESMETA[p.type].color);
     burst(p.x, p.y, 4, RESMETA[p.type].color, 80);
+    fxRing(p.x, p.y, p.type === 'alloy' ? 34 : 26, RESMETA[p.type].color, 0.22);
     sfx('pick');
   }
   refreshHud();
@@ -226,18 +276,23 @@ function damageHazard(h, dmg, fromTower) {
   h.hp -= dmg;
   h.hit = 0.15;
   float(h.x + rnd(-6, 6), h.y - h.r - 6, String(dmg), fromTower ? '#bdf3ff' : '#ffffff');
+  fxSpark(h.x, h.y, { n: fromTower ? 4 : 3, col: 'white' });
+  sfx('hit');
   if (h.hp <= 0) {
     h.alive = false;
     game.stats.kills++;
     burst(h.x, h.y, h.type === 'drone' ? 16 : 10, h.type === 'drone' ? '#c9a6ff' : '#ff9a8b', 180);
+    fxRing(h.x, h.y, h.type === 'drone' ? 52 : 38, h.type === 'drone' ? 'violet' : 'red', 0.3);
+    fxSpark(h.x, h.y, { n: 8, col: h.type === 'drone' ? 'violet' : 'red', spd: [140, 380] });
     sfx('boom');
+    sfx('kill');
     if (h.type === 'drone') {
       const n = Math.random() < 0.4 ? 2 : 1;
       for (let i = 0; i < n; i++) {
         sea.pickups.push({ x: h.x + rnd(-14, 14), y: h.y + rnd(-14, 14), type: 'alloy', t: 0, r: 17, alive: true });
       }
     }
-    if (!fromTower) sea.shake = Math.min(10, sea.shake + 3);
+    if (!fromTower) shakeSea(4, 140);
   } else {
     burst(h.x, h.y, 3, '#ffffff', 70);
   }
@@ -255,7 +310,11 @@ function killSeaBoss(b) {
   for (let i = 0; i < 46; i++) {
     burst(b.x + rnd(-50, 50), b.y + rnd(-50, 50), 3, i % 3 ? '#ffd166' : '#c9a6ff', 330);
   }
-  sea.shake = 22;
+  shakeSea(16, 420);
+  fxRing(b.x, b.y, 150, 'gold', 0.5);
+  const F = fxAPI();
+  if (F && typeof F.flash === 'function') F.flash('#ffd166', 180);
+  sfx('kill');
   sfx('boom'); sfx('quest');
   toast('擊敗' + b.name + ' — 取得科技碎片 ' + game.tech + '/4', 'gold');
   if (game.tech >= 4) setTimeout(() => toast('4 塊碎片齊集！到火箭研發中心研發「火箭護盾科技」', 'gold'), 1400);
@@ -270,10 +329,13 @@ function drawSeaBoss(b) {
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const g = ctx.createRadialGradient(0, 0, 10, 0, 0, 150);
-  g.addColorStop(0, 'rgba(180,120,255,.30)');
-  g.addColorStop(0.6, 'rgba(255,80,140,.10)');
-  g.addColorStop(1, 'rgba(120,60,220,0)');
+  const g = fxRad('sea:bossGlow', () => {
+    const g2 = ctx.createRadialGradient(0, 0, 10, 0, 0, 150);
+    g2.addColorStop(0, 'rgba(180,120,255,.30)');
+    g2.addColorStop(0.6, 'rgba(255,80,140,.10)');
+    g2.addColorStop(1, 'rgba(120,60,220,0)');
+    return g2;
+  });
   ctx.fillStyle = g;
   ctx.beginPath(); ctx.arc(0, 0, 150, 0, 7); ctx.fill();
   ctx.restore();
@@ -467,6 +529,7 @@ function updateSea(dt) {
       if (Math.random() < 0.25) {
         sea.shieldHits.push({ a: b + rnd(-0.12, 0.12), life: 0.42, max: 0.42, r: R });
         if (Math.random() < 0.3) sfx('shield');
+        if (typeof baseHitFx === 'function') baseHitFx(h.x, h.y, b);
       }
       h.flee = 0.7;
     }
@@ -490,7 +553,7 @@ function updateSea(dt) {
       h.x += Math.cos(ang) * sp * dt;
       h.y += Math.sin(ang) * sp * dt;
       h.ang = lerpAngle(h.ang || ang, ang, 1 - Math.exp(-5 * dt));
-      if (d < 30) hurtPlayer(2);
+      if (d < 30) hurtPlayer(Math.max(1, Math.round(2 * dm)));
       if (Math.random() < 0.4) burst(h.x - Math.cos(h.ang) * 16, h.y - Math.sin(h.ang) * 16, 1, '#bfe9ff', 40);
     } else if (h.type === 'drone') {
       const want = 330;
@@ -503,12 +566,12 @@ function updateSea(dt) {
         sea.ebullets.push({ x: h.x, y: h.y, vx: Math.cos(ang) * 210 * aggr, vy: Math.sin(ang) * 210 * aggr, life: 4, r: 6, dmg: 1, alive: true });
         tone(240, 0.12, 'sawtooth', 0.08, 120);
       }
-      if (d < 42) hurtPlayer(1);
+      if (d < 42) hurtPlayer(Math.max(1, Math.round(1 * dm)));
     } else {
       const c = currentAt(h.x, h.y, sea.t);
       h.x += Math.cos(h.t * 0.7) * 12 * dt + c.x * 0.6 * dt;
       h.y += Math.sin(h.t * 0.95) * 12 * dt + c.y * 0.6 * dt;
-      if (d < 34) hurtPlayer(1);
+      if (d < 34) hurtPlayer(Math.max(1, Math.round(1 * dm)));
     }
     if (d > 1600) h.alive = false;
   }
@@ -535,7 +598,8 @@ function updateSea(dt) {
         }
         tone(110, 0.3, 'sawtooth', 0.12, 50);
       }
-      if (bd < b.r + 20) hurtPlayer(2);
+      const bz = seaZone(Math.hypot(b.x, b.y));
+      if (bd < b.r + 20) hurtPlayer(Math.max(1, Math.round(2 * (1 + bz.id * 0.14))));
     }
   }
 
@@ -559,6 +623,8 @@ function updateSea(dt) {
           bo.hp -= b.dmg;
           bo.hit = 0.15;
           float(bo.x + rnd(-12, 12), bo.y - bo.r - 4, String(b.dmg), '#ffffff');
+          fxSpark(b.x, b.y, { n: 4, col: 'violet', spd: [120, 320] });
+          fxRing(bo.x, bo.y, 34, 'violet', 0.22);
           b.alive = false;
           if (bo.hp <= 0) killSeaBoss(bo);
           break;
@@ -578,6 +644,7 @@ function updateSea(dt) {
       b.alive = false;
       sea.shieldHits.push({ a: Math.atan2(b.y, b.x), life: 0.35, max: 0.35, r: R });
       sfx('shield');
+      if (typeof baseHitFx === 'function') baseHitFx(b.x, b.y, Math.atan2(b.y, b.x));
       continue;
     }
     if (Math.hypot(P.x - b.x, P.y - b.y) < 20) { hurtPlayer(b.dmg); b.alive = false; }
@@ -625,11 +692,14 @@ function drawSea() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.clearRect(0, 0, VW, VH);
 
-  /* water */
-  const g = ctx.createLinearGradient(0, 0, 0, VH);
-  g.addColorStop(0, '#0b435e');
-  g.addColorStop(0.42, '#073047');
-  g.addColorStop(1, '#03161f');
+  /* water（sea:* 漸層快取，key 含尺寸） */
+  const g = fxLin('sea:water:' + VW + 'x' + VH, () => {
+    const g2 = ctx.createLinearGradient(0, 0, 0, VH);
+    g2.addColorStop(0, '#0b435e');
+    g2.addColorStop(0.42, '#073047');
+    g2.addColorStop(1, '#03161f');
+    return g2;
+  });
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, VW, VH);
 
@@ -690,11 +760,19 @@ function drawSea() {
   /* world */
   ctx.save();
   let shx = 0, shy = 0;
-  if (sea.shake > 0) { shx = rnd(-sea.shake, sea.shake); shy = rnd(-sea.shake, sea.shake); }
+  const FX = fxAPI();
+  if (FX && typeof FX.shakeOffset === 'function') {
+    const sh = FX.shakeOffset();
+    shx = sh.x; shy = sh.y;
+  } else if (sea.shake > 0) {
+    shx = rnd(-sea.shake, sea.shake); shy = rnd(-sea.shake, sea.shake);
+  }
   ctx.translate(-cam.x + shx, -cam.y + shy);
 
   drawFish();
   drawBaseSystem(t);
+  /* 基地在畫面外時 base.js 不會呼叫 drawWorld；這裡補一次，fx 內部同幀去重 */
+  if (FX && typeof FX.drawWorld === 'function') FX.drawWorld(ctx);
 
   for (const p of sea.pickups) {
     if (!p.alive) continue;
@@ -817,9 +895,12 @@ function drawFish() {
 }
 
 function drawDepthVignette() {
-  const g = ctx.createRadialGradient(VW / 2, VH / 2, Math.min(VW, VH) * 0.35, VW / 2, VH / 2, Math.max(VW, VH) * 0.78);
-  g.addColorStop(0, 'rgba(0,0,0,0)');
-  g.addColorStop(1, 'rgba(0,10,18,.72)');
+  const g = fxRad('sea:vignette:' + VW + 'x' + VH, () => {
+    const g2 = ctx.createRadialGradient(VW / 2, VH / 2, Math.min(VW, VH) * 0.35, VW / 2, VH / 2, Math.max(VW, VH) * 0.78);
+    g2.addColorStop(0, 'rgba(0,0,0,0)');
+    g2.addColorStop(1, 'rgba(0,10,18,.72)');
+    return g2;
+  });
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, VW, VH);
 }
@@ -859,9 +940,12 @@ function drawPickup(p) {
   const col = p.type === 'air' ? '#9ff4ff' : p.type === 'crate' ? '#ffd166' : RESMETA[p.type].color;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const gg = ctx.createRadialGradient(0, 0, 0, 0, 0, p.r * 2.2);
-  gg.addColorStop(0, col + '3a');
-  gg.addColorStop(1, col + '00');
+  const gg = fxRad('sea:pickup:' + p.type + ':' + p.r, () => {
+    const g2 = ctx.createRadialGradient(0, 0, 0, 0, 0, p.r * 2.2);
+    g2.addColorStop(0, col + '3a');
+    g2.addColorStop(1, col + '00');
+    return g2;
+  });
   ctx.fillStyle = gg;
   ctx.beginPath(); ctx.arc(0, 0, p.r * 2.2, 0, 7); ctx.fill();
   ctx.restore();
@@ -935,9 +1019,12 @@ function drawHazard(h) {
     ctx.translate(0, bob);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const gg = ctx.createRadialGradient(0, 0, 0, 0, 0, 46);
-    gg.addColorStop(0, 'rgba(255,70,110,.3)');
-    gg.addColorStop(1, 'rgba(255,70,110,0)');
+    const gg = fxRad('sea:droneGlow', () => {
+      const g2 = ctx.createRadialGradient(0, 0, 0, 0, 0, 46);
+      g2.addColorStop(0, 'rgba(255,70,110,.3)');
+      g2.addColorStop(1, 'rgba(255,70,110,0)');
+      return g2;
+    });
     ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(0, 0, 46, 0, 7); ctx.fill();
     ctx.restore();
     ctx.fillStyle = flash ? '#fff' : '#3a2c4a';
@@ -983,9 +1070,12 @@ function drawPlayer() {
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const rg = ctx.createRadialGradient(0, 0, 0, 0, 0, 52);
-  rg.addColorStop(0, 'rgba(150,240,255,.16)');
-  rg.addColorStop(1, 'rgba(150,240,255,0)');
+  const rg = fxRad('sea:playerGlow', () => {
+    const g2 = ctx.createRadialGradient(0, 0, 0, 0, 0, 52);
+    g2.addColorStop(0, 'rgba(150,240,255,.16)');
+    g2.addColorStop(1, 'rgba(150,240,255,0)');
+    return g2;
+  });
   ctx.fillStyle = rg;
   ctx.beginPath(); ctx.arc(0, 0, 52, 0, 7); ctx.fill();
   ctx.restore();
@@ -1039,9 +1129,12 @@ function drawPlayer() {
   /* 頭燈 */
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const lg2 = ctx.createLinearGradient(20, 0, 54, 0);
-  lg2.addColorStop(0, 'rgba(160,245,255,.09)');
-  lg2.addColorStop(1, 'rgba(160,245,255,0)');
+  const lg2 = fxLin('sea:headlight', () => {
+    const g2 = ctx.createLinearGradient(20, 0, 54, 0);
+    g2.addColorStop(0, 'rgba(160,245,255,.09)');
+    g2.addColorStop(1, 'rgba(160,245,255,0)');
+    return g2;
+  });
   ctx.fillStyle = lg2;
   ctx.beginPath(); ctx.moveTo(20, -4); ctx.lineTo(54, -9); ctx.lineTo(54, 7); ctx.lineTo(20, 4); ctx.closePath(); ctx.fill();
   ctx.restore();
@@ -1064,7 +1157,10 @@ function drawPlayer() {
 
 function drawRadar() {
   const P = sea.player;
-  const R = 64, cx = VW - 86, cy = VH - 86;
+  /* C 要求：半徑 92（原本 64）；小螢幕把雷達抬高，避開底部 #hint（390 寬實測） */
+  const R = 92;
+  const narrow = VW < 1100;
+  const cx = VW - R - 10, cy = VH - R - (narrow ? 150 : 10);
   ctx.save();
   ctx.translate(cx, cy);
 
@@ -1125,11 +1221,11 @@ function drawRadar() {
   ctx.restore();
 
   ctx.save();
-  ctx.textAlign = 'right';
+  ctx.textAlign = 'center';
   ctx.font = '11px "Microsoft JhengHei",system-ui';
   ctx.fillStyle = 'rgba(160,210,230,.75)';
   const dd = Math.hypot(P.x, P.y);
-  ctx.fillText('基地 ' + (dd >= 1000 ? (dd / 1000).toFixed(1) + ' km' : Math.round(dd) + ' m'), VW - 26, VH - 8);
+  ctx.fillText('基地 ' + (dd >= 1000 ? (dd / 1000).toFixed(1) + ' km' : Math.round(dd) + ' m'), cx, cy - R - 10);
   ctx.restore();
 }
 

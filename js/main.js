@@ -10,6 +10,8 @@ window.MOUSE = MOUSE;
 
 /* ---------- 場景 ---------- */
 function setScene(s) {
+  /* 切場景清一次 fx 粒子池（initLaunch/initMoon/initSea 都會走這裡；無 fx 時略過） */
+  if (window.fx && typeof fx.clear === 'function') fx.clear();
   game.scene = s;
   game.paused = false;
   document.body.dataset.scene = s;
@@ -256,11 +258,34 @@ $('end-again').onclick = () => {
 
 /* ---------- 主迴圈 ---------- */
 let lastT = performance.now();
-function frame(now) {
-  const dt = Math.min(0.05, (now - lastT) / 1000);
-  lastT = now;
+let saveT = 0;
 
+/* 失敗 modal 被 X／Esc 關掉時的復活／返回基地（原本在 closeModal 的補救移來這裡，避免與按鈕重複執行） */
+function recoverClosedFailureModal() {
+  if (game.paused || transitioning) return;
+  if (modalEl.classList.contains('show')) return;
+  if (game.scene === 'sea' && sea.dead) { respawnAtBase(); return; }
+  if (game.scene === 'launch' && launch.state === 'fail') { backToBaseFromLaunch(); return; }
+  if (game.scene === 'dock' && dock.state === 'fail') { backToBaseFromLaunch(); return; }
+  if (game.scene === 'moon' && moon.state === 'lose') transition(initMoon);
+}
+
+function frame(now) {
+  const rawDt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  /* v0.4 fx 掛鉤（D 的 js/fx.js；缺席時完全走原邏輯） */
+  const FX = window.fx;
+  const dt = (FX && typeof FX.update === 'function') ? FX.update(rawDt) : rawDt;
+
+  recoverClosedFailureModal();
   updateQuests(dt);
+
+  /* 每 10 秒自動存檔（暫停與非遊玩場景不存） */
+  saveT += rawDt;
+  if (saveT >= 10) {
+    saveT = 0;
+    if (!game.paused && game.scene !== 'title' && game.scene !== 'intro' && game.scene !== 'ending') saveGame();
+  }
 
   if (game.scene === 'sea') {
     if (!game.paused) updateSea(dt);
@@ -277,8 +302,10 @@ function frame(now) {
     if (!game.paused && MOUSE.down) fireMoon();
     drawMoon();
   } else {
-    drawIdleBG(dt);
+    drawIdleBG(rawDt);
   }
+  /* 螢幕層特效（閃光／暗角）每幀最後一次 */
+  if (FX && typeof FX.drawScreen === 'function') FX.drawScreen(ctx);
   requestAnimationFrame(frame);
 }
 
@@ -290,6 +317,28 @@ if (hasSave()) {
 setScene('title');
 requestAnimationFrame(frame);
 
+/* ---------- S1a 跨檔適配：space.js 的 backToBaseFromLaunch 先歸零失敗狀態（避免重入重複扣款） ---------- */
+if (typeof backToBaseFromLaunch === 'function') {
+  const _backToBaseFromLaunch = backToBaseFromLaunch;
+  window.backToBaseFromLaunch = function () {
+    if (typeof launch !== 'undefined') launch.state = 'idle';
+    return _backToBaseFromLaunch.apply(this, arguments);
+  };
+}
+/* ---------- 分頁隱藏／關閉時強制存檔 ---------- */
+(function () {
+  const persist = () => {
+    if (game.scene === 'title' || game.scene === 'intro' || game.scene === 'ending') return;
+    if (!game.dirty) return;
+    /* 剛存過就不重複寫（也避免把 QA／外部寫入的存檔蓋掉，見 core.saveGame 的外部寫入保護） */
+    const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    if (now - saveLastAt < 2500) return;
+    saveGame();
+  };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') persist(); });
+  window.addEventListener('pagehide', persist);
+})();
+
 /* ---------- QA 鉤子 ---------- */
 window.__T = {
   game, sea, launch, moon, KEYS, MOUSE,
@@ -297,6 +346,7 @@ window.__T = {
   openBase, openCraft, openQuests, openHelp, openPause,
   startLaunch, nextWave, baseRadius, baseTiles, freeTileFor, addStructure,
   initDock, updateDock, drawDock, dock, callAlliance,
+  calcStats, saveGame, loadGame, migrateSave, validateSave, MODS,
   give(k, n) { addRes(k, n); refreshHud(); },
   mountAll() {
     for (const k of STRUCT_KEYS) {

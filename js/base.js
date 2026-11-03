@@ -6,17 +6,99 @@
 const TILE = 120;
 const baseRT = new Map();   /* 砲塔角度、建造動畫等執行期狀態 */
 
+/* =========================================================
+   漸層快取（S1a：建築繪製不再每幀 new CanvasGradient）
+   - 有 js/fx.js 時走 fx.grad（同一 key 只建一次）
+   - 沒有 fx 時退回原生建立，行為與 v0.3.0 相同
+   - 建立函式是固定參考（不每次配置 closure），參數放模組層 _GP
+   ========================================================= */
+const BST = {
+  tileCore:   [[0, '#3f6270'], [1, '#264450']],
+  tileDeck:   [[0, '#3a4c55'], [1, '#26363e']],
+  foam:       [[0, 'rgba(120,235,255,.10)'], [1, 'rgba(120,235,255,0)']],
+  supply:     [[0, 'rgba(120,235,255,.16)'], [1, 'rgba(120,235,255,0)']],
+  safeIn:     [[0, 'rgba(90,220,255,0)'], [0.82, 'rgba(90,230,255,.085)'], [1, 'rgba(140,255,220,.16)']],
+  safeOut:    [[0, 'rgba(90,220,255,0)'], [0.82, 'rgba(90,220,255,.045)'], [1, 'rgba(90,220,255,.06)']],
+  structTop:  [[0, 'rgba(30,58,70,.98)'], [1, 'rgba(15,32,40,.98)']],
+  recyclerBody: [[0, '#5c6f78'], [1, '#334750']],
+  recyclerGlow: [[0, 'rgba(255,150,60,.28)'], [1, 'rgba(255,150,60,0)']],
+  reverseDome: [[0, 'rgba(226,200,255,.85)'], [0.5, 'rgba(170,120,255,.5)'], [1, 'rgba(90,50,170,.22)']],
+  reverseBeam: [[0, 'rgba(190,150,255,.35)'], [1, 'rgba(190,150,255,0)']],
+  satDish:    [[0, '#dff3ff'], [1, '#7fa8bd']],
+  satGlow:    [[0, 'rgba(120,220,255,.45)'], [1, 'rgba(120,220,255,0)']],
+  satCore:    [[0, 'rgba(150,230,255,.5)'], [1, 'rgba(150,230,255,0)']],
+  dockFlame:  [[0, 'rgba(255,240,190,.85)'], [1, 'rgba(120,200,255,0)']],
+  botWake:    [[0, 'rgba(160,240,255,.25)'], [1, 'rgba(160,240,255,0)']]
+};
+const _GP = { x0: 0, y0: 0, x1: 0, y1: 0, r0: 0, r1: 0, stops: null };
+function _mkLinFromGP() {
+  const g = ctx.createLinearGradient(_GP.x0, _GP.y0, _GP.x1, _GP.y1);
+  for (let i = 0; i < _GP.stops.length; i++) g.addColorStop(_GP.stops[i][0], _GP.stops[i][1]);
+  return g;
+}
+function _mkRadFromGP() {
+  const g = ctx.createRadialGradient(_GP.x0, _GP.y0, _GP.r0, _GP.x1, _GP.y1, _GP.r1);
+  for (let i = 0; i < _GP.stops.length; i++) g.addColorStop(_GP.stops[i][0], _GP.stops[i][1]);
+  return g;
+}
+function gLin(key, x0, y0, x1, y1, stops) {
+  _GP.x0 = x0; _GP.y0 = y0; _GP.x1 = x1; _GP.y1 = y1; _GP.stops = stops;
+  const F = window.fx;
+  return (F && F.grad) ? F.grad.lin(key, _mkLinFromGP) : _mkLinFromGP();
+}
+function gRad(key, x0, y0, r0, x1, y1, r1, stops) {
+  _GP.x0 = x0; _GP.y0 = y0; _GP.r0 = r0; _GP.x1 = x1; _GP.y1 = y1; _GP.r1 = r1; _GP.stops = stops;
+  const F = window.fx;
+  return (F && F.grad) ? F.grad.rad(key, _mkRadFromGP) : _mkRadFromGP();
+}
+
+/* =========================================================
+   基地幾何快取（AUDIT P2-6）
+   - baseTiles/baseRadius/structureAt 原本每次重建 array/Set/線性搜尋
+   - 現在只有 structures 變動（addStructure→onBaseChanged 或讀檔）才重建
+   - 無效的 gx/gy（損壞存檔）會被跳過，不再讓 baseRadius 變 NaN
+   ========================================================= */
+const baseGeo = {
+  dirty: true, sig: '', tiles: [], occKey: new Set(['0,0']),
+  occMap: new Map(), radius: 170
+};
+function baseGeoInvalidate() { baseGeo.dirty = true; }
+function baseGeoSig() {
+  const st = (typeof game !== 'undefined' && game.base && game.base.structures) || null;
+  if (!st || !st.length) return '0';
+  const last = st[st.length - 1];
+  return st.length + '|' + (last ? (last.type + ',' + last.gx + ',' + last.gy) : '');
+}
+function baseGeoEnsure() {
+  if (!baseGeo.dirty && baseGeo.sig === baseGeoSig()) return baseGeo;
+  const st = (typeof game !== 'undefined' && game.base && game.base.structures) || [];
+  const tiles = [{ gx: 0, gy: 0, core: true }];
+  const occKey = new Set(['0,0']);
+  const occMap = new Map();
+  let maxR = 0;
+  for (let i = 0; i < st.length; i++) {
+    const s = st[i];
+    if (!s || typeof s.gx !== 'number' || typeof s.gy !== 'number' ||
+        !isFinite(s.gx) || !isFinite(s.gy)) continue;
+    const k = s.gx + ',' + s.gy;
+    if (occMap.has(k)) continue;
+    occMap.set(k, s);
+    if (!occKey.has(k)) { occKey.add(k); tiles.push({ gx: s.gx, gy: s.gy, core: false }); }
+    const d = Math.hypot(s.gx * TILE, s.gy * TILE);
+    if (d > maxR) maxR = d;
+  }
+  baseGeo.tiles = tiles;
+  baseGeo.occKey = occKey;
+  baseGeo.occMap = occMap;
+  baseGeo.radius = Math.max(170, maxR + 126);
+  baseGeo.sig = baseGeoSig();
+  baseGeo.dirty = false;
+  return baseGeo;
+}
+
 /* ---------- 平台格子 ---------- */
 function baseTiles() {
-  const out = [{ gx: 0, gy: 0, core: true }];
-  const seen = new Set(['0,0']);
-  for (const s of game.base.structures) {
-    const k = s.gx + ',' + s.gy;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push({ gx: s.gx, gy: s.gy, core: false });
-  }
-  return out;
+  return baseGeoEnsure().tiles;
 }
 function baseTileCount() { return baseTiles().length; }
 
@@ -39,13 +121,11 @@ function freeTileFor() {
 }
 
 function baseRadius() {
-  let m = 0;
-  for (const t of baseTiles()) m = Math.max(m, Math.hypot(t.gx * TILE, t.gy * TILE));
-  return Math.max(170, m + 126);
+  return baseGeoEnsure().radius;
 }
 
 function structureAt(gx, gy) {
-  return game.base.structures.find(s => s.gx === gx && s.gy === gy);
+  return baseGeoEnsure().occMap.get(gx + ',' + gy);
 }
 function structureWorld(s) {
   return { x: s.gx * TILE, y: s.gy * TILE };
@@ -57,17 +137,41 @@ function botHome(i) {
   return { x: d.gx * TILE, y: d.gy * TILE + 26 };
 }
 function onBaseChanged() {
-  if (typeof sea !== 'undefined' && sea.burst) {
-    const tiles = baseTiles();
-    const t = tiles[tiles.length - 1];
-    sea.burst(t.gx * TILE, t.gy * TILE, 18, '#9fe8ff', 200);
+  baseGeoInvalidate();
+  const tiles = baseTiles();
+  const t = tiles[tiles.length - 1];
+  const wx = t.gx * TILE, wy = t.gy * TILE;
+  /* 建造完成：環＋粒子＋飄字；有 fx 走 fx，沒 fx 沿用舊粒子（建造縮放動畫不受影響） */
+  if (typeof window.fx !== 'undefined' && window.fx) {
+    window.fx.ring(wx, wy, { r0: 8, r1: 64, life: 0.28, w: 2.6, col: 'cyan' });
+    window.fx.ring(wx, wy, { r0: 2, r1: 30, life: 0.18, w: 3.4, col: 'white' });
+    window.fx.burst(wx, wy, { n: 16, spd: [40, 190], life: [0.25, 0.6], size: [1.2, 2.8], col: 'cyan', drag: 3 });
+    window.fx.text(wx, wy - 48, '建造完成', { col: 'green', size: 12, rise: 24, life: 1.0 });
+    window.fx.shake(3, 90);
+    if (typeof sfx === 'function') sfx('build');
+  } else if (typeof sea !== 'undefined' && sea.burst) {
+    sea.burst(wx, wy, 18, '#9fe8ff', 200);
     sea.shake = Math.min(10, sea.shake + 3);
   }
+}
+
+/* 建築／安全圈被撞擊時的回饋（sea.js 的 shieldHits 在 S1a-B2 接這個鉤子） */
+function baseHitFx(x, y, dir) {
+  if (typeof window.fx === 'undefined' || !window.fx) return;
+  const a = (dir === undefined) ? 0 : dir;
+  window.fx.burst(x, y, { n: 10, spd: [50, 220], life: [0.2, 0.5], size: [1.2, 2.6], col: 'cyan', drag: 3.5 });
+  window.fx.spark(x, y, { n: 6, dir: a, spread: 1.2, spd: [160, 380], life: [0.06, 0.18], size: [1.4, 2.4], col: 'white' });
+  window.fx.ring(x, y, { r0: 6, r1: 46, life: 0.24, w: 2.4, col: 'cyan' });
+  window.fx.shake(4, 120);
+  window.fx.sfx('hit');
 }
 
 /* =========================================================
    BOT
    ========================================================= */
+/* 可入帳資源（AUDIT P2-1：air／crate 不能進貨艙，否則 stats 加了、資源沒加） */
+const BOT_RES = ['plastic', 'wood', 'metal', 'alloy'];
+
 function newBot(i) {
   const h = botHome(i);
   return {
@@ -87,6 +191,8 @@ function findBotTarget(bot) {
   let best = null, bd = 1250;
   for (const p of sea.pickups) {
     if (!p.alive) continue;
+    /* 只挑 4 種可入帳資源；air 留給玩家、crate 走 takePickupByBot 立即轉資源 */
+    if (BOT_RES.indexOf(p.type) < 0) continue;
     if (sea.bots.some(o => o !== bot && o.target === p)) continue;
     const d = Math.hypot(p.x - home.x, p.y - home.y);
     if (d < bd) { bd = d; best = p; }
@@ -94,22 +200,39 @@ function findBotTarget(bot) {
   return best;
 }
 function takePickupByBot(bot, p) {
+  bot.target = null;
+  /* 補給箱：不進貨艙，立刻轉成資源（交給 sea.js 的 collectPickup，含合金機率） */
+  if (p.type === 'crate') {
+    if (typeof collectPickup === 'function') { collectPickup(p); return; }
+    p.alive = false;
+    for (const k of BOT_RES) addRes(k, 2);
+    if (typeof refreshHud === 'function') refreshHud();
+    return;
+  }
+  if (BOT_RES.indexOf(p.type) < 0) return;   /* 未知型別（例如 air）：不要吃掉 */
   p.alive = false;
   bot.cargo[p.type] = (bot.cargo[p.type] || 0) + 1;
   bot.count++;
-  bot.target = null;
   if (Math.random() < 0.5) {
     sea.floats.push({ x: p.x, y: p.y - 14, text: 'BOT 回收', color: '#ffd166', life: 0.9, max: 0.9 });
   }
 }
 function depositBot(bot) {
   let n = 0;
-  for (const k in bot.cargo) { addRes(k, bot.cargo[k]); n += bot.cargo[k]; }
+  /* 只累加實際入帳的 4 種資源（AUDIT P2-1） */
+  for (const k of BOT_RES) {
+    const c = bot.cargo[k] || 0;
+    if (c > 0) { addRes(k, c); n += c; }
+  }
   if (n > 0) {
     game.stats.botCollected += n;
     sea.floats.push({ x: bot.x, y: bot.y - 24, text: 'BOT 帶回 ' + n + ' 件', color: '#8ee6a4', life: 1.4, max: 1.4 });
     sfx('deposit');
     refreshHud();
+    if (typeof window.fx !== 'undefined' && window.fx) {
+      window.fx.ring(bot.x, bot.y, { r0: 4, r1: 28, life: 0.32, w: 2, col: 'green' });
+      window.fx.burst(bot.x, bot.y, { n: 6, spd: [30, 110], life: [0.3, 0.6], size: [1, 2], col: 'green', drag: 4, grav: -20 });
+    }
   }
   bot.cargo = {}; bot.count = 0;
 }
@@ -205,6 +328,18 @@ function updateBaseTowers(dt) {
       damageHazard(best, 2, true);
       sea.beams.push({ x1: x, y1: y - 16, x2: best.x, y2: best.y, life: 0.16, tower: true });
       tone(920, 0.05, 'square', 0.05, 460);
+      /* 砲口火花＋衝擊環＋輕震（S1a：砲塔回饋改走 fx） */
+      if (typeof window.fx !== 'undefined' && window.fx) {
+        const ca = Math.cos(rt.ang), sa = Math.sin(rt.ang);
+        const mx = x + ca * 32, my = (y - 16) + sa * 32;
+        window.fx.spark(mx, my, {
+          n: 4, dir: rt.ang, spread: 0.55, spd: [140, 340],
+          life: [0.05, 0.14], size: [1.4, 2.6], col: 'gold'
+        });
+        window.fx.ring(mx, my, { r0: 2, r1: 13, life: 0.12, w: 1.6, col: 'gold' });
+        window.fx.shake(1.2, 60);
+        window.fx.sfx('core');
+      }
     }
   });
 }
@@ -230,9 +365,7 @@ function drawBaseSystem(t) {
   /* 水面泡沫 / 平台陰影 */
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const fg = ctx.createRadialGradient(0, 0, R * 0.5, 0, 0, R * 1.25);
-  fg.addColorStop(0, 'rgba(120,235,255,.10)');
-  fg.addColorStop(1, 'rgba(120,235,255,0)');
+  const fg = gRad('base:foam:' + Math.round(R), 0, 0, R * 0.5, 0, 0, R * 1.25, BST.foam);
   ctx.fillStyle = fg;
   ctx.beginPath(); ctx.arc(0, 0, R * 1.25, 0, 7); ctx.fill();
   ctx.restore();
@@ -240,7 +373,7 @@ function drawBaseSystem(t) {
   ctx.fillStyle = 'rgba(0,0,0,.35)';
 
   /*** 連接橋（讓相鄰格看起來是同一塊平台） ***/
-  const occSet = new Set(tiles.map(x => x.gx + ',' + x.gy));
+  const occSet = baseGeoEnsure().occKey;
   for (const tl of tiles) {
     const x = tl.gx * TILE, y = tl.gy * TILE;
     for (const [dx, dy] of [[1, 0], [0, 1]]) {
@@ -268,9 +401,8 @@ function drawBaseSystem(t) {
     ctx.beginPath(); ctx.roundRect(-TILE / 2 + 6, -TILE / 2 + 10, TILE - 8, TILE - 8, 10); ctx.fill();
 
     /* 主體 */
-    const g = ctx.createLinearGradient(0, -TILE / 2, 0, TILE / 2);
-    g.addColorStop(0, tl.core ? '#3f6270' : '#3a4c55');
-    g.addColorStop(1, tl.core ? '#264450' : '#26363e');
+    const g = gLin(tl.core ? 'base:tileCore' : 'base:tileDeck',
+      0, -TILE / 2, 0, TILE / 2, tl.core ? BST.tileCore : BST.tileDeck);
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.roundRect(-TILE / 2 + 3, -TILE / 2 + 3, TILE - 6, TILE - 6, 9); ctx.fill();
 
@@ -291,7 +423,7 @@ function drawBaseSystem(t) {
   }
 
   /*** 邊緣欄杆 + 燈 ***/
-  const occ = new Set(tiles.map(x => x.gx + ',' + x.gy));
+  const occ = baseGeoEnsure().occKey;
   for (const tl of tiles) {
     const x = tl.gx * TILE, y = tl.gy * TILE, h = TILE / 2 - 3;
     const sides = [
@@ -351,9 +483,7 @@ function drawBaseSystem(t) {
     ctx.beginPath(); ctx.arc(26, -48, 3.4, 0, 7); ctx.fill();
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const cg = ctx.createRadialGradient(0, 0, 4, 0, 0, 90);
-    cg.addColorStop(0, 'rgba(120,235,255,.16)');
-    cg.addColorStop(1, 'rgba(120,235,255,0)');
+    const cg = gRad('base:supply', 0, 0, 4, 0, 0, 90, BST.supply);
     ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(0, 0, 90, 0, 7); ctx.fill();
     ctx.restore();
     ctx.restore();
@@ -424,10 +554,8 @@ function drawBaseSystem(t) {
   /*** 安全圈 ***/
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const dg = ctx.createRadialGradient(0, 0, R * 0.55, 0, 0, R);
-  dg.addColorStop(0, 'rgba(90,220,255,0)');
-  dg.addColorStop(0.82, inside ? 'rgba(90,230,255,.085)' : 'rgba(90,220,255,.045)');
-  dg.addColorStop(1, inside ? 'rgba(140,255,220,.16)' : 'rgba(90,220,255,.06)');
+  const dg = gRad('base:safe:' + Math.round(R) + (inside ? ':in' : ':out'),
+    0, 0, R * 0.55, 0, 0, R, inside ? BST.safeIn : BST.safeOut);
   ctx.fillStyle = dg;
   ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.fill();
   ctx.restore();
@@ -459,6 +587,9 @@ function drawBaseSystem(t) {
   }
 
   ctx.restore();
+
+  /* fx 世界層：此處仍在 sea.js 的相機 transform 內；fx.drawWorld 每幀只會真的畫一次 */
+  if (typeof window.fx !== 'undefined' && window.fx) window.fx.drawWorld(ctx);
 }
 
 function tileAge(tl) {
@@ -484,9 +615,7 @@ function drawStructure(s, t) {
   ctx.fillStyle = 'rgba(7,18,24,.92)';
   ctx.beginPath(); ctx.roundRect(-40, -28, 80, 68, 8); ctx.fill();
   /* 頂面 */
-  const pg = ctx.createLinearGradient(0, -34, 0, 34);
-  pg.addColorStop(0, 'rgba(30,58,70,.98)');
-  pg.addColorStop(1, 'rgba(15,32,40,.98)');
+  const pg = gLin('base:structTop', 0, -34, 0, 34, BST.structTop);
   ctx.fillStyle = pg;
   ctx.beginPath(); ctx.roundRect(-40, -34, 80, 68, 8); ctx.fill();
   ctx.strokeStyle = 'rgba(160,235,255,.28)';
@@ -541,8 +670,7 @@ function drawStructure(s, t) {
 
   else if (s.type === 'recycler') {
     /* 爐體 */
-    const g = ctx.createLinearGradient(0, -26, 0, 26);
-    g.addColorStop(0, '#5c6f78'); g.addColorStop(1, '#334750');
+    const g = gLin('base:recyclerBody', 0, -26, 0, 26, BST.recyclerBody);
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.roundRect(-30, -24, 60, 46, 6); ctx.fill();
     ctx.strokeStyle = 'rgba(200,240,255,.25)'; ctx.lineWidth = 1.4; ctx.stroke();
@@ -552,9 +680,7 @@ function drawStructure(s, t) {
     ctx.beginPath(); ctx.roundRect(-16, 2, 32, 16, 4); ctx.fill();
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const gg = ctx.createRadialGradient(0, 10, 2, 0, 10, 40);
-    gg.addColorStop(0, 'rgba(255,150,60,.28)');
-    gg.addColorStop(1, 'rgba(255,150,60,0)');
+    const gg = gRad('base:recyclerGlow', 0, 10, 2, 0, 10, 40, BST.recyclerGlow);
     ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(0, 10, 40, 0, 7); ctx.fill();
     ctx.restore();
     /* 齒輪 */
@@ -620,10 +746,7 @@ function drawStructure(s, t) {
     ctx.strokeStyle = 'rgba(200,170,255,.45)'; ctx.lineWidth = 1.4;
     ctx.beginPath(); ctx.ellipse(0, 16, 30, 10, 0, 0, 7); ctx.stroke();
     /* 穹頂 */
-    const gg = ctx.createRadialGradient(-6, -14, 3, 0, 0, 34);
-    gg.addColorStop(0, 'rgba(226,200,255,.85)');
-    gg.addColorStop(0.5, 'rgba(170,120,255,.5)');
-    gg.addColorStop(1, 'rgba(90,50,170,.22)');
+    const gg = gRad('base:reverseDome', -6, -14, 3, 0, 0, 34, BST.reverseDome);
     ctx.fillStyle = gg;
     ctx.beginPath(); ctx.arc(0, 10, 27, Math.PI, 0); ctx.fill();
     ctx.strokeStyle = 'rgba(220,195,255,.8)'; ctx.lineWidth = 1.6;
@@ -637,9 +760,7 @@ function drawStructure(s, t) {
     /* 能量柱 */
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const bg2 = ctx.createLinearGradient(0, 8, 0, -34);
-    bg2.addColorStop(0, 'rgba(190,150,255,.35)');
-    bg2.addColorStop(1, 'rgba(190,150,255,0)');
+    const bg2 = gLin('base:reverseBeam', 0, 8, 0, -34, BST.reverseBeam);
     ctx.fillStyle = bg2;
     ctx.beginPath();
     ctx.moveTo(-6, 8); ctx.lineTo(-2, -34); ctx.lineTo(2, -34); ctx.lineTo(6, 8);
@@ -773,9 +894,7 @@ function drawStructure(s, t) {
     ctx.save();
     ctx.translate(0, -24);
     ctx.rotate(Math.sin(t * 0.4) * 0.15);
-    const dg = ctx.createLinearGradient(0, -12, 0, 10);
-    dg.addColorStop(0, '#dff3ff');
-    dg.addColorStop(1, '#7fa8bd');
+    const dg = gLin('base:satDish', 0, -12, 0, 10, BST.satDish);
     ctx.fillStyle = dg;
     ctx.beginPath(); ctx.ellipse(0, 0, 26, 12, 0, 0, 7); ctx.fill();
     ctx.strokeStyle = 'rgba(127,212,255,.8)'; ctx.lineWidth = 1.6;
@@ -786,15 +905,11 @@ function drawStructure(s, t) {
     /* 藍光 */
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const bg4 = ctx.createLinearGradient(0, -34, 0, -80);
-    bg4.addColorStop(0, 'rgba(120,220,255,.45)');
-    bg4.addColorStop(1, 'rgba(120,220,255,0)');
+    const bg4 = gLin('base:satGlow', 0, -34, 0, -80, BST.satGlow);
     ctx.fillStyle = bg4;
     ctx.beginPath(); ctx.moveTo(-12, -34); ctx.lineTo(-4, -80); ctx.lineTo(4, -80); ctx.lineTo(12, -34);
     ctx.closePath(); ctx.fill();
-    const cg4 = ctx.createRadialGradient(0, -24, 2, 0, -24, 40);
-    cg4.addColorStop(0, 'rgba(150,230,255,.5)');
-    cg4.addColorStop(1, 'rgba(150,230,255,0)');
+    const cg4 = gRad('base:satCore', 0, -24, 2, 0, -24, 40, BST.satCore);
     ctx.fillStyle = cg4;
     ctx.beginPath(); ctx.arc(0, -24, 40, 0, 7); ctx.fill();
     ctx.restore();
@@ -832,9 +947,7 @@ function drawStructure(s, t) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       const f = 0.7 + Math.sin(t * 12) * 0.3;
-      const fg2 = ctx.createLinearGradient(0, 6, 0, 20 + 16 * f);
-      fg2.addColorStop(0, 'rgba(255,240,190,.85)');
-      fg2.addColorStop(1, 'rgba(120,200,255,0)');
+      const fg2 = gLin('base:dockFlame:' + Math.round(f * 10), 0, 6, 0, 20 + 16 * f, BST.dockFlame);
       ctx.fillStyle = fg2;
       ctx.beginPath();
       ctx.moveTo(-6, 6); ctx.quadraticCurveTo(0, 22 + 16 * f, 6, 6);
@@ -872,15 +985,12 @@ function drawBots(t) {
   for (const b of sea.bots) {
     ctx.save();
     ctx.translate(b.x, b.y);
-    /* 尾流 */
+    /* 尾流（快取漸層＋translate，取代每幀依角度重建） */
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const wg = ctx.createRadialGradient(-Math.cos(b.ang) * 12, -Math.sin(b.ang) * 12, 0,
-      -Math.cos(b.ang) * 12, -Math.sin(b.ang) * 12, 18);
-    wg.addColorStop(0, 'rgba(160,240,255,.25)');
-    wg.addColorStop(1, 'rgba(160,240,255,0)');
-    ctx.fillStyle = wg;
-    ctx.beginPath(); ctx.arc(-Math.cos(b.ang) * 12, -Math.sin(b.ang) * 12, 18, 0, 7); ctx.fill();
+    ctx.translate(-Math.cos(b.ang) * 12, -Math.sin(b.ang) * 12);
+    ctx.fillStyle = gRad('base:botWake', 0, 0, 0, 0, 0, 18, BST.botWake);
+    ctx.beginPath(); ctx.arc(0, 0, 18, 0, 7); ctx.fill();
     ctx.restore();
 
     ctx.rotate(b.ang);
@@ -949,7 +1059,9 @@ function drawBaseMini(canvas) {
 
   const colors = {
     net: '#8ee6a4', recycler: '#ffb36b', tower: '#ff9aa8',
-    reverse: '#c9a6ff', botdock: '#ffd166', dock: '#6fe3ff'
+    reverse: '#c9a6ff', botdock: '#ffd166', dock: '#6fe3ff',
+    /* S1b 新類型先預留（core.js 尚未定義時上面會取不到 structure，不會報錯） */
+    bounty: '#ffd166', modtable: '#c9a6ff'
   };
   for (const t of tiles) {
     const x = ox + t.gx * cell, y = oy + t.gy * cell;

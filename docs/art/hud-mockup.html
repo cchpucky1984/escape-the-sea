@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280,initial-scale=1">
+<title>逃出大海 · HUD / 面板 Mockup v0.4</title>
+<!--
+  ============================================================
+  逃出大海 v0.4 · HUD 與面板 mockup（自包含，1280×800，假資料）
+  - 不引用任何 repo 檔案、不載入外部字型／圖片；直接雙擊即可開
+  - 三種畫面：hud-mockup.html            → HUD 實戰視圖
+                hud-mockup.html#base     → 自動化基地面板
+                hud-mockup.html#craft    → 裝備／火箭科技面板
+  - 所有色票、字級、間距、圖示 path 與 docs/art/STYLE-v0.4.md 對應
+  ============================================================
+-->
+<style>
+/* ------------------------------------------------------------
+   0. Design tokens（可直接複製到 style.css :root）
+   ------------------------------------------------------------ */
+:root{
+  /* 深海分層 */
+  --c-abyss:#02070d; --c-deep:#041827; --c-mid:#08303f; --c-shallow:#0f5a72;
+  /* 文字 */
+  --c-ink:#e8f8ff; --c-ink-2:#9fc0d0; --c-muted:#6f8fa3;
+  /* 品牌／陣營 */
+  --c-cy:#6fe3ff; --c-cy-2:#2ab8dd;
+  --c-gold:#ffd166; --c-gold-2:#b8862e;
+  --c-danger:#ff5d73; --c-danger-2:#8c2333;
+  --c-green:#8ee6a4; --c-violet:#b892ff; --c-alien:#ff4fd8;
+  /* 線與面 */
+  --line:rgba(111,227,255,.22); --line-2:rgba(111,227,255,.10);
+  --panel:rgba(6,22,33,.86); --panel-2:rgba(8,30,44,.96);
+  --glass:rgba(4,18,28,.66);
+  /* 圓角 */
+  --r-xs:6px; --r-sm:10px; --r-md:12px; --r-lg:16px; --r-pill:999px;
+  /* 節奏 4px grid */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px;
+  /* 字 */
+  --font:"Microsoft JhengHei","PingFang TC","Noto Sans TC",system-ui,sans-serif;
+  --font-num:"Bahnschrift","DIN Alternate","Roboto Mono","Segoe UI",var(--font);
+  /* 動畫 */
+  --ease-out:cubic-bezier(.16,1,.3,1);
+  --ease-snap:cubic-bezier(.2,.9,.25,1);
+  --t-fast:120ms; --t-base:180ms; --t-slow:280ms; --t-pop:420ms;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;width:1280px;height:800px;overflow:hidden;background:var(--c-abyss);}
+body{color:var(--c-ink);font-family:var(--font);
+  -webkit-font-smoothing:antialiased;user-select:none}
+#sea{position:fixed;inset:0;width:1280px;height:800px;display:block}
+
+/* 掃描線 + 暗角 + 輕微色差（疊在 canvas 上、HUD 下） */
+#grade{position:fixed;inset:0;pointer-events:none;z-index:2;
+  background:
+    repeating-linear-gradient(0deg,rgba(0,0,0,.10) 0 1px,transparent 1px 3px),
+    radial-gradient(ellipse at 50% 46%,transparent 46%,rgba(0,0,0,.52) 100%);
+  opacity:.5}
+
+/* ------------------------------------------------------------
+   1. 通用圖示：全部 stroke=currentColor，viewBox 24×24
+   ------------------------------------------------------------ */
+.ico{display:block;width:16px;height:16px;flex:0 0 auto;fill:none;
+  stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ico.fill{fill:currentColor;stroke:currentColor}
+
+/* ------------------------------------------------------------
+   2. HUD：左上資源＋生命／氧氣／體力＋任務＋基地摘要
+   ------------------------------------------------------------ */
+#hud{position:fixed;left:20px;top:18px;width:352px;z-index:10;pointer-events:none}
+
+.res-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:236px}
+.chip{display:flex;align-items:center;gap:7px;height:34px;padding:0 10px 0 9px;
+  border-radius:var(--r-pill);background:var(--glass);border:1px solid var(--line);
+  backdrop-filter:blur(6px);box-shadow:inset 0 0 18px rgba(0,0,0,.35),0 2px 10px rgba(0,0,0,.25)}
+.chip .ico{width:16px;height:16px;color:var(--c,#6fe3ff);
+  filter:drop-shadow(0 0 5px color-mix(in srgb,var(--c,#6fe3ff) 55%,transparent))}
+.chip b{margin-left:auto;font-family:var(--font-num);font-size:16px;font-weight:600;
+  color:#fff;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.chip i{font-style:normal;font-size:10.5px;color:var(--c-ink-2);letter-spacing:.1em}
+.chip.alien{border-color:rgba(184,146,255,.42);
+  background:linear-gradient(180deg,rgba(20,12,38,.72),rgba(4,18,28,.66))}
+.chip.alien b{color:#e3d4ff}
+
+.vitals{margin-top:12px;width:236px;display:flex;flex-direction:column;gap:7px}
+.hearts{display:flex;gap:5px;height:22px;align-items:center}
+.heart{width:20px;height:20px;display:block;
+  filter:drop-shadow(0 0 6px rgba(255,93,115,.5))}
+.heart .ico{width:20px;height:20px}
+.heart.on{color:#ff5d73}
+.heart.on .ico{fill:#ff5d73;stroke:#ffc2cd;stroke-width:1}
+.heart.off{color:rgba(255,120,140,.32)}
+.heart.off .ico{fill:rgba(255,255,255,.05);stroke:currentColor;stroke-width:1.6}
+.heart.pop{animation:hpop var(--t-pop) var(--ease-out)}
+@keyframes hpop{0%{transform:scale(1)}45%{transform:scale(1.35)}100%{transform:scale(1)}}
+
+.vrow{display:flex;align-items:center;gap:8px;height:18px}
+.vrow>.ico{width:15px;height:15px;color:var(--vc)}
+.vrow .track{position:relative;width:150px;height:9px;border-radius:5px;
+  background:rgba(0,0,0,.55);border:1px solid rgba(111,227,255,.16);overflow:hidden}
+.vrow .track::after{content:"";position:absolute;inset:0;border-radius:4px;
+  background:repeating-linear-gradient(90deg,transparent 0 14px,rgba(2,7,13,.55) 14px 15px)}
+.vrow .fill{height:100%;border-radius:4px;transition:width var(--t-base) linear}
+.vrow .fill.ox{background:linear-gradient(90deg,#3ad1ff,#9beaff);
+  box-shadow:0 0 10px rgba(58,209,255,.5)}
+.vrow .fill.st{background:linear-gradient(90deg,#7ddf8a,#d9f77a);
+  box-shadow:0 0 10px rgba(125,223,138,.4)}
+.vrow em{font-style:normal;font-family:var(--font-num);font-size:11px;
+  color:var(--c-ink-2);width:32px;text-align:right;font-variant-numeric:tabular-nums}
+.vrow .cap{font-size:10px;color:var(--c-muted);letter-spacing:.18em;width:14px}
+
+/* 任務卡 */
+.quest{position:relative;margin-top:12px;width:340px;padding:10px 13px 11px 15px;
+  background:linear-gradient(90deg,rgba(4,18,28,.82),rgba(4,18,28,.48));
+  border:1px solid var(--line-2);border-left:3px solid var(--c-cy);
+  border-radius:0 var(--r-sm) var(--r-sm) 0;backdrop-filter:blur(6px)}
+.quest .q-top{display:flex;align-items:center;gap:8px;
+  font-size:10px;letter-spacing:.2em;color:var(--c-cy)}
+.quest .q-top .num{margin-left:auto;font-family:var(--font-num);letter-spacing:.06em;
+  color:var(--c-ink-2);font-size:10.5px}
+.quest .qbar{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden}
+.quest .qbar i{display:block;height:100%;width:75%;
+  background:linear-gradient(90deg,#5ad1ff,#a9f0ff);
+  box-shadow:0 0 8px rgba(90,209,255,.6)}
+.quest .q-title{margin-top:7px;font-size:14px;color:var(--c-ink);letter-spacing:.02em;line-height:1.45}
+.quest .q-title b{color:var(--c-gold);font-weight:600}
+.quest .q-sub{margin-top:4px;font-size:11px;color:var(--c-muted);letter-spacing:.02em}
+.quest .q-prog{position:absolute;right:13px;bottom:11px;font-family:var(--font-num);
+  font-size:12px;color:var(--c-ink-2);font-variant-numeric:tabular-nums}
+.quest .q-prog b{font-size:14px;color:var(--c-ink)}
+
+/* 基地摘要列 */
+.basetag{margin-top:10px;width:344px;display:flex;flex-wrap:wrap;gap:6px 14px;
+  font-size:11px;color:var(--c-ink-2);letter-spacing:.03em;line-height:1.5}
+.basetag span{display:flex;align-items:center;gap:5px}
+.basetag .ico{width:13px;height:13px;color:var(--c-muted)}
+.basetag b{font-family:var(--font-num);font-weight:600;color:var(--c-green);font-size:12px}
+.basetag .warn b{color:var(--c-gold)}
+
+/* ------------------------------------------------------------
+   3. 頂部羅盤（heading tape）
+   ------------------------------------------------------------ */
+#compass{position:fixed;left:50%;top:18px;transform:translateX(-50%);
+  width:440px;z-index:9;pointer-events:none;text-align:center}
+.cmp-tape{position:relative;height:30px;overflow:hidden;border-radius:8px;
+  background:linear-gradient(180deg,rgba(4,18,28,.78),rgba(4,18,28,.34));
+  border:1px solid var(--line-2);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+          mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+.cmp-tape .ticks{position:absolute;inset:0;
+  background:repeating-linear-gradient(90deg,rgba(111,227,255,.55) 0 1px,transparent 1px 11px);
+  -webkit-mask-image:linear-gradient(180deg,transparent,#000 58%);
+          mask-image:linear-gradient(180deg,transparent,#000 58%);
+  opacity:.75}
+.cmp-tape .card{position:absolute;top:5px;font-size:10.5px;letter-spacing:.14em;
+  color:var(--c-ink-2);transform:translateX(-50%)}
+.cmp-tape .card.major{color:var(--c-ink);font-size:11px}
+.cmp-tape .mark{position:absolute;top:12px;transform:translateX(-50%)}
+.cmp-tape .mark i{display:block;width:0;height:0;border:5px solid transparent}
+.cmp-tape .mark.base i{border-top-color:var(--c-green);
+  filter:drop-shadow(0 0 6px rgba(142,230,164,.8))}
+.cmp-tape .mark.foe i{border-top-color:var(--c-danger);opacity:.9}
+.cmp-caret{position:absolute;left:50%;top:0;transform:translateX(-50%);
+  width:0;height:0;border:5px solid transparent;border-top-color:var(--c-cy);
+  filter:drop-shadow(0 0 8px rgba(111,227,255,.9))}
+.cmp-read{display:inline-flex;align-items:center;gap:7px;margin-top:5px;
+  padding:3px 11px;border-radius:var(--r-pill);background:rgba(4,18,28,.6);
+  border:1px solid var(--line-2);font-size:10.5px;color:var(--c-ink-2);
+  letter-spacing:.08em;backdrop-filter:blur(4px)}
+.cmp-read b{font-family:var(--font-num);color:var(--c-cy);font-weight:600;letter-spacing:.04em}
+.cmp-read .sep{color:rgba(111,227,255,.3)}
+.cmp-read .leg{font-family:var(--font);font-size:9.5px;letter-spacing:.04em}
+.cmp-read .leg.base{color:var(--c-green)}
+.cmp-read .leg.foe{color:var(--c-danger)}
+
+/* ------------------------------------------------------------
+   4. 右上：章節目標 + toast
+   ------------------------------------------------------------ */
+#objective{position:fixed;right:20px;top:18px;width:292px;z-index:9;pointer-events:none}
+.obj{background:linear-gradient(180deg,rgba(6,22,33,.88),rgba(6,22,33,.62));
+  border:1px solid var(--line-2);border-left:3px solid var(--c-gold);
+  border-radius:var(--r-sm);padding:10px 12px;backdrop-filter:blur(6px)}
+.obj .k{font-size:10px;letter-spacing:.2em;color:var(--c-gold)}
+.obj .t{margin-top:5px;font-size:13.5px;color:var(--c-ink);letter-spacing:.03em}
+.obj .steps{display:flex;align-items:center;gap:5px;margin-top:9px}
+.obj .steps span{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.12)}
+.obj .steps span.done{background:var(--c-green);box-shadow:0 0 7px rgba(142,230,164,.55)}
+.obj .steps span.now{background:var(--c-cy);box-shadow:0 0 8px rgba(111,227,255,.65)}
+.obj .lbls{display:flex;justify-content:space-between;margin-top:4px;
+  font-size:9.5px;color:var(--c-muted);letter-spacing:.08em}
+.obj .lbls .now{color:var(--c-cy)}
+
+#toasts{position:fixed;right:20px;top:128px;z-index:9;display:flex;flex-direction:column;
+  gap:8px;align-items:flex-end;pointer-events:none}
+.toast{display:flex;align-items:center;gap:9px;max-width:292px;
+  padding:9px 13px;border-radius:var(--r-sm);
+  background:rgba(6,26,38,.9);border:1px solid var(--line-2);border-left:3px solid var(--c-cy);
+  box-shadow:0 10px 26px rgba(0,0,0,.45);backdrop-filter:blur(6px);
+  animation:tin var(--t-slow) var(--ease-out) both}
+.toast .ico{width:16px;height:16px;color:var(--c-cy)}
+.toast .tx{font-size:12.5px;color:var(--c-ink);letter-spacing:.02em;line-height:1.35}
+.toast .tx small{display:block;font-size:10.5px;color:var(--c-ink-2);margin-top:2px;letter-spacing:.04em}
+.toast.gold{border-left-color:var(--c-gold);background:rgba(38,28,6,.92)}
+.toast.gold .ico{color:var(--c-gold)}
+.toast.gold .tx{color:#ffe9b3}
+@keyframes tin{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
+
+/* ------------------------------------------------------------
+   5. 底部：操作提示 + 雷達
+   ------------------------------------------------------------ */
+#hintbar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9;
+  display:flex;align-items:center;gap:14px;height:32px;padding:0 16px;
+  border-radius:var(--r-pill);background:rgba(4,18,28,.62);border:1px solid var(--line-2);
+  backdrop-filter:blur(6px);font-size:11.5px;color:var(--c-ink-2);letter-spacing:.03em;
+  white-space:nowrap}
+#hintbar .hk{display:flex;align-items:center;gap:6px}
+#hintbar kbd{display:inline-flex;align-items:center;justify-content:center;
+  min-width:18px;height:18px;padding:0 5px;border-radius:5px;
+  background:rgba(111,227,255,.1);border:1px solid var(--line);
+  color:var(--c-cy);font-family:var(--font-num);font-size:10.5px;letter-spacing:.02em}
+#hintbar .dotsep{width:3px;height:3px;border-radius:50%;background:rgba(111,227,255,.35)}
+
+#radar{position:fixed;right:20px;bottom:18px;width:184px;height:204px;z-index:9;
+  pointer-events:none}
+.radar-ring{position:relative;width:184px;height:184px;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%,rgba(8,44,58,.92),rgba(3,14,22,.94) 72%);
+  border:1px solid rgba(111,227,255,.26);
+  box-shadow:0 0 0 5px rgba(4,18,28,.5),0 0 0 6px rgba(111,227,255,.08),
+             inset 0 0 30px rgba(0,0,0,.6),0 10px 30px rgba(0,0,0,.5)}
+.radar-ring canvas{position:absolute;inset:0;width:184px;height:184px;border-radius:50%}
+.radar-ring .n{position:absolute;left:50%;top:6px;transform:translateX(-50%);
+  font-family:var(--font-num);font-size:9.5px;color:var(--c-ink-2);letter-spacing:.1em}
+.radar-cap{margin-top:7px;text-align:center;font-size:10.5px;color:var(--c-ink-2);
+  letter-spacing:.08em}
+.radar-cap b{font-family:var(--font-num);color:var(--c-green);font-weight:600}
+
+#mocktag{position:fixed;left:20px;bottom:16px;z-index:9;font-size:9.5px;
+  letter-spacing:.16em;color:rgba(143,179,196,.5);pointer-events:none}
+
+/* ------------------------------------------------------------
+   6. 面板共用（modal）
+   ------------------------------------------------------------ */
+#backdrop{position:fixed;inset:0;z-index:20;display:none;
+  background:rgba(1,8,14,.7);backdrop-filter:blur(5px)}
+.modal{position:fixed;inset:0;z-index:30;display:none;align-items:center;
+  justify-content:center;padding:24px}
+body[data-view="base"] #backdrop,body[data-view="craft"] #backdrop{display:block}
+body[data-view="base"] .modal[data-panel="base"],
+body[data-view="craft"] .modal[data-panel="craft"]{display:flex;animation:fadeIn var(--t-fast) ease}
+
+.modal-box{width:980px;max-height:752px;display:flex;flex-direction:column;
+  background:linear-gradient(180deg,rgba(9,30,44,.98),rgba(5,16,25,.99));
+  border:1px solid rgba(111,227,255,.28);border-radius:var(--r-lg);overflow:hidden;
+  box-shadow:0 30px 90px rgba(0,0,0,.72),0 0 70px rgba(30,140,190,.14),
+             inset 0 1px 0 rgba(255,255,255,.05)}
+.m-head{display:flex;align-items:center;justify-content:space-between;
+  padding:12px 20px;border-bottom:1px solid rgba(111,227,255,.14);
+  background:linear-gradient(90deg,rgba(111,227,255,.05),transparent 60%)}
+.m-kick{font-size:10px;letter-spacing:.28em;color:var(--c-cy-2);margin-bottom:4px}
+.m-head h2{margin:0;font-size:19px;letter-spacing:.1em;color:#d8f4ff;font-weight:700}
+.m-head .sub{margin-top:3px;font-size:11px;color:var(--c-muted);letter-spacing:.03em}
+.m-x{width:30px;height:30px;border-radius:8px;background:transparent;border:1px solid transparent;
+  color:#7fa3b4;font-size:15px;line-height:1;cursor:pointer;font-family:var(--font)}
+.m-x:hover{background:rgba(255,255,255,.06);border-color:var(--line-2);color:#fff}
+.m-body{padding:14px 20px;overflow:auto;flex:1}
+.m-foot{display:flex;align-items:center;gap:14px;padding:12px 20px;
+  border-top:1px solid rgba(111,227,255,.14);background:rgba(0,0,0,.2)}
+.m-foot .note{font-size:11px;color:var(--c-muted);letter-spacing:.02em}
+.m-foot .note b{color:var(--c-green);font-weight:600}
+.m-foot .grow{flex:1}
+.btn{height:34px;padding:0 18px;border-radius:var(--r-sm);border:none;cursor:pointer;
+  font-family:var(--font);font-size:13px;letter-spacing:.06em}
+.btn.primary{background:linear-gradient(180deg,#7fe9ff,#25a9cc);color:#04222c;font-weight:700;
+  box-shadow:0 0 18px rgba(111,227,255,.32),inset 0 -2px 0 rgba(0,0,0,.22);
+  transition:transform var(--t-fast) var(--ease-out),box-shadow var(--t-fast)}
+.btn.primary:hover{transform:translateY(-1px);box-shadow:0 0 26px rgba(111,227,255,.55)}
+.btn.ghost{background:transparent;color:var(--c-cy);border:1px solid var(--line)}
+.btn.ghost:hover{background:rgba(111,227,255,.1)}
+.btn.sm{height:30px;padding:0 12px;font-size:12px;border-radius:8px}
+.btn:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(.45)}
+.btn.sm.primary{box-shadow:0 0 12px rgba(111,227,255,.25),inset 0 -2px 0 rgba(0,0,0,.22)}
+
+/* ------------------------------------------------------------
+   7. 基地面板
+   ------------------------------------------------------------ */
+.bsum{display:grid;grid-template-columns:132px 1fr 190px;gap:16px;
+  background:rgba(0,0,0,.22);border:1px solid rgba(111,227,255,.14);
+  border-radius:var(--r-md);padding:10px 16px;margin-bottom:10px}
+.minimap{position:relative;width:132px;height:132px;border-radius:var(--r-sm);
+  background:radial-gradient(circle at 50% 50%,rgba(20,70,95,.55),rgba(3,16,24,.94));
+  border:1px solid rgba(111,227,255,.16);overflow:hidden}
+.minimap canvas{display:block;width:132px;height:132px}
+.minimap .mm-l{position:absolute;left:0;right:0;bottom:5px;text-align:center;
+  font-size:9.5px;letter-spacing:.1em;color:var(--c-ink-2)}
+.bstats{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;align-content:center}
+.bstats .row{display:flex;flex-direction:column;gap:2px}
+.bstats .k{font-size:10.5px;color:var(--c-muted);letter-spacing:.08em}
+.bstats .v{font-family:var(--font-num);font-size:18px;color:var(--c-ink);letter-spacing:.02em;line-height:1.2}
+.bstats .v i{font-style:normal;font-family:var(--font);font-size:10.5px;color:var(--c-muted)}
+.bstats .v.green{color:var(--c-green)}
+.bprod{border-left:1px solid var(--line-2);padding-left:16px;display:flex;
+  flex-direction:column;justify-content:center;gap:7px}
+.bprod .pt{font-size:10px;letter-spacing:.2em;color:var(--c-muted)}
+.pline{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--c-ink-2)}
+.pline .ico{width:14px;height:14px;color:var(--c)}
+.pline b{margin-left:auto;font-family:var(--font-num);font-size:14px;color:var(--c-ink);
+  font-weight:600}
+.bprod .pnote{font-size:9.5px;color:var(--c-muted);letter-spacing:.03em;margin-top:2px}
+
+.sect{display:flex;align-items:center;gap:10px;margin:10px 0 8px;font-size:12px;
+  letter-spacing:.14em;color:var(--c-ink-2)}
+.sect::after{content:"";flex:1;height:1px;
+  background:linear-gradient(90deg,rgba(111,227,255,.22),transparent)}
+.sect .hint{font-size:10.5px;letter-spacing:.02em;color:var(--c-muted)}
+.sect .hint b{color:var(--c-cy);font-weight:600}
+
+.bgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.bcard{position:relative;display:flex;flex-direction:column;gap:7px;
+  padding:10px 12px;border-radius:var(--r-md);
+  background:rgba(255,255,255,.032);border:1px solid rgba(111,227,255,.15);
+  transition:border-color var(--t-base),background var(--t-base)}
+.bcard:hover{border-color:rgba(111,227,255,.38);background:rgba(111,227,255,.05)}
+.bcard .bh{display:flex;align-items:center;gap:9px}
+.tile{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;
+  justify-content:center;flex:0 0 auto;color:var(--c,var(--c-green));
+  background:color-mix(in srgb,var(--c,var(--c-green)) 14%,transparent);
+  border:1px solid color-mix(in srgb,var(--c,var(--c-green)) 30%,transparent);
+  box-shadow:0 0 14px color-mix(in srgb,var(--c,var(--c-green)) 18%,transparent)}
+.tile .ico{width:17px;height:17px}
+.bcard .nm{font-size:13.5px;color:#eaf9ff;letter-spacing:.03em;line-height:1.25}
+.bcard .tags{display:flex;gap:5px;margin-top:3px}
+.tag{font-size:9px;padding:1px 6px;border-radius:var(--r-pill);letter-spacing:.1em;
+  border:1px solid rgba(111,227,255,.3);color:#7fd4ea}
+.tag.prod{border-color:rgba(142,230,164,.4);color:#8ee6a4}
+.tag.auto{border-color:rgba(255,209,102,.42);color:#ffd166}
+.tag.def{border-color:rgba(255,120,140,.4);color:#ff9aa8}
+.tag.rare{border-color:rgba(184,146,255,.45);color:#c9b0ff}
+.tag.core{border-color:rgba(111,227,255,.45);color:#9fe9ff}
+.bcard .cnt{margin-left:auto;font-family:var(--font-num);font-size:12px;color:var(--c-ink-2);
+  letter-spacing:.04em}
+.bcard .cnt.full{color:var(--c-green)}
+.bcard .desc{font-size:11.5px;line-height:1.5;color:var(--c-ink-2);min-height:32px}
+.bcard .desc b{color:var(--c-ink);font-weight:600}
+.cost{display:flex;flex-wrap:wrap;gap:5px}
+.cchip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;
+  border-radius:var(--r-xs);background:rgba(0,0,0,.32);
+  border:1px solid rgba(255,255,255,.07);color:#bfe6f5;
+  font-family:var(--font-num);font-size:11.5px;letter-spacing:.02em}
+.cchip .ico{width:12px;height:12px;color:var(--c,var(--c-cy))}
+.cchip.no{color:#ff9a9a;border-color:rgba(255,110,110,.4);background:rgba(255,60,60,.1)}
+.cchip.no .ico{color:#ff8f8f}
+.cchip.muted{color:var(--c-muted)}
+.bcard .bf{margin-top:auto;display:flex;align-items:center;gap:8px}
+.bcard .bf .btn{width:100%}
+.maxline{display:flex;align-items:center;justify-content:center;gap:6px;height:32px;
+  border-radius:var(--r-sm);background:rgba(142,230,164,.08);
+  border:1px solid rgba(142,230,164,.22);color:var(--c-green);
+  font-size:12px;letter-spacing:.08em}
+.maxline .ico{width:13px;height:13px}
+.bcard.locked{opacity:.78}
+.bcard.locked .desc{color:var(--c-muted)}
+.reqline{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--c-gold);
+  letter-spacing:.03em}
+.reqline .ico{width:12px;height:12px}
+
+/* ------------------------------------------------------------
+   8. 裝備面板（列式）
+   ------------------------------------------------------------ */
+.crow{display:grid;grid-template-columns:34px minmax(0,1fr) 104px 176px 150px 92px;
+  align-items:center;gap:12px;min-height:62px;padding:9px 4px;
+  border-bottom:1px solid rgba(255,255,255,.055)}
+.crow:last-child{border-bottom:none}
+.crow:hover{background:rgba(111,227,255,.035)}
+.crow .cico{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;
+  justify-content:center;color:var(--c,var(--c-cy));
+  background:color-mix(in srgb,var(--c,var(--c-cy)) 14%,transparent);
+  border:1px solid color-mix(in srgb,var(--c,var(--c-cy)) 28%,transparent)}
+.crow .cico .ico{width:17px;height:17px}
+.crow .cn b{display:block;font-size:13px;color:#eaf9ff;letter-spacing:.03em}
+.crow .cn span{display:block;margin-top:3px;font-size:10.5px;color:var(--c-muted);
+  letter-spacing:.02em;line-height:1.45}
+.pips{display:flex;gap:3px;margin-bottom:4px}
+.pips i{width:16px;height:5px;border-radius:3px;background:rgba(255,255,255,.13)}
+.pips i.on{background:linear-gradient(90deg,#5ad1ff,#9beaff);
+  box-shadow:0 0 7px rgba(90,209,255,.55)}
+.crow .clv em{font-style:normal;font-family:var(--font-num);font-size:10px;
+  color:var(--c-ink-2);letter-spacing:.06em}
+.ceff{display:flex;align-items:center;gap:7px;font-family:var(--font-num);font-size:13px}
+.ceff .from{color:var(--c-ink-2)}
+.ceff .arw{color:var(--c-cy);font-size:11px}
+.ceff .to{color:var(--c-green)}
+.crow .ccost{display:flex;flex-wrap:wrap;gap:5px}
+.crow .btn{width:100%}
+
+.crow.locked{opacity:.72}
+.crow.locked .cn b{color:#c9d9e2}
+.locknote{display:flex;align-items:center;gap:5px;margin-top:4px;font-style:normal;
+  font-size:10px;color:var(--c-gold);letter-spacing:.02em;line-height:1.4}
+.locknote .ico{width:11px;height:11px;flex:0 0 auto}
+
+/* 太空船組裝進度（footer） */
+.shipprog{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--c-ink-2)}
+.shipprog .bar{width:150px;height:6px;border-radius:3px;background:rgba(0,0,0,.45);
+  border:1px solid rgba(111,227,255,.16);overflow:hidden}
+.shipprog .bar i{display:block;height:100%;width:75%;
+  background:linear-gradient(90deg,#ffd166,#ffe6a8);box-shadow:0 0 9px rgba(255,209,102,.5)}
+.shipprog b{font-family:var(--font-num);color:var(--c-gold);font-weight:600}
+
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+</style>
+</head>
+<body data-view="hud">
+
+<!-- ===== 圖示 sprite（全部 24×24，stroke 1.8，可直接貼進 canvas Path2D） ===== -->
+<svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+  <symbol id="i-plastic" viewBox="0 0 24 24"><path d="M9.6 3.5h4.8v2.3l1 1.5c.4.6.6 1.3.6 2V19a2.5 2.5 0 0 1-2.5 2.5h-3A2.5 2.5 0 0 1 8 19V9.3c0-.7.2-1.4.6-2l1-1.5z"/><path d="M9.6 6.2h4.8M8.2 13.5h7.6"/></symbol>
+  <symbol id="i-wood" viewBox="0 0 24 24"><path d="M4 6.5h16v4H4zM4 13.5h16v4H4z"/><path d="M7 8.5h3M13 8.5h2M8 15.5h3M14 15.5h2"/></symbol>
+  <symbol id="i-metal" viewBox="0 0 24 24"><path d="M6 8.5h12l3 5.5H3zM7.5 14h9l1.5 3.5H6z"/></symbol>
+  <symbol id="i-alloy" viewBox="0 0 24 24"><path d="M12 2.5 17.5 8 12 21.5 6.5 8z"/><path d="M6.5 8h11M12 2.5v19"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20.6S4 15.8 4 9.8A4.4 4.4 0 0 1 12 6.5a4.4 4.4 0 0 1 8 3.3c0 6-8 10.8-8 10.8z"/></symbol>
+  <symbol id="i-o2" viewBox="0 0 24 24"><path d="M12 2.8c3.6 4.6 6.4 8 6.4 11.2a6.4 6.4 0 0 1-12.8 0C5.6 10.8 8.4 7.4 12 2.8z"/><path d="M9.2 14.6a3.1 3.1 0 0 0 2.8 3"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.4 2.5 4.8 13.9h5.6l-1.2 7.6 8.8-11.4h-5.7z"/></symbol>
+  <symbol id="i-base" viewBox="0 0 24 24"><path d="M12 3 20 7.5v9L12 21 4 16.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></symbol>
+  <symbol id="i-radar" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17z"/><path d="M12 12l5.8-3.6M12 12h.01"/></symbol>
+  <symbol id="i-bot" viewBox="0 0 24 24"><path d="M3.5 13.8h17l-3 5.7h-11z"/><path d="M8 13.8V9.5h6v4.3M12 9.5V6"/></symbol>
+  <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 3.2 21.4 20H2.6z"/><path d="M12 9.2v4.6M12 17.2h.01"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><path d="M7.5 10.2V7.8a4.5 4.5 0 0 1 9 0v2.4"/><path d="M5.5 10.2h13V20h-13zM12 14v2.4"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 3.5 17.5 9.6h-3.4v6.6h-4.2V9.6H6.5z"/><path d="M7.5 19.2h9"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.8 20 5.7v5.8c0 4.8-3.3 8.2-8 10.3-4.7-2.1-8-5.5-8-10.3V5.7z"/></symbol>
+  <symbol id="i-net" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17z"/><path d="M4.5 9.5c4 2 11 2 15 0M4.5 14.5c4 2 11 2 15 0"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7"/></symbol>
+  <symbol id="i-turret" viewBox="0 0 24 24"><path d="M4.5 20h15M7.5 20v-4.6h9V20"/><path d="M12 15.4v-4.2M12 11.2l5.5-2.8M10 8.9h4"/></symbol>
+  <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M12 2.8c3.2 2.7 4 7.2 3.7 11.2L12 17.5 8.3 14C8 10 8.8 5.5 12 2.8z"/><path d="M8.3 14 5.8 16.4v3.4M15.7 14l2.5 2.4v3.4M12 9.2h.01"/></symbol>
+  <symbol id="i-fins" viewBox="0 0 24 24"><path d="M3.5 7.2 10.5 12l-7 4.8zM20.5 7.2 13.5 12l7 4.8z"/><path d="M9.5 12h5"/></symbol>
+  <symbol id="i-tank" viewBox="0 0 24 24"><path d="M9 6.5h6V9H9z"/><path d="M9 9h6v9.5a3 3 0 0 1-6 0zM12 6.5V4"/></symbol>
+  <symbol id="i-suit" viewBox="0 0 24 24"><path d="M8.5 4.5h7l2 4-2 3.2V20h-7v-8.3L6.5 8.5z"/><path d="M12 8.5h.01"/></symbol>
+  <symbol id="i-magnet" viewBox="0 0 24 24"><path d="M6 4.5v7.8a6 6 0 0 0 12 0V4.5h-3.2v7.8a2.8 2.8 0 0 1-5.6 0V4.5z"/><path d="M6 7.5h3M15 7.5h3"/></symbol>
+  <symbol id="i-spear" viewBox="0 0 24 24"><path d="M3.5 20.5 14 10M14 10l6.5-6.5M17 3.5h3.5V7M13 11l2 2"/></symbol>
+</svg>
+
+<canvas id="sea"></canvas>
+<div id="grade"></div>
+
+<!-- ================= HUD ================= -->
+<div id="hud">
+  <div class="res-grid">
+    <div class="chip" style="--c:#6fe3ff"><svg class="ico"><use href="#i-plastic"/></svg><b>128</b><i>塑膠</i></div>
+    <div class="chip" style="--c:#e0a95f"><svg class="ico"><use href="#i-wood"/></svg><b>64</b><i>木材</i></div>
+    <div class="chip" style="--c:#cfd9e6"><svg class="ico"><use href="#i-metal"/></svg><b>41</b><i>金屬</i></div>
+    <div class="chip alien" style="--c:#b892ff"><svg class="ico"><use href="#i-alloy"/></svg><b>3</b><i>外星合金</i></div>
+  </div>
+
+  <div class="vitals">
+    <div class="hearts">
+      <svg class="heart on"><use class="ico fill" href="#i-heart"/></svg>
+      <svg class="heart on"><use class="ico fill" href="#i-heart"/></svg>
+      <svg class="heart off"><use class="ico" href="#i-heart"/></svg>
+    </div>
+    <div class="vrow" style="--vc:#3ad1ff">
+      <svg class="ico"><use href="#i-o2"/></svg>
+      <div class="track"><div class="fill ox" style="width:62%"></div></div>
+      <em>62%</em>
+    </div>
+    <div class="vrow" style="--vc:#7ddf8a">
+      <svg class="ico"><use href="#i-bolt"/></svg>
+      <div class="track"><div class="fill st" style="width:84%"></div></div>
+      <em>84%</em>
+    </div>
+  </div>
+
+  <div class="quest">
+    <div class="q-top">
+      <span>任務 4 / 8</span>
+      <div class="qbar"><i></i></div>
+      <span class="num">J 任務清單</span>
+    </div>
+    <div class="q-title">把 <b>壓縮魚槍</b> 升到 Lv4</div>
+    <div class="q-sub">在基地按 C 開啟裝備面板 · 缺 4 塊外星合金</div>
+    <div class="q-prog"><b>3</b> / 4</div>
+  </div>
+
+  <div class="basetag">
+    <span><svg class="ico"><use href="#i-base"/></svg>基地 <b>8</b> 座</span>
+    <span>平台 <b>9</b> 格</span>
+    <span><svg class="ico"><use href="#i-shield"/></svg>安全圈 <b>286</b> m</span>
+    <span><svg class="ico"><use href="#i-bot"/></svg>BOT <b>1</b>/3</span>
+    <span class="warn"><svg class="ico"><use href="#i-alloy"/></svg>碎片 <b>2</b>/4</span>
+  </div>
+</div>
+
+<!-- ================= 羅盤 ================= -->
+<div id="compass">
+  <div class="cmp-tape">
+    <div class="ticks"></div>
+    <div class="card major" style="left:26%">北</div>
+    <div class="card major" style="left:51%">東北</div>
+    <div class="card major" style="left:76%">東</div>
+    <div class="mark base" style="left:16%"><i></i></div>
+    <div class="mark foe" style="left:66%"><i></i></div>
+    <div class="cmp-caret"></div>
+  </div>
+  <div class="cmp-read"><b>043°</b><span class="sep">·</span>外海<span class="sep">·</span>資源 ×1.6<span class="sep">·</span>怪物上限 4<span class="sep">·</span><span class="leg base">▲ 基地</span><span class="leg foe">▼ 敵人</span></div>
+</div>
+
+<!-- ================= 右上目標 ================= -->
+<div id="objective">
+  <div class="obj">
+    <div class="k">章節目標 · 攻入母船</div>
+    <div class="t">升級裝備，組裝太空船</div>
+    <div class="steps"><span class="done"></span><span class="done"></span><span class="now"></span><span></span></div>
+    <div class="lbls"><span>基地</span><span>裝備</span><span class="now">升空</span><span>決戰</span></div>
+  </div>
+</div>
+
+<div id="toasts">
+  <div class="toast gold">
+    <svg class="ico"><use href="#i-up"/></svg>
+    <div class="tx">任務完成：初次潛水<small>+ 塑膠 30 · + 木材 10</small></div>
+  </div>
+  <div class="toast">
+    <svg class="ico"><use href="#i-bot"/></svg>
+    <div class="tx">BOT-01 已出海<small>載貨 0 / 8 · 預計 42 秒返航</small></div>
+  </div>
+  <div class="toast">
+    <svg class="ico"><use href="#i-metal"/></svg>
+    <div class="tx">分解工坊 +1 金屬</div>
+  </div>
+</div>
+
+<!-- ================= 底部提示 ================= -->
+<div id="hintbar">
+  <div class="hk"><kbd>B</kbd>基地</div><i class="dotsep"></i>
+  <div class="hk"><kbd>C</kbd>裝備</div><i class="dotsep"></i>
+  <div class="hk"><kbd>J</kbd>任務</div><i class="dotsep"></i>
+  <div class="hk"><kbd>M</kbd>靜音</div><i class="dotsep"></i>
+  <div class="hk"><kbd>Esc</kbd>暫停</div>
+</div>
+
+<!-- ================= 雷達 ================= -->
+<div id="radar">
+  <div class="radar-ring">
+    <canvas id="radarCv" width="368" height="368"></canvas>
+    <span class="n">N</span>
+  </div>
+  <div class="radar-cap">基地 <b>620</b> m · 安全圈 <b>286</b> m</div>
+</div>
+
+<div id="mocktag">HUD v0.4 MOCKUP · 1280×800 · 假資料</div>
+
+<!-- ================= 面板：自動化基地 ================= -->
+<div id="backdrop"></div>
+
+<div class="modal" data-panel="base">
+  <div class="modal-box">
+    <header class="m-head">
+      <div>
+        <div class="m-kick">BASE // 海上平台</div>
+        <h2>自動化基地</h2>
+        <div class="sub">平台會隨每一次建造往中心外圍長一格</div>
+      </div>
+      <button class="m-x" data-close aria-label="關閉">✕</button>
+    </header>
+    <div class="m-body">
+      <div class="bsum">
+        <div class="minimap">
+          <canvas id="minimap" width="300" height="300"></canvas>
+          <div class="mm-l">平台 9 / 20 格</div>
+        </div>
+        <div class="bstats">
+          <div class="row"><span class="k">建築 / 平台</span><span class="v">6 <i>座</i> / 9 <i>格</i></span></div>
+          <div class="row"><span class="k">安全圈半徑</span><span class="v green">286 <i>m</i></span></div>
+          <div class="row"><span class="k">BOT 艦隊</span><span class="v">1 <i>/ 3</i></span></div>
+          <div class="row"><span class="k">科技碎片</span><span class="v">2 <i>/ 4</i></span></div>
+        </div>
+        <div class="bprod">
+          <div class="pt">每 5 秒產出</div>
+          <div class="pline" style="--c:#6fe3ff"><svg class="ico"><use href="#i-plastic"/></svg>塑膠<b>+4</b></div>
+          <div class="pline" style="--c:#e0a95f"><svg class="ico"><use href="#i-wood"/></svg>木材<b>+3</b></div>
+          <div class="pline" style="--c:#cfd9e6"><svg class="ico"><use href="#i-metal"/></svg>金屬<b>+2</b></div>
+          <div class="pnote">自動收集網 ×3 · 分解工坊 ×1</div>
+        </div>
+      </div>
+
+      <div class="sect"><span>建築 · 6 類</span>
+        <span class="hint">造價 = 基礎 × <b>1.6</b><sup>同類數量</sup> · 只能在安全圈內建造</span></div>
+
+      <div class="bgrid">
+        <!-- 已建滿 -->
+        <article class="bcard">
+          <div class="bh">
+            <span class="tile" style="--c:#8ee6a4"><svg class="ico"><use href="#i-net"/></svg></span>
+            <div><div class="nm">自動收集網</div>
+              <div class="tags"><span class="tag prod">生產</span></div></div>
+            <span class="cnt full">3 / 3</span>
+          </div>
+          <p class="desc">每 5 秒 <b>+1 塑膠、+1 木材</b>，離基地 360 m 內自動收集。</p>
+          <div class="maxline"><svg class="ico"><use href="#i-up"/></svg>已達上限</div>
+        </article>
+
+        <!-- 可建造 -->
+        <article class="bcard">
+          <div class="bh">
+            <span class="tile" style="--c:#ffd166"><svg class="ico"><use href="#i-gear"/></svg></span>
+            <div><div class="nm">分解工坊</div>
+              <div class="tags"><span class="tag prod">生產</span></div></div>
+            <span class="cnt">1 / 3</span>
+          </div>
+          <p class="desc">每 5 秒 <b>+1 金屬</b>，可把塑膠重組成金屬（1 : 1）。</p>
+          <div class="cost">
+            <span class="cchip" style="--c:#6fe3ff"><svg class="ico"><use href="#i-plastic"/></svg>120</span>
+            <span class="cchip" style="--c:#e0a95f"><svg class="ico"><use href="#i-wood"/></svg>80</span>
+          </div>
+          <div class="bf"><button class="btn primary sm">建造</button></div>
+        </article>
+
+        <!-- 資源不足 -->
+        <article class="bcard">
+          <div class="bh">
+            <span class="tile" style="--c:#ffd166"><svg class="ico"><use href="#i-bot"/></svg></span>
+            <div><div class="nm">BOT 船塢</div>
+              <div class="tags"><span class="tag auto">自動化</span></div></div>
+            <span class="cnt">1 / 3</span>
+          </div>
+          <p class="desc">派出一台 BOT 出海收集物資，載滿 <b>8 件</b> 自動返航。</p>
+          <div class="cost">
+            <span class="cchip" style="--c:#cfd9e6"><svg class="ico"><use href="#i-metal"/></svg>160</span>
+            <span class="cchip no" style="--c:#b892ff"><svg class="ico"><use href="#i-alloy"/></svg>2</span>
+          </div>
+          <div class="bf"><button class="btn primary sm" disabled>合金不足</button></div>
+        </article>
+
+        <!-- 可建造 -->
+        <article class="bcard">
+          <div class="bh">
+            <span class="tile" style="--c:#ff9aa8"><svg class="ico"><use href="#i-turret"/></svg></span>
+            <div><div class="nm">防禦炮塔</div>
+              <div class="tags"><span class="tag def">防禦</span></div></div>
+            <span class="cnt">0 / 3</span>
+          </div>
+          <p class="desc">自動射擊 <b>360 m</b> 內敵人，傷害 12／發。</p>
+          <div class="cost">
+            <span class="cchip" style="--c:#cfd9e6"><svg class="ico"><use href="#i-metal"/></svg>90</span>
+            <span class="cchip" style="--c:#6fe3ff"><svg class="ico"><use href="#i-plastic"/></svg>60</span>
+          </div>
+          <div class="bf"><button class="btn primary sm">建造</button></div>
+        </article>
+
+        <!-- 資源不足 -->
+        <article class="bcard">
+          <div class="bh">
+            <span class="tile" style="--c:#b892ff"><svg class="ico"><use href="#i-alloy"/></svg></span>
+            <div><div class="nm">外星逆向工程</div>
+              <div class="tags"><span class="tag rare">稀有</span></div></div>
+            <span class="cnt">0 / 3</span>
+          </div>
+          <p class="desc">每 10 秒 <b>+1 外星合金</b>，基地內唯一的合金來源。</p>
+          <div class="cost">
+            <span class="cchip" style="--c:#cfd9e6"><svg class="ico"><use href="#i-metal"/></svg>300</span>
+            <span class="cchip no" style="--c:#b892ff"><svg class="ico"><use href="#i-alloy"/></svg>6</span>
+          </div>
+          <div class="bf"><button class="btn primary sm" disabled>合金不足</button></div>
+        </article>
+
+        <!-- 已建滿 + 提示 -->
+        <article class="bcard">
+          <div class="bh">
+            <span class="tile" style="--c:#6fe3ff"><svg class="ico"><use href="#i-rocket"/></svg></span>
+            <div><div class="nm">火箭工坊</div>
+              <div class="tags"><span class="tag core">必要</span></div></div>
+            <span class="cnt full">1 / 1</span>
+          </div>
+          <p class="desc">解鎖火箭零件組裝與發射。發射需船體／引擎／燃料／導航 <b>4 / 4</b>。</p>
+          <div class="maxline"><svg class="ico"><use href="#i-up"/></svg>已建滿 · 前往 C 組裝</div>
+        </article>
+      </div>
+    </div>
+    <footer class="m-foot">
+      <div class="note">安全圈 <b>286 m</b> · 圈內回血回氧、敵人無法進入</div>
+      <div class="grow"></div>
+      <button class="btn ghost" data-close>關閉 (Esc)</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ================= 面板：裝備 ================= -->
+<div class="modal" data-panel="craft">
+  <div class="modal-box">
+    <header class="m-head">
+      <div>
+        <div class="m-kick">GEAR // 裝備 · 火箭科技</div>
+        <h2>裝備升級</h2>
+        <div class="sub">需在基地安全圈內操作 · 每級效果直接繼承給火箭</div>
+      </div>
+      <button class="m-x" data-close aria-label="關閉">✕</button>
+    </header>
+    <div class="m-body">
+      <div class="sect"><span>潛水裝備 · 5 項</span><span class="hint">升級後立刻生效</span></div>
+
+      <div class="crow">
+        <span class="cico" style="--c:#6fe3ff"><svg class="ico"><use href="#i-fins"/></svg></span>
+        <div class="cn"><b>推進蛙鞋</b><span>游泳速度</span></div>
+        <div class="clv"><div class="pips"><i class="on"></i><i class="on"></i><i></i><i></i></div><em>Lv2 / 4</em></div>
+        <div class="ceff"><span class="from">+16%</span><span class="arw">→</span><span class="to">+24%</span></div>
+        <div class="ccost">
+          <span class="cchip" style="--c:#6fe3ff"><svg class="ico"><use href="#i-plastic"/></svg>80</span>
+          <span class="cchip" style="--c:#cfd9e6"><svg class="ico"><use href="#i-metal"/></svg>30</span>
+        </div>
+        <button class="btn primary sm">升級</button>
+      </div>
+
+      <div class="crow">
+        <span class="cico" style="--c:#3ad1ff"><svg class="ico"><use href="#i-tank"/></svg></span>
+        <div class="cn"><b>合金氧氣瓶</b><span>氧氣上限</span></div>
+        <div class="clv"><div class="pips"><i class="on"></i><i></i><i></i><i></i></div><em>Lv1 / 4</em></div>
+        <div class="ceff"><span class="from">+10</span><span class="arw">→</span><span class="to">+20</span></div>
+        <div class="ccost">
+          <span class="cchip" style="--c:#cfd9e6"><svg class="ico"><use href="#i-metal"/></svg>60</span>
+          <span class="cchip" style="--c:#b892ff"><svg class="ico"><use href="#i-alloy"/></svg>2</span>
+        </div>
+        <button class="btn primary sm">升級</button>
+      </div>
+
+      <div class="crow">
+        <span class="cico" style="--c:#8ee6a4"><svg class="ico"><use href="#i-suit"/></svg></span>
+        <div class="cn"><b>深海潛水衣</b><span>最大生命</span></div>
+        <div class="clv"><div class="pips"><i class="on"></i><i></i><i></i><i></i></div><em>Lv1 / 4</em></div>
+        <div class="ceff"><span class="from">4 HP</span><span class="arw">→</span><span class="to">5 HP</span></div>
+        <div class="ccost">
+          <span class="cchip" style="--c:#6fe3ff"><svg class="ico"><use href="#i-plastic"/></svg>140</span>
+          <span class="cchip" style="--c:#e0a95f"><svg class="ico"><use href="#i-wood"/></svg>60</span>
+        </div>
+        <button class="btn primary sm">升級</button>
+      </div>
+
+      <div class="crow">
+        <span class="cico" style="--c:#cfd9e6"><svg class="ico"><use href="#i-magnet"/></svg></span>
+        <div class="cn"><b>磁力收集器</b><span>自動收集半徑</span></div>
+        <div class="clv"><div class="pips"><i></i><i></i><i></i><i></i></div><em>Lv0 / 4</em></div>
+        <div class="ceff"><span class="from">0 m</span><span class="arw">→</span><span class="to">40 m</span></div>
+        <div class="ccost">
+          <span class="cchip" style="--c:#6fe3ff"><svg class="ico"><use href="#i-plastic"/></svg>60</span>
+          <span class="cchip" style="--c:#cfd9e6"><svg class="ico"><use href="#i-metal"/></svg>20</span>
+        </div>
+        <button class="btn primary sm">升級</button>
+      </div>
+
+      <div class="crow">
+        <span class="cico" style="--c:#ff9aa8"><svg class="ico"><use href="#i-spear"/></svg></span>
+        <div class="cn"><b>壓縮魚槍</b><span>傷害／射速</span></div>
+        <div class="clv"><div class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div><em>Lv3 / 4</em></div>
+        <div class="ceff"><span class="from">22</span><span class="arw">→</span><span class="to">30</span></div>
+        <div class="ccost">
+          <span class="cchip" style="--c:#cfd9e6"><svg class="ico"><use href="#i-metal"/></svg>220</span>
+          <span class="cchip no" style="--c:#b892ff"><svg class="ico"><use href="#i-alloy"/></svg>4</span>
+        </div>
+        <button class="btn primary sm" disabled>合金不足</button>
+      </div>
+
+      <div class="sect"><span>火箭科技 · 2 項</span><span class="hint">需先建造 <b>火箭研發中心</b></span></div>
+
+      <div class="crow locked">
+        <span class="cico" style="--c:#ffd166"><svg class="ico"><use href="#i-shield"/></svg></span>
+        <div class="cn"><b>火箭護盾科技</b><span>艦體護甲（繼承潛水衣）</span>
+          <em class="locknote"><svg class="ico"><use href="#i-lock"/></svg>解鎖：集滿 4 塊科技碎片（目前 2 / 4）</em></div>
+        <div class="clv"><div class="pips"><i class="on"></i><i></i><i></i><i></i></div><em>Lv1 / 3</em></div>
+        <div class="ceff"><span class="from">+25</span><span class="arw">→</span><span class="to">+40</span></div>
+        <div class="ccost">
+          <span class="cchip muted"><svg class="ico"><use href="#i-alloy"/></svg>碎片 2 / 4</span>
+        </div>
+        <button class="btn ghost sm" disabled>碎片不足</button>
+      </div>
+
+      <div class="crow locked">
+        <span class="cico" style="--c:#b892ff"><svg class="ico"><use href="#i-radar"/></svg></span>
+        <div class="cn"><b>衛星光束發生器</b><span>母船決戰限定超級武器</span>
+          <em class="locknote"><svg class="ico"><use href="#i-lock"/></svg>解鎖：火箭研發中心 + 基地 B 建造</em></div>
+        <div class="clv"><em>— / —</em></div>
+        <div class="ceff" style="font-family:var(--font);font-size:11px;color:var(--c-muted)">
+          母船核心 90% 自動觸發</div>
+        <div class="ccost"></div>
+        <button class="btn ghost sm" disabled>未解鎖</button>
+      </div>
+    </div>
+    <footer class="m-foot">
+      <div class="shipprog">太空船零件
+        <div class="bar"><i></i></div><b>3 / 4</b>
+        <span style="color:var(--c-muted)">缺 導航電腦</span>
+      </div>
+      <div class="grow"></div>
+      <button class="btn ghost" data-close>關閉 (Esc)</button>
+    </footer>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   1. 海面背景（canvas 繪製，無任何外部素材）
+   ============================================================ */
+(function sea(){
+  const cv=document.getElementById('sea');
+  const g=cv.getContext('2d');
+  const W=1280,H=800;
+  cv.width=W;cv.height=H;
+
+  /* 固定種子隨機，保證每次截圖一致 */
+  let seed=20261103;
+  const rnd=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646;};
+
+  const bubbles=Array.from({length:36},()=>({
+    x:rnd()*W,y:rnd()*H,r:1+rnd()*3.2,sp:.14+rnd()*.4,ph:rnd()*6.283
+  }));
+  const motes=Array.from({length:80},()=>({
+    x:rnd()*W,y:rnd()*H,r:.6+rnd()*1.3,a:.04+rnd()*.14
+  }));
+  const debris=[
+    {x:206,y:648,t:'plank',r:-.16,s:1.05},
+    {x:1096,y:512,t:'bottle',r:.42,s:.95},
+    {x:1004,y:708,t:'crate',r:.1,s:.9},
+    {x:352,y:286,t:'can',r:-.5,s:.8},
+    {x:884,y:236,t:'plank',r:.55,s:.62},
+    {x:128,y:452,t:'bottle',r:-.95,s:.72},
+    {x:960,y:392,t:'can',r:.25,s:.55}
+  ];
+
+  function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);
+    c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+
+  function drawPlank(c,s){
+    c.save();c.scale(s,s);
+    const gr=c.createLinearGradient(0,-7,0,7);
+    gr.addColorStop(0,'#8a5a32');gr.addColorStop(.55,'#6d4525');gr.addColorStop(1,'#4f3019');
+    rr(c,-25,-7,50,14,3);c.fillStyle=gr;c.fill();
+    c.strokeStyle='rgba(2,7,13,.55)';c.lineWidth=1.2;c.stroke();
+    c.strokeStyle='rgba(255,220,170,.18)';c.lineWidth=1;
+    c.beginPath();c.moveTo(-19,-3.5);c.lineTo(18,-3.5);
+    c.moveTo(-16,1);c.lineTo(21,1);c.moveTo(-21,5);c.lineTo(6,5);c.stroke();
+    c.fillStyle='rgba(255,220,170,.1)';rr(c,-25,-7,50,3,2);c.fill();
+    c.restore();
+  }
+  function drawBottle(c,s){
+    c.save();c.scale(s,s);
+    c.fillStyle='rgba(160,225,240,.26)';
+    rr(c,-16,-5,30,10,5);c.fill();
+    c.strokeStyle='rgba(190,240,255,.5)';c.lineWidth=1;c.stroke();
+    c.fillStyle='rgba(210,245,255,.4)';rr(c,12,-2.5,6,5,2);c.fill();
+    c.fillStyle='rgba(255,255,255,.22)';rr(c,-13,-3,10,2.4,1.2);c.fill();
+    c.restore();
+  }
+  function drawCan(c,s){
+    c.save();c.scale(s,s);
+    c.fillStyle='#7e8e9c';
+    c.beginPath();c.ellipse(0,0,10,13,0,0,6.283);c.fill();
+    c.strokeStyle='rgba(2,7,13,.5)';c.lineWidth=1.2;c.stroke();
+    c.fillStyle='rgba(210,230,240,.25)';
+    c.beginPath();c.ellipse(-2,-1,8,10,0,0,6.283);c.fill();
+    c.strokeStyle='rgba(255,255,255,.2)';c.beginPath();
+    c.ellipse(0,0,6,8,0,0,6.283);c.stroke();
+    c.restore();
+  }
+  function drawCrate(c,s){
+    c.save();c.scale(s,s);
+    c.fillStyle='#6b4a2b';rr(c,-13,-13,26,26,2);c.fill();
+    c.strokeStyle='rgba(2,7,13,.55)';c.lineWidth=1.2;c.stroke();
+    c.strokeStyle='rgba(255,220,170,.2)';c.lineWidth=1.4;
+    c.beginPath();c.moveTo(-13,-13);c.lineTo(13,13);c.moveTo(13,-13);c.lineTo(-13,13);c.stroke();
+    c.strokeStyle='rgba(255,255,255,.12)';rr(c,-13,-13,26,4,2);c.stroke();
+    c.restore();
+  }
+
+  const drawers={plank:drawPlank,bottle:drawBottle,can:drawCan,crate:drawCrate};
+
+  function drawShafts(c,t){
+    c.save();c.globalCompositeOperation='lighter';
+    for(let i=0;i<6;i++){
+      const x=250+i*150+Math.sin(t*.22+i*1.7)*14;
+      const w=54+((i*37)%70);
+      const p=new Path2D();
+      p.moveTo(x,0);p.lineTo(x+w,0);p.lineTo(x+w+300,800);p.lineTo(x+210,800);p.closePath();
+      const gr=c.createLinearGradient(0,0,0,800);
+      gr.addColorStop(0,'rgba(140,230,255,.075)');
+      gr.addColorStop(.35,'rgba(120,215,250,.04)');
+      gr.addColorStop(1,'rgba(90,190,235,0)');
+      c.fillStyle=gr;c.fill(p);
+    }
+    c.restore();
+  }
+
+  function drawDiver(c,t){
+    const x=662,y=468+Math.sin(t*.9)*4;
+    const gl=c.createRadialGradient(x,y,6,x,y,104);
+    gl.addColorStop(0,'rgba(111,227,255,.22)');
+    gl.addColorStop(.5,'rgba(111,227,255,.07)');
+    gl.addColorStop(1,'rgba(111,227,255,0)');
+    c.fillStyle=gl;c.beginPath();c.arc(x,y,104,0,6.283);c.fill();
+
+    c.save();c.translate(x,y);c.rotate(-.1);c.scale(1.28,1.28);
+    /* 蛙鞋（在身體後方） */
+    c.fillStyle='#3fc3e8';c.strokeStyle='rgba(2,40,55,.6)';c.lineWidth=1.1;
+    c.beginPath();c.moveTo(-6,3);c.lineTo(-27,0);c.lineTo(-22,8);c.lineTo(-6,9);c.closePath();
+    c.fill();c.stroke();
+    c.beginPath();c.moveTo(-6,11);c.lineTo(-25,14);c.lineTo(-20,19);c.lineTo(-6,17);c.closePath();
+    c.fill();c.stroke();
+    /* 氧氣瓶 */
+    const tg=c.createLinearGradient(-15,0,-6,0);
+    tg.addColorStop(0,'#155d72');tg.addColorStop(1,'#2f96ad');
+    c.fillStyle=tg;rr(c,-15,-8,9,19,4);c.fill();
+    c.strokeStyle='rgba(180,240,255,.4)';c.lineWidth=1;c.stroke();
+    c.fillStyle='#9beaff';rr(c,-13,-11,5,3.5,1.6);c.fill();
+    /* 身體（潛水衣） */
+    const bg2=c.createLinearGradient(0,-9,0,12);
+    bg2.addColorStop(0,'#1b6a83');bg2.addColorStop(1,'#0b3545');
+    rr(c,-8,-9,18,21,9);c.fillStyle=bg2;c.fill();
+    c.strokeStyle='rgba(120,230,255,.55)';c.lineWidth=1.2;c.stroke();
+    /* 胸前扣帶 */
+    c.strokeStyle='rgba(111,227,255,.75)';c.lineWidth=1.6;
+    c.beginPath();c.moveTo(-7,-1);c.lineTo(9,-2);c.stroke();
+    /* 頭盔 */
+    c.beginPath();c.arc(6,-17,14,0,6.283);
+    const hg=c.createRadialGradient(2,-22,2,6,-17,15);
+    hg.addColorStop(0,'#ffffff');hg.addColorStop(.6,'#d9f5ff');hg.addColorStop(1,'#8fc9dc');
+    c.fillStyle=hg;c.fill();
+    c.strokeStyle='rgba(255,255,255,.95)';c.lineWidth=1.6;c.stroke();
+    /* 面罩（右半） */
+    c.beginPath();c.arc(6,-17,13.4,-1.02,1.02);c.closePath();
+    c.fillStyle='#0d5671';c.fill();
+    c.strokeStyle='rgba(160,240,255,.85)';c.lineWidth=1.2;c.stroke();
+    c.fillStyle='rgba(255,255,255,.55)';
+    c.beginPath();c.arc(2,-22,3,0,6.283);c.fill();
+    /* 頭燈 */
+    c.fillStyle='#c8f6ff';c.shadowColor='rgba(111,227,255,.9)';c.shadowBlur=8;
+    c.beginPath();c.arc(6,-32,3.4,0,6.283);c.fill();c.shadowBlur=0;
+    /* 魚槍 */
+    c.strokeStyle='rgba(210,240,255,.9)';c.lineWidth=2.2;
+    c.beginPath();c.moveTo(9,-6);c.lineTo(44,-12);c.stroke();
+    c.fillStyle='#dff4ff';
+    c.beginPath();c.moveTo(44,-12);c.lineTo(38,-15.5);c.lineTo(38.5,-8.5);c.closePath();c.fill();
+    c.strokeStyle='rgba(160,230,250,.7)';c.lineWidth=1.2;
+    c.beginPath();c.moveTo(36,-8.5);c.lineTo(39.5,-11);c.stroke();
+    c.restore();
+
+    /* 拖尾氣泡 */
+    for(let i=0;i<5;i++){
+      const bx=x-22-i*8,by=y-14-i*11+Math.sin(t*1.4+i)*2.5;
+      c.beginPath();c.arc(bx,by,1.6+i*.55,0,6.283);
+      c.strokeStyle='rgba(200,245,255,.32)';c.lineWidth=1;c.stroke();
+      c.fillStyle='rgba(190,240,255,.06)';c.fill();
+    }
+  }
+
+  function drawBaseMark(c,t){
+    const x=536,y=330,pulse=.55+.45*Math.sin(t*1.6);
+    c.save();
+    c.strokeStyle='rgba(142,230,164,'+(.28+pulse*.25)+')';
+    c.lineWidth=1.4;
+    c.beginPath();c.arc(x,y,30,0,6.283);c.stroke();
+    c.setLineDash([4,6]);c.beginPath();c.arc(x,y,22,0,6.283);c.stroke();c.setLineDash([]);
+    c.fillStyle='rgba(142,230,164,.9)';
+    c.beginPath();c.moveTo(x,y-16);c.lineTo(x+8,y-4);c.lineTo(x-8,y-4);c.closePath();c.fill();
+    c.font='500 11px "Microsoft JhengHei","Noto Sans TC",sans-serif';
+    c.textAlign='center';c.fillStyle='rgba(190,245,205,.92)';
+    c.shadowColor='rgba(0,0,0,.85)';c.shadowBlur=6;
+    c.fillText('基地 1.3 km',x,y+52);
+    c.restore();
+  }
+
+  function draw(t){
+    /* 水體 */
+    const bg=g.createLinearGradient(0,0,0,H);
+    bg.addColorStop(0,'#072836');
+    bg.addColorStop(.28,'#083244');
+    bg.addColorStop(.58,'#062431');
+    bg.addColorStop(.82,'#041520');
+    bg.addColorStop(1,'#020b12');
+    g.fillStyle=bg;g.fillRect(0,0,W,H);
+
+    /* 海面光暈 */
+    const top=g.createRadialGradient(660,-80,40,660,-80,760);
+    top.addColorStop(0,'rgba(150,235,255,.20)');
+    top.addColorStop(.45,'rgba(120,215,245,.07)');
+    top.addColorStop(1,'rgba(120,215,245,0)');
+    g.fillStyle=top;g.fillRect(0,0,W,H);
+
+    /* 水面波紋（上緣） */
+    g.save();g.globalAlpha=.5;
+    for(let i=0;i<7;i++){
+      const y=86+i*20;
+      g.beginPath();
+      for(let x=0;x<=W;x+=24){
+        const yy=y+Math.sin(x*.012+t*.5+i*1.3)*5;
+        x===0?g.moveTo(x,yy):g.lineTo(x,yy);
+      }
+      g.strokeStyle='rgba(170,240,255,'+(.05+(6-i)*.008)+')';
+      g.lineWidth=1.4;g.stroke();
+    }
+    g.restore();
+
+    drawShafts(g,t);
+
+    /* 微光懸浮物 */
+    for(const m of motes){
+      const y=(m.y - t*5)%H;
+      g.fillStyle='rgba(180,240,255,'+m.a+')';
+      g.beginPath();g.arc(m.x,y<0?y+H:y,m.r,0,6.283);g.fill();
+    }
+
+    /* 漂流垃圾：先環境光，再本體 */
+    for(const d of debris){
+      const px=d.x+Math.sin(t*.35+d.x)*4, py=d.y+Math.cos(t*.3+d.y)*3;
+      const gl=g.createRadialGradient(px,py,2,px,py,46);
+      gl.addColorStop(0,'rgba(111,227,255,.10)');
+      gl.addColorStop(1,'rgba(111,227,255,0)');
+      g.fillStyle=gl;g.beginPath();g.arc(px,py,46,0,6.283);g.fill();
+      g.save();g.translate(px,py);g.rotate(d.r+Math.sin(t*.25+d.x)*.04);
+      drawers[d.t](g,d.s);g.restore();
+    }
+
+    /* 氣泡 */
+    for(const b of bubbles){
+      let y=b.y-(t*b.sp*30)%H; if(y<0)y+=H;
+      const x=b.x+Math.sin(t*.6+b.ph)*6;
+      g.beginPath();g.arc(x,y,b.r,0,6.283);
+      g.strokeStyle='rgba(200,245,255,.28)';g.lineWidth=.9;g.stroke();
+      g.fillStyle='rgba(190,240,255,.05)';g.fill();
+      g.fillStyle='rgba(255,255,255,.35)';
+      g.beginPath();g.arc(x-b.r*.35,y-b.r*.35,Math.max(.5,b.r*.3),0,6.283);g.fill();
+    }
+
+    drawDiver(g,t);
+    drawBaseMark(g,t);
+
+    /* 暗角 */
+    const vg=g.createRadialGradient(640,420,180,640,420,780);
+    vg.addColorStop(0,'rgba(2,7,13,0)');
+    vg.addColorStop(.72,'rgba(2,7,13,.22)');
+    vg.addColorStop(1,'rgba(2,7,13,.66)');
+    g.fillStyle=vg;g.fillRect(0,0,W,H);
+  }
+
+  const t0=performance.now();
+  function loop(now){
+    draw((now-t0)/1000);
+    requestAnimationFrame(loop);
+  }
+  draw(0);                       /* 先同步畫第一帧，headless 截圖不會空白 */
+  requestAnimationFrame(loop);
+})();
+
+/* ============================================================
+   2. 雷達（184px，內含安全圈、BOT、基地方位）
+   ============================================================ */
+(function radar(){
+  const cv=document.getElementById('radarCv');
+  const c=cv.getContext('2d');
+  const S=184,DPR=2;
+  cv.width=S*DPR;cv.height=S*DPR;
+  c.setTransform(DPR,0,0,DPR,0,0);
+  const cx=S/2,cy=S/2,R=S/2-6;
+
+  function rr(x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);
+    c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+
+  c.clearRect(0,0,S,S);
+
+  /* 掃描扇（conic gradient） */
+  const ang=-1.2;
+  const cg=c.createConicGradient?c.createConicGradient(ang,cx,cy):null;
+  if(cg){
+    cg.addColorStop(0,'rgba(111,227,255,.22)');
+    cg.addColorStop(.12,'rgba(111,227,255,0)');
+    cg.addColorStop(1,'rgba(111,227,255,0)');
+    c.fillStyle=cg;c.beginPath();c.arc(cx,cy,R,0,6.283);c.fill();
+  }
+  /* 掃描線 */
+  c.strokeStyle='rgba(111,227,255,.5)';c.lineWidth=1;
+  c.beginPath();c.moveTo(cx,cy);
+  c.lineTo(cx+Math.cos(ang)*R,cy+Math.sin(ang)*R);c.stroke();
+
+  /* 距離環 */
+  for(const f of [.33,.66,1]){
+    c.beginPath();c.arc(cx,cy,R*f,0,6.283);
+    c.strokeStyle='rgba(111,227,255,'+(f===1?.22:.12)+')';c.lineWidth=1;c.stroke();
+  }
+  /* 十字 */
+  c.strokeStyle='rgba(111,227,255,.1)';c.beginPath();
+  c.moveTo(cx,cy-R);c.lineTo(cx,cy+R);c.moveTo(cx-R,cy);c.lineTo(cx+R,cy);c.stroke();
+
+  /* 安全圈（虛線綠） */
+  c.setLineDash([3,4]);
+  c.strokeStyle='rgba(142,230,164,.55)';c.lineWidth=1.2;
+  c.beginPath();c.arc(cx,cy,R*.44,0,6.283);c.stroke();
+  c.setLineDash([]);
+  c.fillStyle='rgba(142,230,164,.05)';
+  c.beginPath();c.arc(cx,cy,R*.44,0,6.283);c.fill();
+
+  /* 友方 BOT（金） */
+  c.fillStyle='#ffd166';c.shadowColor='rgba(255,209,102,.9)';c.shadowBlur=7;
+  c.beginPath();c.arc(cx+32,cy+18,3,0,6.283);c.fill();
+
+  /* 垃圾點（青） */
+  for(const [dx,dy] of [[-38,26],[-16,-30],[44,-22],[18,48],[-52,-10]]){
+    c.fillStyle='rgba(111,227,255,.85)';c.shadowBlur=5;
+    c.beginPath();c.arc(cx+dx,cy+dy,2,0,6.283);c.fill();
+  }
+  /* 敵人（紫紅） */
+  for(const [dx,dy] of [[-24,54],[58,44]]){
+    c.fillStyle='rgba(255,79,216,.9)';c.shadowColor='rgba(255,79,216,.9)';
+    c.beginPath();c.arc(cx+dx,cy+dy,2.4,0,6.283);c.fill();
+  }
+  c.shadowBlur=0;
+
+  /* 基地方位（綠色箭頭，貼在圓周） */
+  const a=-2.25,bx=cx+Math.cos(a)*(R-9),by=cy+Math.sin(a)*(R-9);
+  c.save();c.translate(bx,by);c.rotate(a+Math.PI/2);
+  c.fillStyle='#8ee6a4';c.shadowColor='rgba(142,230,164,.9)';c.shadowBlur=8;
+  c.beginPath();c.moveTo(0,-6);c.lineTo(5,4);c.lineTo(0,1.5);c.lineTo(-5,4);c.closePath();c.fill();
+  c.restore();c.shadowBlur=0;
+
+  /* 玩家（白） */
+  c.fillStyle='#eaf9ff';
+  c.beginPath();c.arc(cx,cy,3.2,0,6.283);c.fill();
+  c.strokeStyle='rgba(255,255,255,.5)';c.lineWidth=1;
+  c.beginPath();c.arc(cx,cy,6.5,0,6.283);c.stroke();
+})();
+
+/* ============================================================
+   3. 基地小地圖（面板內，9 格平台 + 安全圈）
+   ============================================================ */
+(function minimap(){
+  const cv=document.getElementById('minimap');
+  const c=cv.getContext('2d');
+  const S=150,DPR=2;
+  cv.width=S*DPR;cv.height=S*DPR;
+  c.setTransform(DPR,0,0,DPR,0,0);
+  const cx=S/2,cy=S/2;
+
+  function rr(x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);
+    c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+
+  c.clearRect(0,0,S,S);
+  /* 安全圈 */
+  c.beginPath();c.arc(cx,cy,56,0,6.283);
+  c.fillStyle='rgba(142,230,164,.06)';c.fill();
+  c.strokeStyle='rgba(142,230,164,.34)';c.lineWidth=1;c.setLineDash([4,4]);c.stroke();c.setLineDash([]);
+
+  /* 平台格子（等角菱形），中心 1 格 + 周圍 8 格 */
+  const tile=17, gap=1;
+  const cells=[[0,0],[1,0],[0,1],[-1,0],[0,-1],[-1,-1],[1,1],[-1,1],[1,-1]];
+  const colors=['#6fe3ff','#8ee6a4','#ffd166','#ff9aa8','#b892ff','#3ad1ff'];
+  cells.forEach(([gx,gy],i)=>{
+    const px=cx+gx*tile*1.02, py=cy+gy*tile*1.02;
+    const w=tile-gap,h=tile-gap;
+    c.save();c.translate(px,py);c.rotate(Math.PI/4);
+    c.fillStyle='rgba(16,62,82,.92)';
+    rr(-w/2,-h/2,w,h,3);c.fill();
+    c.strokeStyle='rgba(111,227,255,.35)';c.lineWidth=1;c.stroke();
+    c.restore();
+    /* 建築色點 */
+    c.fillStyle=colors[i%colors.length];
+    c.shadowColor=colors[i%colors.length];c.shadowBlur=6;
+    c.beginPath();c.arc(px,py,2.4,0,6.283);c.fill();
+    c.shadowBlur=0;
+  });
+  /* BOT */
+  c.fillStyle='#ffd166';c.shadowColor='rgba(255,209,102,.9)';c.shadowBlur=7;
+  c.beginPath();c.arc(cx+36,cy+16,2.6,0,6.283);c.fill();
+  c.shadowBlur=0;
+  /* 玩家 */
+  c.fillStyle='#eaf9ff';
+  c.beginPath();c.arc(cx-20,cy-26,2.6,0,6.283);c.fill();
+  /* 比例尺 */
+  c.strokeStyle='rgba(159,192,208,.5)';c.lineWidth=1;
+  c.beginPath();c.moveTo(10,S-20);c.lineTo(40,S-20);c.stroke();
+})();
+
+/* ============================================================
+   4. 視圖切換（#base / #craft / 預設 HUD）與關閉
+   ============================================================ */
+(function views(){
+  const valid=['hud','base','craft'];
+  function apply(){
+    const v=(location.hash||'#hud').slice(1);
+    document.body.dataset.view=valid.includes(v)?v:'hud';
+  }
+  apply();
+  addEventListener('hashchange',apply);
+  document.querySelectorAll('[data-close]').forEach(btn=>{
+    btn.addEventListener('click',()=>{location.hash='hud';});
+  });
+  addEventListener('keydown',e=>{
+    if(e.key==='1')location.hash='base';
+    if(e.key==='2')location.hash='craft';
+    if(e.key==='Escape')location.hash='hud';
+  });
+})();
+</script>
+</body>
+</html>

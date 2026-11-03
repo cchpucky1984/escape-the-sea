@@ -8,9 +8,13 @@ const $ = (id) => document.getElementById(id);
 const cv = $('cv');
 const ctx = cv.getContext('2d');
 let VW = 0, VH = 0, DPR = 1;
+/* 像素預算封頂：backbuffer 不超過 ~2.6M px（高 DPI / 4K / 手機省 GPU 填充） */
+const MAX_BACKBUFFER_PX = 2.6e6;
 function resizeCanvas() {
-  DPR = Math.min(2, window.devicePixelRatio || 1);
   VW = window.innerWidth; VH = window.innerHeight;
+  let dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (VW * VH * dpr * dpr > MAX_BACKBUFFER_PX) dpr = Math.max(0.25, Math.sqrt(MAX_BACKBUFFER_PX / (VW * VH)));
+  DPR = Math.round(dpr * 100) / 100;
   cv.width = Math.floor(VW * DPR); cv.height = Math.floor(VH * DPR);
   cv.style.width = VW + 'px'; cv.style.height = VH + 'px';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -108,6 +112,8 @@ function sfx(n) {
     case 'bot': tone(940, 0.06, 'sine', 0.08, 1320); break;
     case 'shield': tone(120, 0.18, 'sine', 0.12, 60); break;
     case 'deposit': tone(520, 0.09, 'triangle', 0.1, 780); break;
+    /* v0.4：未知事件交給 fx.sfx（D 的 js/fx.js；不存在時安靜略過） */
+    default: if (window.fx && typeof fx.sfx === 'function') fx.sfx(n); break;
   }
 }
 
@@ -118,6 +124,22 @@ const RESMETA = {
   metal:   { name: '金屬', icon: '🔩', color: '#cfd9e6' },
   alloy:   { name: '外星合金', icon: '👽', color: '#b892ff' }
 };
+/* ---------- 母船決戰常數（DATA v0.4 §7；D 在 space.js 消費） ---------- */
+const MOON_HP_BASE = 100, MOON_HP_SUIT = 12, MOON_HP_SHIELD = 25;
+const MOON_ARMOR_SUIT = 0.04, MOON_ARMOR_MAX = 0.16, MOON_INV = 1.1;
+const MOON_GUN_MULT = [0, 0, 0, 0.35, 1.0];
+const MOON_DMG = { gruntTouch: 6, shooterBullet: 5, shooterTouch: 5, coreRing: 4, coreAim: 5, coreTouch: 8 };
+const MOON_SUPPLY = { perWave: 2, heal: 30, coreEvery: 20 };
+
+/* ---------- 魚槍模組資料（DATA v0.4 §6；S1b 面板，S1a 先做存讀相容） ---------- */
+const MODS = [
+  { id: 'pierce', name: '穿透模組', ch: '穿', c: '#9fe8ff', desc: '子彈穿過目標 — 最多 3 個，傷害遞減', maxHits: 3, falloff: [1, 0.85, 0.72] },
+  { id: 'blast',  name: '爆裂模組', ch: '爆', c: '#ffb36b', desc: '命中炸開 — 周圍敵人吃 55% 傷害', radius: 56, ratio: 0.55, selfMul: 0.85 },
+  { id: 'emp',    name: '電磁模組', ch: '磁', c: '#c9a6ff', desc: '18% 機率讓目標停擺 1.2 秒', chance: 0.18, stopT: 1.2 }
+];
+function hasMod(id) { return game.mods.indexOf(id) >= 0; }
+function modOf(id) { return MODS.find(m => m.id === id) || null; }
+
 const UPG = [
   { id: 'fin', name: '推進蛙鞋', ch: '鞋', c: '#6fe3ff', max: 4, desc: l => `游泳速度 +${l * 18}%`,
     costs: [{ plastic: 8 }, { plastic: 16, metal: 8 }, { metal: 20, alloy: 3 }, { metal: 30, alloy: 6 }] },
@@ -209,20 +231,35 @@ const QUESTS = [
 /* ---------- 遊戲狀態 ---------- */
 const SAVE_KEY = 'escape-the-sea-v2';
 const OLD_KEY = 'escape-the-sea-v1';
+const SAVE_VER = 3;
+const STAT_KEYS = ['collected', 'kills', 'time', 'deaths', 'launched', 'won', 'botCollected', 'built', 'bosses',
+  'sharkKills', 'droneKills', 'jellyKills', 'plasticCollected', 'deepSeconds', 'leviathanKills', 'rifts'];
+
+function defaultStats() {
+  return {
+    collected: 0, kills: 0, time: 0, deaths: 0, launched: false, won: false,
+    botCollected: 0, built: 0, bosses: 0,
+    sharkKills: 0, droneKills: 0, jellyKills: 0, plasticCollected: 0,
+    deepSeconds: 0, leviathanKills: 0, rifts: 0
+  };
+}
+function defaultBounty() { return { active: [], done: 0, rerollT: 0, zoneT: 0 }; }
 
 const game = {
-  scene: 'title', paused: false, muted: false,
+  scene: 'title', paused: false, muted: false, dirty: false,
   res: { plastic: 0, wood: 0, metal: 0, alloy: 0 },
   up:  { fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0, shield: 0 },
   base: { structures: [] },
   parts: { hull: false, engine: false, fuel: false, nav: false },
-  stats: { collected: 0, kills: 0, time: 0, deaths: 0, launched: false, won: false, botCollected: 0, built: 0, bosses: 0 },
+  stats: defaultStats(),
   quest: { claimed: [] },
   pos: { x: 1000, y: 700 },
   tech: 0,
   bossesKilled: [],
   cheat: false,
-  cheatUp: { fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0 }
+  cheatUp: { fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0 },
+  bounty: defaultBounty(),
+  mods: []
 };
 window.game = game;
 
@@ -238,17 +275,22 @@ Object.defineProperty(game, 'mod', {
 function calcStats() {
   const u = game.up, c = game.cheatUp || {};
   const lv = (k) => (u[k] || 0) + (c[k] || 0);
+  const gl = lv('harpoon');
   return {
     speed: 152 * (1 + 0.18 * lv('fin')),
     maxhp: 3 + lv('suit'),
     maxox: 100 + 25 * lv('tank'),
     oxRate: Math.max(0.3, 1 - 0.14 * lv('tank')),
     magnet: 92 + 44 * lv('magnet'),
-    dmg: 1 + lv('harpoon'),
-    fireRate: 0.42 * Math.pow(0.86, lv('harpoon')),
-    armor: 0,
+    dmg: 1 + gl,
+    fireRate: 0.42 * Math.pow(0.86, gl),
+    /* v0.4 契約（AUDIT §4.5／DATA §8）：母船艙壓、減傷、登艦艦體、魚槍倍率 */
+    armor: Math.min(MOON_ARMOR_MAX, MOON_ARMOR_SUIT * lv('suit')),
+    moonHp: MOON_HP_BASE + MOON_HP_SUIT * lv('suit') + MOON_HP_SHIELD * (u.shield || 0),
+    hullBonus: MOON_HP_SHIELD * (u.shield || 0),
+    gunMult: MOON_GUN_MULT[Math.min(4, Math.max(0, gl))],
     shield: u.shield || 0,
-    gunLv: lv('harpoon')
+    gunLv: gl
   };
 }
 
@@ -284,18 +326,98 @@ function addStructure(type) {
   return true;
 }
 
-/* ---------- 存檔 ---------- */
-function saveGame() {
+/* ---------- 存檔（v3：同一個 SAVE_KEY，payload 內加 v） ---------- */
+let saveTimer = 0, saveLastStr = '', saveLastAt = -1e9, saveLastWritten = '';
+
+function saveSnapshot() {
+  return {
+    v: SAVE_VER,
+    res: game.res, up: game.up, base: game.base, parts: game.parts,
+    stats: game.stats, quest: game.quest, pos: game.pos, muted: muted,
+    tech: game.tech, bossesKilled: game.bossesKilled, cheat: game.cheat, cheatUp: game.cheatUp,
+    bounty: game.bounty, mods: game.mods
+  };
+}
+/* 立即存檔；同內容 250ms 內只寫一次（debounce）。force 忽略 debounce。
+   非 force 會偵測「本地存檔被外部改寫」（例如 QA 塞 fixture）而不覆蓋。 */
+function saveGame(force) {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({
-      res: game.res, up: game.up, base: game.base, parts: game.parts,
-      stats: game.stats, quest: game.quest, pos: game.pos, muted: muted,
-      tech: game.tech, bossesKilled: game.bossesKilled, cheat: game.cheat, cheatUp: game.cheatUp
-    }));
-  } catch (e) { /* ignore */ }
+    const str = JSON.stringify(saveSnapshot());
+    const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    if (!force) {
+      let cur = null;
+      try { cur = localStorage.getItem(SAVE_KEY); } catch (e) {}
+      if (cur !== null && cur !== saveLastWritten && cur !== str) return false;
+      if (str === saveLastStr && now - saveLastAt < 250) return false;
+    }
+    localStorage.setItem(SAVE_KEY, str);
+    saveLastStr = str; saveLastAt = now; saveLastWritten = str; game.dirty = false;
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = 0; }
+    return true;
+  } catch (e) { return false; }
+}
+/* 標記髒資料，250ms 後合併寫一次（拾取／基地產出等低頻變動走這裡） */
+function markDirty() {
+  game.dirty = true;
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => { saveTimer = 0; saveGame(); }, 250);
 }
 function hasSave() {
   try { return !!(localStorage.getItem(SAVE_KEY) || localStorage.getItem(OLD_KEY)); } catch (e) { return false; }
+}
+function migrateSave(s) {
+  if (!s || typeof s !== 'object') return null;
+  const d = defaultStats();
+  s.stats = (s.stats && typeof s.stats === 'object') ? s.stats : {};
+  for (const k in d) if (s.stats[k] === undefined) s.stats[k] = d[k];
+  s.res = (s.res && typeof s.res === 'object') ? s.res : {};
+  s.up = (s.up && typeof s.up === 'object') ? s.up : {};
+  s.cheatUp = (s.cheatUp && typeof s.cheatUp === 'object') ? s.cheatUp : {};
+  s.parts = (s.parts && typeof s.parts === 'object') ? s.parts : {};
+  s.quest = (s.quest && typeof s.quest === 'object') ? s.quest : { claimed: [] };
+  s.base = (s.base && typeof s.base === 'object') ? s.base : { structures: [] };
+  if (!Array.isArray(s.base.structures)) s.base.structures = [];
+  if (!Array.isArray(s.quest.claimed)) s.quest.claimed = [];
+  if (!s.pos || typeof s.pos.x !== 'number' || typeof s.pos.y !== 'number') s.pos = { x: 1000, y: 700 };
+  const b = s.bounty;
+  s.bounty = (b && typeof b === 'object' && Array.isArray(b.active)) ? b : defaultBounty();
+  s.bounty.active = s.bounty.active.filter(c => c && typeof c === 'object' && typeof c.id === 'string');
+  if (typeof s.bounty.done !== 'number') s.bounty.done = 0;
+  if (typeof s.bounty.rerollT !== 'number') s.bounty.rerollT = 0;
+  if (typeof s.bounty.zoneT !== 'number') s.bounty.zoneT = 0;
+  s.mods = Array.isArray(s.mods) ? s.mods.filter(id => MODS.some(m => m.id === id)).slice(0, 3) : [];
+  s.v = SAVE_VER;
+  return s;
+}
+function validateSave(s) {
+  if (!s || typeof s !== 'object') return null;
+  const int = (v, a, b, d) => { v = Number(v); return Number.isFinite(v) ? Math.max(a, Math.min(b, Math.floor(v))) : d; };
+  for (const k of ['plastic', 'wood', 'metal', 'alloy']) s.res[k] = int(s.res[k], 0, 99999, 0);
+  for (const k of ['fin', 'tank', 'suit', 'magnet', 'harpoon', 'shield']) s.up[k] = int(s.up[k], 0, 4, 0);
+  for (const k of ['fin', 'tank', 'suit', 'magnet', 'harpoon']) s.cheatUp[k] = int(s.cheatUp[k], 0, 4, 0);
+  for (const k of ['hull', 'engine', 'fuel', 'nav']) s.parts[k] = !!s.parts[k];
+  s.tech = int(s.tech, 0, 4, 0);
+  const d = defaultStats();
+  for (const k in d) {
+    if (typeof d[k] === 'boolean') s.stats[k] = !!s.stats[k];
+    else s.stats[k] = int(s.stats[k], 0, 1e9, 0);
+  }
+  /* 建築白名單＋格座標驗證＋同格去重（修 AUDIT P2-2 的舊檔重疊） */
+  const seen = new Set(), out = [];
+  for (const st of s.base.structures) {
+    if (!st || !STRUCTS[st.type]) continue;
+    if (!Number.isInteger(st.gx) || !Number.isInteger(st.gy)) continue;
+    const key = st.gx + ',' + st.gy;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ type: st.type, gx: st.gx, gy: st.gy, born: int(st.born, 0, 1e9, 0) });
+    if (out.length >= 64) break;
+  }
+  s.base.structures = out;
+  s.quest.claimed = [...new Set(s.quest.claimed.filter(x => typeof x === 'string'))];
+  s.bossesKilled = Array.isArray(s.bossesKilled) ? [...new Set(s.bossesKilled.filter(x => typeof x === 'string'))] : [];
+  s.pos = { x: int(s.pos.x, -1e5, 1e5, 1000), y: int(s.pos.y, -1e5, 1e5, 700) };
+  return s;
 }
 function loadGame() {
   try {
@@ -307,31 +429,41 @@ function loadGame() {
       s = migrateV1(JSON.parse(old));
       if (!s) return false;
     }
+    s = validateSave(migrateSave(s));
+    if (!s) return false;
     for (const k in game.res) game.res[k] = (s.res && s.res[k]) || 0;
     for (const k in game.up) game.up[k] = (s.up && s.up[k]) || 0;
     for (const k in game.parts) game.parts[k] = !!(s.parts && s.parts[k]);
     for (const k in game.stats) if (s.stats && s.stats[k] !== undefined) game.stats[k] = s.stats[k];
-    game.base.structures = (s.base && Array.isArray(s.base.structures)) ? s.base.structures.filter(x => x && STRUCTS[x.type]) : [];
+    game.base.structures = (s.base && Array.isArray(s.base.structures)) ? s.base.structures : [];
     game.quest.claimed = (s.quest && Array.isArray(s.quest.claimed)) ? s.quest.claimed : [];
     if (s.pos && typeof s.pos.x === 'number') game.pos = { x: s.pos.x, y: s.pos.y };
     game.tech = s.tech || 0;
     game.bossesKilled = Array.isArray(s.bossesKilled) ? s.bossesKilled : [];
     game.cheat = !!s.cheat;
     game.cheatUp = Object.assign({ fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0 }, s.cheatUp || {});
+    game.bounty = s.bounty;
+    game.mods = s.mods;
     muted = !!s.muted; game.muted = muted;
+    if (typeof applyMute === 'function') applyMute();
+    try { saveLastWritten = raw || localStorage.getItem(SAVE_KEY) || ''; } catch (e) { saveLastWritten = ''; }
+    game.dirty = false;
     return true;
   } catch (e) { return false; }
 }
 function migrateV1(old) {
   const out = { res: old.res || {}, up: old.up || {}, parts: old.parts || {}, stats: old.stats || {},
-                pos: old.pos || { x: 1500, y: 1100 }, quest: { claimed: [] }, base: { structures: [] } };
+                pos: old.pos || { x: 1500, y: 1100 }, quest: { claimed: [] }, base: { structures: [] },
+                muted: false, tech: old.tech || 0, bossesKilled: [], cheat: false,
+                cheatUp: { fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0 } };
   const mod = old.mod || {};
-  game.base.structures = [];
+  /* 先讓 freeTileFor() 看到已配置的格，逐座佔格才不會重疊（AUDIT P2-2） */
+  game.base.structures = out.base.structures;
   for (const k of STRUCT_KEYS) {
-    const n = mod[k] || 0;
+    const n = Math.max(0, Math.min(9, Number(mod[k]) || 0));
     for (let i = 0; i < n; i++) {
       const t = freeTileFor();
-      out.base.structures.push({ type: k, gx: t.gx, gy: t.gy });
+      out.base.structures.push({ type: k, gx: t.gx, gy: t.gy, born: 0 });
     }
   }
   return out;
@@ -339,22 +471,29 @@ function migrateV1(old) {
 function resetGame() {
   const keepCheat = !!game.cheat;
   try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(OLD_KEY); } catch (e) {}
+  if (typeof baseRT !== 'undefined') baseRT.clear();
   game.res = { plastic: 0, wood: 0, metal: 0, alloy: 0 };
   game.up = { fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0, shield: 0 };
   game.base = { structures: [] };
   game.parts = { hull: false, engine: false, fuel: false, nav: false };
-  game.stats = { collected: 0, kills: 0, time: 0, deaths: 0, launched: false, won: false, botCollected: 0, built: 0, bosses: 0 };
+  game.stats = defaultStats();
   game.quest = { claimed: [] };
   game.pos = { x: 1000, y: 700 };
   game.tech = 0;
   game.bossesKilled = [];
   game.cheat = keepCheat;
   game.cheatUp = { fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0 };
+  game.bounty = defaultBounty();
+  game.mods = [];
+  game.dirty = true;
+  saveLastStr = ''; saveLastAt = -1e9; saveLastWritten = '';
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = 0; }
 }
 /* ---------- 資源 ---------- */
 function addRes(k, n) {
   if (!(k in game.res)) return;
   game.res[k] = Math.min(99999, (game.res[k] || 0) + n);
+  markDirty();
 }
 function canPay(cost) {
   for (const k in cost) if ((game.res[k] || 0) < cost[k]) return false;
@@ -386,7 +525,21 @@ function toast(msg, cls) {
 }
 
 /* ---------- HUD ---------- */
+/* ---------- HUD（快取簽名，值沒變就不寫 DOM：AUDIT P2-5） ---------- */
 let hudT = 0;
+const hudCache = { res: Object.create(null), ox: '', st: '', quest: '', idle: '', basetag: '', zone: '' };
+function setHudHtml(id, html, key) {
+  const el = $(id);
+  if (!el || hudCache[key] === html) return;
+  hudCache[key] = html;
+  el.innerHTML = html;
+}
+function setHudText(id, text, key) {
+  const el = $(id);
+  if (!el || hudCache[key] === text) return;
+  hudCache[key] = text;
+  el.textContent = text;
+}
 const HEART_SVG = '<svg viewBox="0 0 24 24"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 018-2.6A4.5 4.5 0 0120 10c0 5.8-8 11-8 11z"/></svg>';
 let heartSig = '';
 function renderHearts(hp, max) {
@@ -402,24 +555,29 @@ function renderHearts(hp, max) {
 
 function refreshHud() {
   for (const k of ['plastic', 'wood', 'metal', 'alloy']) {
+    const val = fmtNum(game.res[k] || 0);
+    if (hudCache.res[k] === val) continue;
+    hudCache.res[k] = val;
     const el = $('r-' + k);
-    if (el) el.textContent = fmtNum(game.res[k] || 0);
+    if (el) el.textContent = val;
   }
   const S = calcStats();
   const P = (typeof sea !== 'undefined' && sea.player) ? sea.player : null;
   if (P) {
     renderHearts(P.hp, S.maxhp);
-    $('bar-ox').style.width = clamp(P.ox / S.maxox * 100, 0, 100) + '%';
-    $('bar-st').style.width = clamp(P.st, 0, 100) + '%';
+    const oxW = clamp(P.ox / S.maxox * 100, 0, 100) + '%';
+    const stW = clamp(P.st, 0, 100) + '%';
+    if (hudCache.ox !== oxW) { hudCache.ox = oxW; $('bar-ox').style.width = oxW; }
+    if (hudCache.st !== stW) { hudCache.st = stW; $('bar-st').style.width = stW; }
   }
-  $('quest').innerHTML = questHtml();
-  $('idle').textContent = idleText();
-  $('basetag').innerHTML = baseTagHtml();
+  setHudHtml('quest', questHtml(), 'quest');
+  setHudText('idle', idleText(), 'idle');
+  setHudHtml('basetag', baseTagHtml(), 'basetag');
   const zp = (typeof sea !== 'undefined' && sea.player) ? seaZone(Math.hypot(sea.player.x, sea.player.y)) : null;
   if (zp) {
-    $('zone').innerHTML = `<span style="color:${zp.color}">● ${zp.name}</span>
+    setHudHtml('zone', `<span style="color:${zp.color}">● ${zp.name}</span>
       <span>${zp.tip}</span>
-      <span>怪物上限 <b>${zp.hazCap}</b></span>`;
+      <span>怪物上限 <b>${zp.hazCap}</b></span>`, 'zone');
   }
 }
 function idleText() {
@@ -488,11 +646,8 @@ function openModal(title, html, buttons) {
 function closeModal() {
   modalEl.classList.remove('show');
   game.paused = false;
-  /* 強制補救：任何「非自願」關閉都要能繼續遊戲 */
-  if (typeof sea !== 'undefined' && game.scene === 'sea' && sea.dead) { respawnAtBase(); return; }
-  if (game.scene === 'launch' && launch.state === 'fail') { backToBaseFromLaunch(); return; }
-  if (game.scene === 'dock' && dock.state === 'fail') { backToBaseFromLaunch(); return; }
-  if (game.scene === 'moon' && moon.state === 'lose') { initMoon(); return; }
+  /* 不再在這裡做場景補救（AUDIT P1-1：會與按鈕 onClick 重複執行）。
+     X／Esc 關閉失敗 modal 的復活／返回基地由 main.js 的 recoverClosedFailureModal() 統一處理。 */
 }
 $('modal-x').onclick = closeModal;
 
@@ -759,6 +914,7 @@ function openPause() {
 let questT = 0;
 function updateQuests(dt) {
   if (game.scene !== 'sea' && game.scene !== 'moon' && game.scene !== 'launch') return;
+  if (game.paused) return;   /* AUDIT P2-3：暫停中不結算任務 */
   questT += dt;
   if (questT < 0.4) return;
   questT = 0;
@@ -778,17 +934,20 @@ function updateQuests(dt) {
   }
 }
 
-/* ---------- 場景轉場 ---------- */
+/* ---------- 場景轉場（防重入：進行中回傳 false，不執行 fn） ---------- */
 let transitioning = false;
 function transition(fn) {
-  if (transitioning) { if (fn) fn(); return; }
+  if (transitioning) return false;
   transitioning = true;
   const f = $('fade');
   f.classList.add('on');
   setTimeout(() => {
-    if (fn) fn();
-    setTimeout(() => { f.classList.remove('on'); transitioning = false; }, 120);
+    try { if (fn) fn(); }
+    finally {
+      setTimeout(() => { f.classList.remove('on'); transitioning = false; }, 120);
+    }
   }, 320);
+  return true;
 }
 
 /* ---------- 劇情 ---------- */
