@@ -52,6 +52,24 @@ $env:OUT_DIR  = 'H:\DeepSeek\PROJECT\PROGRAMM\_shots\A'
 node shot.mjs base     # title | sea | base | craft | quests | launch | dock | moon
 ```
 
+### ComfyUI（本機，已啟動）
+
+- 服務：`http://127.0.0.1:8188`（ComfyUI Desktop 0.43，RTX 4070 Ti 12.8GB，輸出目錄 `H:\ComfyUI\output`）
+- 工具：`_dev\comfy\comfy.mjs`（純 API 呼叫，不用開網頁介面）
+
+```powershell
+Set-Location 'H:\DeepSeek\PROJECT\PROGRAMM\_dev\comfy'
+node comfy.mjs --prompt "dark underwater scene, painterly, teal palette, no text" `
+  --w 1024 --h 576 --steps 26 --seed 1234 `
+  --name sea-concepts --out 'H:\DeepSeek\PROJECT\PROGRAMM\_shots\comfy'
+# 可用 --ckpt 指定模型；預設 anima_pencil-XL-v4.0.0.safetensors
+```
+
+- 可用 checkpoint：`anima_pencil-XL-v4.0.0`（筆觸插畫）、`20240503 animeScreencapStyle_assV14Beta`（2D 動畫截圖感）、`waiIllustriousSDXL_v170`、`kohakuXLEpsilon_rev1`、`v1-5-pruned-emaonly-fp16`；另有 `ace_step_1.5`（音樂）、`ltx-2.3-22b-dev-fp8`（影片）、`sulphur_dev_fp8mixed`（SD3.5 系，**需 TripleCLIPLoader + ModelSamplingSD3 專用 workflow，目前 comfy.mjs 不支援**）
+- 實測：`anima_pencil-XL` 1024×576 約 40–90 秒（首張含模型載入較久），1216×832 可避免白邊
+- 一張 1024×576 / 26 steps 約 30–90 秒；**不要生文字**（文字交給 canvas/CSS 疊）
+- 產出物：概念圖放 `docs/art/concepts/*.webp`（每張 ≤300KB），商店素材另存 `_shots/` 供挑選
+
 - `EXTRA_EVAL` 環境變數可以在最後一張截圖前執行一段 JS，例如
   `$env:EXTRA_EVAL='__T.give("metal",500); "ok"'`
 - 遊戲內建 QA 鉤子 `window.__T`（見 `js/main.js` 檔尾）：`__T.game`、`__T.sea`、`__T.give(k,n)`、`__T.mountAll()`、`__T.setScene('moon')`、`__T.initMoon()`、`__T.openBase()` 等。
