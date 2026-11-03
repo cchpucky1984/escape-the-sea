@@ -28,6 +28,7 @@ function initLaunch() {
   L.rocks = []; L.stars = []; L.fighters = []; L.pdb = []; L.ebullets = [];
   L.t = 0; L.spawnT = 0.7; L.fighterT = 2.5; L.pdCool = 0;
   L.shake = 0; L.state = 'fly'; L.winT = 0; L.flash = 0;
+  L.docked = false;   /* [Lead hotfix S1a] 重試升空 soft-lock：上一次成功後 docked 殘留會讓 winT 到頂也無法進 dock */
   for (let i = 0; i < 190; i++) {
     L.stars.push({ x: rnd(0, VW), y: rnd(0, VH), z: rnd(0.15, 1), r: rnd(0.5, 1.9) });
   }
