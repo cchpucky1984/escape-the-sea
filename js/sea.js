@@ -60,7 +60,8 @@ function initSea(fresh) {
     ang: 0, r: 46, hit: 0
   }));
   syncBots();
-  if (fresh) toast('你被暗湧沖到大海中央 — 先收集漂流垃圾（WASD 游動）');
+  /* D 的巨獸檔（js/leviathan.js）：不存在時跳過 */
+  if (window.LEVIATHANS && typeof LEVIATHANS.reset === 'function') LEVIATHANS.reset();
 }
 
 function newFish(initial) {
@@ -100,7 +101,7 @@ function spawnHazard() {
   const hp = Math.round((type === 'shark' ? 3 : 2) * (1 + Z.id * 0.35));
   sea.hazards.push({
     type, x, y, hp, maxhp: hp, aggr: Z.aggr, dmgMul: 1 + Z.id * 0.14,
-    t: rnd(0, 6), cool: rnd(1, 2.4), ang: 0, r: type === 'shark' ? 20 : 17, alive: true, hit: 0, flee: 0
+    t: rnd(0, 6), cool: rnd(1, 2.4), ang: 0, r: type === 'shark' ? 20 : 17, alive: true, hit: 0, flee: 0, empT: 0
   });
 }
 
@@ -235,6 +236,10 @@ function collectPickup(p) {
     const amt = Math.max(1, Math.round(base * Z.mult));
     addRes(p.type, amt);
     game.stats.collected += amt;
+    if (p.type === 'plastic') {
+      game.stats.plasticCollected = (game.stats.plasticCollected || 0) + amt;
+      bountyOn('salvage', amt);
+    }
     float(p.x, p.y, '+' + amt + ' ' + RESMETA[p.type].name + (Z.id ? ' ×' + Z.mult : ''), RESMETA[p.type].color);
     burst(p.x, p.y, 4, RESMETA[p.type].color, 80);
     fxRing(p.x, p.y, p.type === 'alloy' ? 34 : 26, RESMETA[p.type].color, 0.22);
@@ -265,11 +270,22 @@ function shootSea() {
   if (P.cool > 0 || sea.dead) return;
   P.cool = S.fireRate;
   const ang = Math.atan2(sea.aim.y - P.y, sea.aim.x - P.x);
+  const mods = bulletMods();
   sea.bullets.push({
     x: P.x + Math.cos(ang) * 18, y: P.y + Math.sin(ang) * 18,
-    vx: Math.cos(ang) * 800, vy: Math.sin(ang) * 800, life: 0.85, dmg: S.dmg, ang, alive: true
+    vx: Math.cos(ang) * 800, vy: Math.sin(ang) * 800, life: 0.85, dmg: S.dmg, ang, alive: true,
+    pierce: !!mods.pierce, blast: !!mods.blast, emp: !!mods.emp, hits: 0
   });
   sfx('shoot');
+}
+
+/* 爆裂模組：命中點半徑 56 內其他敵人吃 55%（第 2、3 次穿透命中不再觸發） */
+function blastDamage(x, y, exclude, dmg) {
+  for (const h of sea.hazards) {
+    if (!h.alive || h === exclude) continue;
+    if (Math.hypot(h.x - x, h.y - y) < 56) damageHazard(h, Math.max(1, Math.round(dmg * 0.55)), false);
+  }
+  fxRing(x, y, 56, 'gold', 0.24);
 }
 
 function damageHazard(h, dmg, fromTower) {
@@ -281,6 +297,9 @@ function damageHazard(h, dmg, fromTower) {
   if (h.hp <= 0) {
     h.alive = false;
     game.stats.kills++;
+    if (h.type === 'shark') { game.stats.sharkKills = (game.stats.sharkKills || 0) + 1; bountyOn('cull', 1); }
+    else if (h.type === 'drone') { game.stats.droneKills = (game.stats.droneKills || 0) + 1; bountyOn('drone', 1); }
+    else game.stats.jellyKills = (game.stats.jellyKills || 0) + 1;
     burst(h.x, h.y, h.type === 'drone' ? 16 : 10, h.type === 'drone' ? '#c9a6ff' : '#ff9a8b', 180);
     fxRing(h.x, h.y, h.type === 'drone' ? 52 : 38, h.type === 'drone' ? 'violet' : 'red', 0.3);
     fxSpark(h.x, h.y, { n: 8, col: h.type === 'drone' ? 'violet' : 'red', spd: [140, 380] });
@@ -410,11 +429,14 @@ function updateSea(dt) {
   if (sea.dead) return;
   sea.t += dt;
   game.stats.time += dt;
+  if (window.LEVIATHANS && typeof LEVIATHANS.update === 'function') LEVIATHANS.update(dt);
   const P = sea.player, S = calcStats(), keys = window.KEYS || {};
   const R = baseRadius();
   const dBase = Math.hypot(P.x, P.y);
   const inSafe = dBase < R;
   const Z = seaZone(dBase);
+  /* 賞金巡弋：深海（id 2）以後累積，回基地/近海自然停止 */
+  if (Z.id >= BOUNTY.patrolZone) { game.stats.deepSeconds += dt; bountyOn('patrol', dt); }
 
   /* movement */
   let ix = 0, iy = 0;
@@ -478,6 +500,7 @@ function updateSea(dt) {
   /* base automation */
   sea.baseT += dt;
   while (sea.baseT >= 5) { sea.baseT -= 5; baseTick(); }
+  refillBounties(dt);
 
   /* bots */
   updateBots(dt);
@@ -519,6 +542,7 @@ function updateSea(dt) {
     h.t += dt;
     if (h.hit > 0) h.hit -= dt;
     if (h.flee > 0) h.flee -= dt;
+    if (h.empT > 0) { h.empT -= dt; continue; }   /* 電磁模組：停擺 */
 
     /* 安全圈：物理阻擋 */
     const hb = Math.hypot(h.x, h.y);
@@ -603,17 +627,24 @@ function updateSea(dt) {
     }
   }
 
-  /* player bullets */
+  /* player bullets（穿透／爆裂／電磁） */
   for (const b of sea.bullets) {
     if (!b.alive) continue;
     b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
     if (b.life <= 0) { b.alive = false; continue; }
     for (const h of sea.hazards) {
       if (!h.alive) continue;
+      if (b.hitList && b.hitList.indexOf(h) >= 0) continue;
       if (Math.hypot(h.x - b.x, h.y - b.y) < h.r + 6) {
-        damageHazard(h, b.dmg, false);
-        b.alive = false;
-        break;
+        const hits = b.hits || 0;
+        const mul = b.pierce ? [1, 0.85, 0.72][Math.min(2, hits)] : 1;
+        damageHazard(h, Math.max(1, Math.round(b.dmg * mul)), false);
+        if (b.blast && hits === 0) blastDamage(h.x, h.y, h, b.dmg);
+        if (b.emp && Math.random() < 0.18) h.empT = 1.2;
+        b.hits = hits + 1;
+        if (!b.hitList) b.hitList = [];
+        b.hitList.push(h);
+        if (!b.pierce || b.hits >= 3) { b.alive = false; break; }
       }
     }
     if (b.alive) {
@@ -773,6 +804,8 @@ function drawSea() {
   drawBaseSystem(t);
   /* 基地在畫面外時 base.js 不會呼叫 drawWorld；這裡補一次，fx 內部同幀去重 */
   if (FX && typeof FX.drawWorld === 'function') FX.drawWorld(ctx);
+  /* D 的深海巨獸（js/leviathan.js；不存在時跳過） */
+  if (window.LEVIATHANS && typeof LEVIATHANS.draw === 'function') LEVIATHANS.draw(ctx);
 
   for (const p of sea.pickups) {
     if (!p.alive) continue;
@@ -931,6 +964,35 @@ function drawCompass() {
   const label = d >= 1000 ? (d / 1000).toFixed(1) + ' km' : Math.round(d) + ' m';
   ctx.fillText('基地 ' + label, cx, cy + 34);
   ctx.restore();
+
+  /* 指北針：最近深海巨獸（距基地 >1200 m 才顯示；讀 D 的 LEVIATHANS.list） */
+  if (d > 1200 && window.LEVIATHANS && Array.isArray(window.LEVIATHANS.list)) {
+    let best = null, bd = Infinity;
+    for (const lv of window.LEVIATHANS.list) {
+      if (!lv || lv.alive === false) continue;
+      const dd = Math.hypot(lv.x - P.x, lv.y - P.y);
+      if (dd < bd) { bd = dd; best = lv; }
+    }
+    if (best) {
+      const la = Math.atan2(best.y - P.y, best.x - P.x);
+      const lx = px + Math.cos(la) * 112, ly = py + Math.sin(la) * 112;
+      ctx.save();
+      ctx.translate(lx, ly);
+      ctx.strokeStyle = 'rgba(201,166,255,.35)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(0, 0, 20, 0, 7); ctx.stroke();
+      ctx.rotate(la);
+      ctx.fillStyle = 'rgba(201,166,255,.95)';
+      ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-7, -7); ctx.lineTo(-2, 0); ctx.lineTo(-7, 7); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.font = '700 10.5px "Microsoft JhengHei",system-ui';
+      ctx.fillStyle = 'rgba(220,195,255,.92)';
+      ctx.fillText('巨獸 ' + (bd >= 1000 ? (bd / 1000).toFixed(1) + ' km' : Math.round(bd) + ' m'), lx, ly + 34);
+      ctx.restore();
+    }
+  }
 }
 
 function drawPickup(p) {
@@ -1211,6 +1273,21 @@ function drawRadar() {
     ctx.strokeStyle = 'rgba(201,166,255,.7)';
     ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.arc(dx * k2, dy * k2, 5.5 + Math.sin(sea.t * 3) * 1.5, 0, 7); ctx.stroke();
+  }
+
+  /* D 的深海巨獸：距基地 >1200 m 才畫紫點（Lead 指定，避免近海太亂） */
+  if (Math.hypot(P.x, P.y) > 1200 && window.LEVIATHANS && Array.isArray(window.LEVIATHANS.list)) {
+    for (const lv of window.LEVIATHANS.list) {
+      if (!lv || lv.alive === false) continue;
+      const dx = (lv.x - P.x) * scale, dy = (lv.y - P.y) * scale;
+      const dd = Math.hypot(dx, dy) || 1;
+      const k2 = dd > R - 9 ? (R - 9) / dd : 1;
+      ctx.fillStyle = '#c9a6ff';
+      ctx.beginPath(); ctx.arc(dx * k2, dy * k2, 3.8, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(201,166,255,.85)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(dx * k2, dy * k2, 7 + Math.sin(sea.t * 3) * 1.8, 0, 7); ctx.stroke();
+    }
   }
 
   ctx.fillStyle = '#ffffff';

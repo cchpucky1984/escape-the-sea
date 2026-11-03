@@ -1,5 +1,5 @@
 /* =========================================================
-   逃出大海 v0.4.0-alpha · UI
+   逃出大海 v0.5.0-alpha · UI
    規格來源：docs/art/STYLE-v0.4.md（S0 定案）
    對比（WCAG，vs --c-deep #041827）：
      ink 16.6:1 · ink-2 9.4:1 · muted 5.3:1 · cy 12.1:1 · gold 12.5:1 · danger 6.1:1
@@ -31,7 +31,9 @@
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--c-abyss);color:var(--c-ink);
   font-family:var(--font)}
-#cv{position:fixed;inset:0;display:block;cursor:crosshair}
+#cv{position:fixed;inset:0;display:block;cursor:crosshair;transition:opacity .45s ease}
+/* 標題主視覺：ComfyUI key art（見 docs/art/AI-ASSETS-v0.5.md、TITLE-ART.md） */
+body[data-scene="title"] #cv{opacity:0}
 #scan{position:fixed;inset:0;pointer-events:none;z-index:2;
   background:repeating-linear-gradient(0deg,rgba(0,0,0,.10) 0 1px,transparent 1px 3px),
              radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.55) 100%);
@@ -135,7 +137,7 @@ button:disabled{opacity:.35;cursor:not-allowed;filter:grayscale(.4)}
 .toast{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--c-cy);
   padding:8px 14px;border-radius:var(--r-sm);font-size:12.5px;color:var(--c-ink);
   box-shadow:0 8px 24px rgba(0,0,0,.45);animation:tin var(--t-slow) var(--ease-out);
-  backdrop-filter:blur(6px)}
+  backdrop-filter:blur(6px);max-width:100%}
 .toast.gold{border-left-color:var(--c-gold);color:#ffe9b3;background:rgba(38,28,6,.92)}
 @keyframes tin{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
 /* P2-1：母船右上角是 canvas HUD（「剩餘敵人」y≈34、觀景窗 y 72–178），
@@ -147,7 +149,11 @@ body[data-scene="moon"] #toasts{top:196px}
   background:radial-gradient(ellipse at 50% 40%,rgba(4,22,34,.82),rgba(2,7,13,.96));
   backdrop-filter:blur(2px)}
 .screen[hidden]{display:none !important}
-#title{background:linear-gradient(180deg,rgba(3,16,26,.45),rgba(2,7,13,.72) 55%,rgba(2,7,13,.92))}
+#title{background:
+  linear-gradient(rgba(2,7,13,.18),rgba(2,7,13,.18)),
+  linear-gradient(180deg,rgba(3,16,26,.30),rgba(2,7,13,.52) 55%,rgba(2,7,13,.82)),
+  url("docs/art/title-art/title-1920x1080.webp") center 42%/cover no-repeat,
+  var(--c-abyss)}
 #intro{background:linear-gradient(180deg,rgba(3,16,26,.5),rgba(2,7,13,.86) 70%,rgba(2,7,13,.94))}
 .kicker{font-size:12px;letter-spacing:.4em;color:var(--c-cy);text-transform:uppercase;margin-bottom:10px}
 .title-inner{text-align:center;max-width:700px;padding:30px}
@@ -289,16 +295,116 @@ body.shake{animation:shakeAll .5s linear}
 
 .ver{margin-top:10px;font-size:10.5px;color:var(--c-muted);letter-spacing:.28em}
 
+/* =========================================================
+   v0.5：下一步 HUD／賞金合約／魚槍模組
+   DOM 契約見 B 的 openBounty()／openCraft()／refreshHud()：
+   .bounty-grid .card.bounty[data-*] · .mod-grid .card.mod[data-*] · #nextstep
+   ========================================================= */
+
+/* ---------- HUD：下一步 chip（core.js 動態建立，掛在 #hud 最後） ---------- */
+#nextstep.nextstep{display:flex;align-items:center;gap:8px;width:344px;margin-top:8px;
+  padding:8px 11px;background:linear-gradient(90deg,rgba(255,209,102,.10),rgba(4,18,28,.62));
+  border:1px solid rgba(255,209,102,.26);border-left:3px solid var(--c-gold);
+  border-radius:var(--r-sm);font-size:11.5px;line-height:1.45;color:var(--c-ink);
+  backdrop-filter:blur(4px);box-shadow:0 2px 12px rgba(0,0,0,.22)}
+#nextstep.nextstep[hidden]{display:none}
+#nextstep b{flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.18em;
+  color:var(--c-gold);padding:2px 6px;border-radius:4px;background:rgba(255,209,102,.10)}
+#nextstep span{color:var(--c-ink);letter-spacing:.01em}
+
+/* ---------- 賞金合約面板 ---------- */
+.bounty-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px 0;margin:0 0 12px;
+  padding:9px 12px;background:rgba(0,0,0,.22);border:1px solid rgba(255,209,102,.18);
+  border-radius:var(--r-md);font-size:12px;color:var(--c-ink-2)}
+.bounty-top span{display:flex;align-items:center;gap:5px;padding:0 12px;
+  border-right:1px solid rgba(255,255,255,.08);line-height:1.4}
+.bounty-top span:first-child{padding-left:0}
+.bounty-top span:last-child{border-right:none}
+.bounty-top b{font-family:var(--font-num);font-size:15px;font-weight:600;color:var(--c-gold)}
+.bounty-grid{grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:12px;align-items:stretch}
+.card.bounty{background:linear-gradient(180deg,rgba(255,209,102,.035),rgba(255,255,255,.025));
+  border-left-color:rgba(255,194,71,.42)}
+.card.bounty .card-h .ico{background:#ffc247;color:#241a00}
+.card.bounty .card-h b{font-size:13px;line-height:1.35}
+.card.bounty .tag{border-color:rgba(255,209,102,.45);color:var(--c-gold);
+  background:rgba(255,209,102,.08);flex:0 0 auto}
+.card.bounty .lv{background:rgba(255,209,102,.10);color:#ffe2a0;font-family:var(--font-num);
+  font-variant-numeric:tabular-nums;min-width:52px;text-align:center}
+.card.bounty[data-tier="2"] .tag{border-color:rgba(255,159,67,.5);color:#ffb36b}
+.card.bounty[data-tier="3"] .tag{border-color:rgba(255,79,216,.5);color:#ff9de8;
+  background:rgba(255,79,216,.10)}
+.bounty-bar{height:8px;border-radius:5px;background:rgba(0,0,0,.55);
+  border:1px solid rgba(255,255,255,.07);overflow:hidden;margin:2px 0 1px}
+.bounty-bar i{display:block;height:100%;width:0;border-radius:4px;
+  background:linear-gradient(90deg,#3ad1ff,#9beaff);
+  box-shadow:0 0 8px rgba(58,209,255,.4);transition:width .3s var(--ease-out)}
+.card.bounty .bounty-reward{margin:0;display:flex;align-items:center;flex-wrap:wrap;gap:5px;
+  font-size:11.5px;color:var(--c-ink-2)}
+.bounty-reward .dot{width:8px;height:8px}
+.bounty-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:auto}
+.bounty-actions button{flex:1 1 auto;min-width:104px;font-size:12.5px;padding:8px 10px}
+.bounty-actions button.ghost{background:transparent;color:var(--c-ink-2);border:1px solid var(--line);
+  box-shadow:none;font-size:11.5px}
+.bounty-actions button.ghost:hover{background:rgba(111,227,255,.08);color:var(--c-cy)}
+.bounty-actions [data-claim]:disabled{background:rgba(255,255,255,.06);color:var(--c-muted);
+  box-shadow:none;filter:none;opacity:1}
+/* 已完成可領 */
+.card.bounty.ready,.card.bounty[data-ready="true"]{border-color:rgba(255,209,102,.55);
+  border-left-color:var(--c-gold);box-shadow:0 0 0 1px rgba(255,209,102,.16),
+  inset 0 0 26px rgba(255,209,102,.07),0 0 20px rgba(255,209,102,.08)}
+.card.bounty.ready .bounty-bar i,.card.bounty[data-ready="true"] .bounty-bar i{
+  background:linear-gradient(90deg,#ffd166,#ffe9a8);box-shadow:0 0 10px rgba(255,209,102,.5)}
+.card.bounty.ready .lv,.card.bounty[data-ready="true"] .lv{background:var(--c-gold);color:#2a1a00}
+.card.bounty.ready .bounty-actions::before{content:"✓ 可領取";font-size:10px;letter-spacing:.14em;
+  color:var(--c-gold);margin-right:auto;padding-left:2px;animation:bountyPulse 1.6s ease-in-out infinite}
+@keyframes bountyPulse{0%,100%{opacity:.5}50%{opacity:1}}
+.card.bounty.ready [data-claim],.card.bounty[data-ready="true"] [data-claim]{
+  background:linear-gradient(180deg,#ffe08a,#ffb03a);color:#2a1a00;font-weight:700;
+  box-shadow:0 0 18px rgba(255,209,102,.4)}
+/* 已領取（B 之後若加 data-claimed 可直接用） */
+.card.bounty[data-claimed="true"]{border-left-color:var(--c-green);opacity:.7}
+.card.bounty[data-claimed="true"] .bounty-bar i{background:linear-gradient(90deg,#7ddf8a,#d9f77a)}
+/* 空槽 */
+.card.bounty.slot-empty{opacity:.62;border-style:dashed;border-color:rgba(255,209,102,.22);
+  border-left-color:rgba(255,209,102,.22);background:rgba(255,255,255,.015);
+  justify-content:center;min-height:132px}
+.card.bounty.slot-empty .done{margin:0;padding:4px 0;background:transparent;border:none;
+  color:var(--c-muted);font-size:11px;letter-spacing:.02em}
+.bounty-note{margin-top:12px;color:var(--c-muted);font-size:11px}
+
+/* ---------- 魚槍模組（3 槽） ---------- */
+.mod-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:stretch}
+.card.mod{position:relative;
+  background:linear-gradient(180deg,rgba(201,166,255,.06),rgba(255,255,255,.02));
+  border-left-color:rgba(201,166,255,.5)}
+.card.mod .card-h .ico{background:var(--c,#c9a6ff);color:#1b1030}
+.card.mod .tag{border-color:rgba(201,166,255,.45);color:#d7c2ff;background:rgba(201,166,255,.1)}
+.card.mod .mod-desc{margin:0;font-size:11.5px;line-height:1.55;color:var(--c-ink-2);
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.card.mod::after{position:absolute;right:11px;top:9px;font:600 9px/1 var(--font-num);
+  letter-spacing:.14em;color:rgba(201,166,255,.55)}
+.card.mod[data-slot="0"]::after{content:"SLOT 1"}
+.card.mod[data-slot="1"]::after{content:"SLOT 2"}
+.card.mod[data-slot="2"]::after{content:"SLOT 3"}
+.card.mod.slot-empty{opacity:.7;border-style:dashed;border-color:rgba(201,166,255,.24);
+  border-left-color:rgba(201,166,255,.24);background:rgba(201,166,255,.02);
+  justify-content:center;text-align:center;min-height:132px;
+  box-shadow:inset 0 0 24px rgba(201,166,255,.04)}
+.card.mod.slot-empty::before{content:"＋";display:block;font-size:22px;line-height:1;
+  color:rgba(201,166,255,.4);margin-bottom:6px}
+.card.mod.slot-empty .done{margin:0;padding:0;background:transparent;border:none;
+  color:rgba(201,166,255,.55);font-size:10.5px;line-height:1.5;letter-spacing:.02em}
+
 /* ---------- RWD：≤768px（平板／窄視窗） ---------- */
 @media (max-width:768px){
   #hud{left:12px;top:12px;width:calc(100vw - 24px);max-width:344px}
   .res-row,.bars{width:100%}
   .quest,.idle,.basetag,#zone{width:100%;max-width:100%}
-  #hint{left:12px;right:auto;bottom:12px;transform:none;max-width:calc(100vw - 168px);
+  #hint{left:12px;right:auto;bottom:12px;transform:none;max-width:calc(100vw - 196px);
     white-space:normal;line-height:1.5;text-align:left;border-radius:10px;font-size:11px;
     padding:6px 10px}
   #toasts{left:12px;right:auto;top:auto;bottom:78px;align-items:flex-start;
-    max-width:min(300px,calc(100vw - 168px))}
+    max-width:min(300px,calc(100vw - 196px))}
   body[data-scene="moon"] #toasts{top:auto;bottom:78px}
   #modal{padding:12px}
   .modal-box{max-height:92vh}
@@ -307,6 +413,10 @@ body.shake{animation:shakeAll .5s linear}
   .modal-foot{padding:10px 14px}
   .grid{grid-template-columns:1fr}
   .bs-stats{min-width:0}
+  #nextstep.nextstep{width:100%;font-size:11px}
+  .bounty-grid,.mod-grid{grid-template-columns:1fr}
+  .bounty-top{font-size:11px;padding:8px 10px}
+  .bounty-top b{font-size:14px}
 }
 
 /* ---------- RWD：≤430px（390 手機直向；本輪不做觸控） ---------- */
@@ -325,12 +435,12 @@ body.shake{animation:shakeAll .5s linear}
   #zone{font-size:10px;padding:5px 8px}
   .idle{font-size:10px}
   /* 提示改左下角可換行 pill；寬度讓開右下 canvas 雷達（cx=VW-86, R=64） */
-  #hint{left:10px;right:auto;bottom:12px;transform:none;max-width:calc(100vw - 168px);
+  #hint{left:10px;right:auto;bottom:12px;transform:none;max-width:calc(100vw - 196px);
     white-space:normal;line-height:1.55;text-align:left;border-radius:10px;font-size:10px;
     padding:6px 10px}
-  /* toast 疊在提示上方、貼齊左緣，避免蓋住 HUD 與右下雷達 */
+  /* toast 疊在提示上方、貼齊左緣，避免蓋住 HUD 與右下 canvas 雷達（R=92 → 左緣 VW-178） */
   #toasts{left:10px;right:auto;top:auto;bottom:84px;align-items:flex-start;
-    max-width:calc(100vw - 168px)}
+    max-width:calc(100vw - 196px)}
   body[data-scene="moon"] #toasts{top:auto;bottom:84px}
   #modal{padding:8px}
   .modal-box{max-height:calc(100vh - 16px);border-radius:var(--r-md)}
@@ -338,11 +448,21 @@ body.shake{animation:shakeAll .5s linear}
   .modal-head h2{font-size:16px}
   .modal-body{padding:10px 12px}
   .modal-foot{padding:8px 12px}
-  .title-inner{padding:16px}
-  .title-inner h1{font-size:clamp(40px,14vw,64px)}
-  .blurb{font-size:12.5px;line-height:1.9}
-  .ctrl{font-size:10px}
+  .title-inner{padding:14px 18px;max-width:100%}
+  .title-inner h1{font-size:clamp(34px,12vw,52px);letter-spacing:.06em}
+  .en{font-size:10.5px;letter-spacing:.34em;margin:4px 0 16px}
+  .blurb{font-size:12px;line-height:1.85;max-width:100%;overflow-wrap:anywhere}
+  .blurb br{display:none}
+  .ctrl{font-size:10px;line-height:1.7;white-space:normal;overflow-wrap:anywhere}
+  .ver{font-size:10px}
   .end-stats div{min-width:82px;padding:7px 10px}
   .launchbar{margin-top:10px;padding:10px 12px}
   .base-summary{padding:10px;gap:10px}
+  #nextstep.nextstep{font-size:10.5px;padding:6px 9px;gap:6px;margin-top:6px}
+  #nextstep b{font-size:9px;letter-spacing:.12em;padding:2px 5px}
+  .bounty-top span{padding:0 8px;font-size:10px}
+  .bounty-top b{font-size:13px}
+  .bounty-actions button{min-width:92px;font-size:11.5px}
+  .card.bounty.slot-empty,.card.mod.slot-empty{min-height:104px}
+  .bounty-note{font-size:10px}
 }

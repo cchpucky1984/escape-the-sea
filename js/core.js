@@ -153,6 +153,27 @@ const UPG = [
     costs: [{ wood: 6, metal: 8 }, { metal: 16, wood: 8 }, { metal: 26, alloy: 4 }, { metal: 38, alloy: 7 }] }
 ];
 
+/* ---------- 賞金合約常數（DATA-v0.4 §5） ---------- */
+const BOUNTY = {
+  slots: 3,
+  refill: 6,
+  reroll: { metal: 15 },
+  tierKills: [40, 120],
+  patrolZone: 2,
+  pool: [
+    { id: 'cull', w: 3, text: '清剿：鯊魚', target: [6, 10, 16],
+      reward: [{ alloy: 2, metal: 15 }, { alloy: 4, metal: 30 }, { alloy: 7, metal: 50 }] },
+    { id: 'drone', w: 3, text: '拆解：外星無人機', target: [4, 7, 12],
+      reward: [{ alloy: 3 }, { alloy: 5 }, { alloy: 9 }] },
+    { id: 'salvage', w: 2, text: '打撈：帶回塑膠', target: [10, 18, 30],
+      reward: [{ wood: 10, alloy: 1 }, { wood: 20, alloy: 2 }, { wood: 35, alloy: 4 }] },
+    { id: 'patrol', w: 2, text: '巡弋：待在深海或更遠', target: [60, 100, 150],
+      reward: [{ alloy: 3 }, { alloy: 5 }, { alloy: 8 }] },
+    { id: 'decap', w: 1, minTier: 2, text: '獵首：擊敗一隻深海巨獸', target: [1, 1, 1],
+      reward: [{ alloy: 8, modBox: 1 }, { alloy: 8, modBox: 1 }, { alloy: 8, modBox: 1 }] }
+  ]
+};
+
 /* 每建造一座 → 平台多一格；成本 ×1.6^已建數量 */
 const STRUCTS = {
   net:      { name: '自動收集網', ch: '網', c: '#8ee6a4', max: 3, tag: '生產', tagCls: 'prod',
@@ -172,9 +193,13 @@ const STRUCTS = {
   satellite:{ name: '衛星光束發生器', ch: '衛', c: '#7fd4ff', max: 1, tag: '超級武器', tagCls: 'auto',
               desc: '決戰時呼叫軌道衛星光束', cost: { metal: 45, plastic: 30, alloy: 8 }, req: 'rnd' },
   dock:     { name: '火箭工坊',   ch: '箭', c: '#6fe3ff', max: 1, tag: '必要', tagCls: '',
-              desc: '解鎖太空船組裝與發射', cost: { metal: 20, wood: 14, plastic: 12 } }
+              desc: '解鎖太空船組裝與發射', cost: { metal: 20, wood: 14, plastic: 12 } },
+  bounty:   { name: '賞金終端',   ch: '賞', c: '#ffc247', max: 1, tag: '經濟', tagCls: '',
+              desc: '解鎖賞金合約 — 擊殺與打撈都能換合金（按 H）', cost: { metal: 14, plastic: 8 } },
+  modtable: { name: '模組工作台', ch: '模', c: '#a98bff', max: 1, tag: '必要', tagCls: '',
+              desc: '魚槍可插 3 個模組 — 穿透 · 爆裂 · 電磁', cost: { metal: 34, alloy: 5 }, req: 'rnd' }
 };
-const STRUCT_KEYS = ['equip', 'rnd', 'dock', 'net', 'recycler', 'botdock', 'tower', 'reverse', 'satellite'];
+const STRUCT_KEYS = ['equip', 'rnd', 'modtable', 'dock', 'bounty', 'net', 'recycler', 'botdock', 'tower', 'reverse', 'satellite'];
 
 const PARTS = [
   { id: 'hull', name: '船體', ch: '體', c: '#cfd9e6', desc: '耐壓艙體與隔熱層', cost: { plastic: 12, metal: 10, wood: 6 } },
@@ -225,7 +250,20 @@ const QUESTS = [
     reward: {} },
   { id: 'boss', text: '擊敗母船核心', sub: '攻入外星母船，擊毀反應爐核心',
     prog: () => game.stats.won ? '1 / 1' : '0 / 1', done: () => !!game.stats.won,
-    reward: {} }
+    reward: {} },
+  { id: 'bounty', text: '完成第一張賞金合約', sub: '按 H 打開賞金終端 — 擊殺與打撈都能換合金',
+    prog: () => Math.min(1, game.bounty.done) + ' / 1', done: () => game.bounty.done >= 1,
+    reward: { metal: 10, alloy: 2 } },
+  { id: 'leviathan', text: '擊敗第一隻深海巨獸', sub: '海域四角，雷達上是紫色漩渦',
+    prog: () => ((game.stats.leviathanKills || game.stats.bosses || 0) >= 1 ? '1' : '0') + ' / 1',
+    done: () => (game.stats.leviathanKills || 0) >= 1 || (game.stats.bosses || 0) >= 1,
+    reward: { alloy: 4 } },
+  { id: 'mod', text: '把第一個模組裝上魚槍', sub: '按 C → 魚槍模組，三個槽',
+    prog: () => game.mods.length + ' / 1', done: () => game.mods.length >= 1,
+    reward: { metal: 12 } },
+  { id: 'rift', text: '在裂縫關閉前打爆它的核心', sub: '每 3 分鐘開一次，紫色漩渦',
+    prog: () => (game.stats.rifts || 0) + ' / 1', done: () => (game.stats.rifts || 0) >= 1,
+    reward: { alloy: 5 } }
 ];
 
 /* ---------- 遊戲狀態 ---------- */
@@ -321,6 +359,7 @@ function addStructure(type) {
   const tile = freeTileFor();
   game.base.structures.push({ type, gx: tile.gx, gy: tile.gy, born: (typeof sea !== 'undefined' ? sea.t : 0) });
   game.stats.built++;
+  if (type === 'bounty') { bountyRefillT = 0; ensureBounties(); }
   if (typeof onBaseChanged === 'function') onBaseChanged();
   saveGame();
   return true;
@@ -414,6 +453,26 @@ function validateSave(s) {
     if (out.length >= 64) break;
   }
   s.base.structures = out;
+  /* 賞金合約：id 白名單、tier/target/prog/reward 驗證（舊檔或損壞檔不炸） */
+  const bo = [];
+  if (s.bounty && Array.isArray(s.bounty.active)) {
+    for (const c of s.bounty.active) {
+      const def = c && bountyDef(c.id);
+      if (!def) continue;
+      const tier = int(c.tier, 1, 3, 1);
+      const target = int(c.target, 1, 9999, def.target[tier - 1]);
+      const reward = {};
+      if (c.reward && typeof c.reward === 'object') {
+        for (const k in c.reward) if (k === 'modBox' || k in game.res) reward[k] = int(c.reward[k], 0, 9999, 0);
+      }
+      bo.push({ id: c.id, tier, target, prog: int(c.prog, 0, target, 0), reward });
+      if (bo.length >= BOUNTY.slots) break;
+    }
+  }
+  s.bounty.active = bo;
+  s.bounty.done = int(s.bounty.done, 0, 1e9, 0);
+  s.bounty.rerollT = int(s.bounty.rerollT, 0, 1e9, 0);
+  s.bounty.zoneT = int(s.bounty.zoneT, 0, 1e9, 0);
   s.quest.claimed = [...new Set(s.quest.claimed.filter(x => typeof x === 'string'))];
   s.bossesKilled = Array.isArray(s.bossesKilled) ? [...new Set(s.bossesKilled.filter(x => typeof x === 'string'))] : [];
   s.pos = { x: int(s.pos.x, -1e5, 1e5, 1000), y: int(s.pos.y, -1e5, 1e5, 700) };
@@ -444,6 +503,7 @@ function loadGame() {
     game.cheatUp = Object.assign({ fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0 }, s.cheatUp || {});
     game.bounty = s.bounty;
     game.mods = s.mods;
+    bountyRefillT = 0;
     muted = !!s.muted; game.muted = muted;
     if (typeof applyMute === 'function') applyMute();
     try { saveLastWritten = raw || localStorage.getItem(SAVE_KEY) || ''; } catch (e) { saveLastWritten = ''; }
@@ -485,6 +545,7 @@ function resetGame() {
   game.cheatUp = { fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0 };
   game.bounty = defaultBounty();
   game.mods = [];
+  bountyRefillT = 0;
   game.dirty = true;
   saveLastStr = ''; saveLastAt = -1e9; saveLastWritten = '';
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = 0; }
@@ -512,6 +573,134 @@ function costHtml(cost) {
   }).join('');
 }
 
+/* ---------- 賞金合約（DATA-v0.4 §5） ---------- */
+let bountyRefillT = 0;
+function fmtDist(d) { return d >= 1000 ? (d / 1000).toFixed(1) + ' km' : Math.round(d) + ' m'; }
+function bountyDef(id) { return BOUNTY.pool.find(p => p.id === id) || null; }
+function bountyTier() {
+  const k = game.stats.kills || 0;
+  return k < BOUNTY.tierKills[0] ? 1 : k < BOUNTY.tierKills[1] ? 2 : 3;
+}
+function bountyRoll(tier) {
+  const pool = BOUNTY.pool.filter(p => !p.minTier || tier >= p.minTier);
+  const total = pool.reduce((s, p) => s + p.w, 0);
+  let r = Math.random() * total, def = pool[pool.length - 1];
+  for (const p of pool) { if ((r -= p.w) <= 0) { def = p; break; } }
+  const idx = Math.max(0, Math.min(2, tier - 1));
+  return { id: def.id, tier, target: def.target[idx], prog: 0, reward: Object.assign({}, def.reward[idx]) };
+}
+function ensureBounties() {
+  while (game.bounty.active.length < BOUNTY.slots) game.bounty.active.push(bountyRoll(bountyTier()));
+}
+function refillBounties(dt) {
+  if (countType('bounty') <= 0) return;
+  if (game.bounty.active.length >= BOUNTY.slots) { bountyRefillT = 0; return; }
+  if (bountyRefillT > 0) { bountyRefillT -= dt; if (bountyRefillT > 0) return; }
+  game.bounty.active.push(bountyRoll(bountyTier()));
+}
+function bountyOn(stat, n) {
+  if (!n) return;
+  if (stat === 'leviathanKills') stat = 'decap';   /* D 的 leviathan.js 用這個名字，對應 BOUNTY 的 decap */
+  for (const c of game.bounty.active) {
+    if (!c || c.id !== stat || c.prog >= c.target) continue;
+    c.prog = Math.min(c.target, c.prog + n);
+    game.dirty = true;
+  }
+}
+function grantBountyReward(rw) {
+  for (const k in rw) if (k !== 'modBox') addRes(k, rw[k]);
+  if (rw.modBox) grantRandomMod();
+}
+function rewardHtml(rw) {
+  const parts = [];
+  for (const k in rw) if (k !== 'modBox' && RESMETA[k]) parts.push(RESMETA[k].name + ' ' + rw[k]);
+  if (rw.modBox) parts.push('模組箱 ×' + rw.modBox);
+  return parts.join(' · ');
+}
+function claimBounty(i) {
+  const c = game.bounty.active[i];
+  if (!c || c.prog < c.target) return false;
+  grantBountyReward(c.reward);
+  game.bounty.active.splice(i, 1);
+  game.bounty.done++;
+  bountyRefillT = BOUNTY.refill;
+  /* 面板開著（paused）時 updateSea 不會跑，用真實時間計時補槽；updateSea 內的 refill 仍保留 */
+  setTimeout(() => {
+    if (countType('bounty') <= 0 || game.bounty.active.length >= BOUNTY.slots) return;
+    game.bounty.active.push(bountyRoll(bountyTier()));
+    game.dirty = true;
+    saveGame(); refreshHud();
+    if (modalEl.classList.contains('show') && document.querySelector('.bounty-grid')) openBounty();
+  }, BOUNTY.refill * 1000);
+  sfx('quest');
+  const def = bountyDef(c.id);
+  toast('賞金合約完成：' + (def ? def.text : c.id) + '（' + rewardHtml(c.reward) + '）', 'gold');
+  saveGame(); refreshHud(); openBounty();
+  return true;
+}
+function rerollBounty(i) {
+  if (!game.bounty.active[i]) return false;
+  if (!pay(BOUNTY.reroll)) { toast('金屬不足（需要 ' + BOUNTY.reroll.metal + '）'); return false; }
+  game.bounty.active[i] = bountyRoll(game.bounty.active[i].tier);
+  sfx('build'); saveGame(); refreshHud(); openBounty();
+  return true;
+}
+function bountyHtml() {
+  let h = '<div class="bounty-grid grid">';
+  game.bounty.active.forEach((c, i) => {
+    const def = bountyDef(c.id) || { text: c.id };
+    const ready = c.prog >= c.target;
+    const pct = clamp(c.prog / c.target * 100, 0, 100);
+    h += `<div class="card bounty${ready ? ' ready' : ''}" data-bounty="${c.id}" data-tier="${c.tier}" data-ready="${ready}">
+      <div class="card-h"><span class="ico" style="--c:#ffc247">賞</span><b>${def.text}</b><span class="tag">T${c.tier}</span><span class="lv">${Math.floor(c.prog)} / ${c.target}</span></div>
+      <div class="bounty-bar"><i style="width:${pct}%"></i></div>
+      <p class="bounty-reward">獎勵：${rewardHtml(c.reward)}</p>
+      <div class="bounty-actions">
+        <button class="primary" data-claim="${i}" ${ready ? '' : 'disabled'}>${ready ? '領取獎勵' : '進行中'}</button>
+        <button class="ghost" data-reroll="${i}">換一張（${BOUNTY.reroll.metal} 金屬）</button>
+      </div>
+    </div>`;
+  });
+  for (let i = game.bounty.active.length; i < BOUNTY.slots; i++) {
+    h += `<div class="card bounty slot-empty" data-bounty-slot="${i}"><div class="done">等待新合約…（${BOUNTY.refill} 秒內補上）</div></div>`;
+  }
+  h += '</div>';
+  h += `<p class="muted bounty-note">完成一張後 ${BOUNTY.refill} 秒補一張；${BOUNTY.reroll.metal} 金屬可換掉不想要的合約。擊殺與打撈進度會即時更新。</p>`;
+  return h;
+}
+function openBounty() {
+  if (game.scene !== 'sea') return;
+  if (countType('bounty') <= 0) {
+    sfx('deny');
+    toast('需要「賞金終端」— 在基地按 B 建造（金屬 14 · 塑膠 8）');
+    return;
+  }
+  if (game.bounty.active.length === 0 && bountyRefillT <= 0) ensureBounties();
+  openModal('賞金終端 — 海上合約',
+    `<div class="bounty-top"><span>合約 <b>${game.bounty.active.length}</b> / ${BOUNTY.slots}</span><span>·</span><span>已完成 <b>${game.bounty.done || 0}</b> 張</span><span>·</span><span>擊殺等級 <b>T${bountyTier()}</b></span></div>` + bountyHtml(),
+    [{ label: '關閉 (Esc)' }]);
+  modalBody.querySelectorAll('[data-claim]').forEach(btn => { btn.onclick = () => claimBounty(+btn.dataset.claim); });
+  modalBody.querySelectorAll('[data-reroll]').forEach(btn => { btn.onclick = () => rerollBounty(+btn.dataset.reroll); });
+}
+
+/* ---------- 魚槍模組（DATA-v0.4 §6） ---------- */
+function grantRandomMod() {
+  const left = MODS.filter(m => !hasMod(m.id));
+  if (!left.length) { addRes('alloy', 3); toast('模組已滿 — 轉換為外星合金 +3'); return null; }
+  const m = pick(left);
+  game.mods.push(m.id);
+  saveGame(); refreshHud();
+  toast('取得模組：' + m.name + '（按 C 查看魚槍模組）', 'gold');
+  return m.id;
+}
+function bulletMods() { return { pierce: hasMod('pierce'), blast: hasMod('blast'), emp: hasMod('emp') }; }
+/* 給 D 的巨獸／裂縫檔案呼叫（window 全域） */
+window.bountyOn = bountyOn;
+window.grantRandomMod = grantRandomMod;
+window.bountyDef = bountyDef;
+window.BOUNTY = BOUNTY;
+window.MODS = MODS;
+
 /* ---------- toast ---------- */
 function toast(msg, cls) {
   const box = $('toasts');
@@ -527,7 +716,7 @@ function toast(msg, cls) {
 /* ---------- HUD ---------- */
 /* ---------- HUD（快取簽名，值沒變就不寫 DOM：AUDIT P2-5） ---------- */
 let hudT = 0;
-const hudCache = { res: Object.create(null), ox: '', st: '', quest: '', idle: '', basetag: '', zone: '' };
+const hudCache = { res: Object.create(null), ox: '', st: '', quest: '', idle: '', basetag: '', zone: '', nextstep: '' };
 function setHudHtml(id, html, key) {
   const el = $(id);
   if (!el || hudCache[key] === html) return;
@@ -579,6 +768,63 @@ function refreshHud() {
       <span>${zp.tip}</span>
       <span>怪物上限 <b>${zp.hazCap}</b></span>`, 'zone');
   }
+  /* v0.5 上手引導：HUD「下一步」chip（index.html 沒有就先動態建立） */
+  const nsEl = ensureNextStepEl();
+  const ns = nextStepText();
+  if (nsEl) {
+    nsEl.hidden = !ns;
+    nsEl.style.display = ns ? '' : 'none';
+    setHudHtml('nextstep', ns ? `<b>下一步</b><span>${ns}</span>` : '', 'nextstep');
+  }
+}
+function ensureNextStepEl() {
+  let el = $('nextstep');
+  if (!el) {
+    const hud = $('hud');
+    if (!hud) return null;
+    el = document.createElement('div');
+    el.id = 'nextstep';
+    el.className = 'nextstep';
+    hud.appendChild(el);
+  }
+  return el;
+}
+/* 依任務狀態給一句「現在該做什麼」；需要基地的動作會附距離 */
+function nextStepText() {
+  if (game.scene !== 'sea' || typeof sea === 'undefined' || !sea.player || sea.dead) return '';
+  const P = sea.player, d = Math.hypot(P.x, P.y), R = baseRadius();
+  const near = d < R + 90;
+  const back = (s) => near ? s : '游回基地（' + fmtDist(d) + '）→ ' + s;
+  if (countType('net') === 0) return back('按 B 建造「自動收集網」');
+  if (countType('equip') === 0) return back('按 B 建造「裝備房」');
+  if (countType('bounty') === 0) return back('按 B 建造「賞金終端」→ 按 H 接合約');
+  if (game.bounty.active.length === 0 && bountyRefillT > 0) return '等 ' + Math.ceil(bountyRefillT) + ' 秒補新合約（按 H 查看）';
+  if (game.up.harpoon < 2) return back('按 C 把壓縮魚槍升到 Lv2');
+  if (game.tech < 4) {
+    const li = nearestLeviathanInfo();
+    if (li) return '最近巨獸：' + li.dir + ' ' + fmtDist(li.dist) + '（雷達紫點）· 或接賞金合約';
+    return '打四角守衛（雷達紫色）或接賞金合約';
+  }
+  if (countType('rnd') === 0) return back('按 B 建造「火箭研發中心」');
+  if (partCount() < 4) return back('按 C 建造 4 個太空船零件');
+  if (countType('dock') === 0) return back('按 B 建造「火箭工坊」');
+  return back('按 C 發射太空船');
+}
+/* 最近巨獸方位（讀 D 的 LEVIATHANS.list；沒有檔案時回 null） */
+function nearestLeviathanInfo() {
+  if (typeof sea === 'undefined' || !sea.player || !window.LEVIATHANS || !Array.isArray(window.LEVIATHANS.list)) return null;
+  const P = sea.player;
+  let best = null, bd = Infinity;
+  for (const b of window.LEVIATHANS.list) {
+    if (!b || b.alive === false) continue;
+    const d = Math.hypot(b.x - P.x, b.y - P.y);
+    if (d < bd) { bd = d; best = b; }
+  }
+  if (!best) return null;
+  const dirs = ['北', '東北', '東', '東南', '南', '西南', '西', '西北'];
+  const ang = Math.atan2(best.x - P.x, -(best.y - P.y));
+  const idx = Math.round((((ang + Math.PI * 2) % (Math.PI * 2)) / (Math.PI / 4))) % 8;
+  return { dir: dirs[idx], dist: bd, x: best.x, y: best.y };
 }
 function idleText() {
   const inc = baseIncomePer5();
@@ -656,7 +902,7 @@ function openBase() {
   if (game.scene !== 'sea') return;
   if (!atBase()) {
     sfx('deny');
-    toast('要游回基地安全圈，才能建造與升級');
+    toast('距離基地 ' + Math.round(Math.hypot(sea.player.x, sea.player.y)) + ' m — 游回安全圈再按 B');
     return;
   }
   const inc = baseIncomePer5();
@@ -719,7 +965,7 @@ function openCraft() {
   if (game.scene !== 'sea') return;
   if (!atBase()) {
     sfx('deny');
-    toast('要游回基地安全圈，才能升級裝備與發射');
+    toast('距離基地 ' + Math.round(Math.hypot(sea.player.x, sea.player.y)) + ' m — 游回安全圈再按 C');
     return;
   }
   const hasEquip = countType('equip') > 0;
@@ -769,6 +1015,24 @@ function openCraft() {
       : hasRnd ? '<div class="done" style="color:#8ee6a4">可在基地面板建造（金屬 45 · 塑膠 30 · 合金 8）</div>'
       : '<div class="done" style="color:#ffb3a0">需要火箭研發中心</div>'}
   </div>`;
+  h += '</div>';
+
+  /* ---- 魚槍模組（DATA-v0.4 §6；模組箱由巨獸／賞金獵首／裂縫給） ---- */
+  const hasModTable = countType('modtable') > 0;
+  h += `<h3 style="margin:22px 0 10px;font-size:14px;color:#c9a6ff;letter-spacing:.1em">魚槍模組
+     <span style="color:#7fa3b4;font-size:11.5px">（${game.mods.length} / 3 槽）</span></h3>`;
+  if (!hasModTable) h += '<p class="muted" style="color:#ffb3a0">需要「模組工作台」（基地 B 面板建造：金屬 34 · 合金 5，需火箭研發中心）</p>';
+  h += '<div class="mod-grid grid">';
+  for (let i = 0; i < 3; i++) {
+    const id = game.mods[i], m = id ? modOf(id) : null;
+    if (m) {
+      h += `<div class="card mod" data-mod="${m.id}" data-owned="true" data-slot="${i}">
+        <div class="card-h"><span class="ico" style="--c:${m.c}">${m.ch}</span><b>${m.name}</b><span class="tag">已裝備</span></div>
+        <p class="mod-desc">${m.desc}</p></div>`;
+    } else {
+      h += `<div class="card mod slot-empty" data-mod-slot="${i}"><div class="done">空模組槽 — 模組箱：巨獸／賞金獵首／裂縫核心</div></div>`;
+    }
+  }
   h += '</div>';
 
   /* ---- 太空船 ---- */
@@ -887,7 +1151,8 @@ function openHelp() {
     ['Shift', '衝刺（消耗體力）'],
     ['滑鼠 / 左鍵', '瞄準、發射魚槍'],
     ['B', '自動化基地：建造新建築（平台會擴張）'],
-    ['C', '裝備升級 / 太空船'],
+    ['C', '裝備升級 / 魚槍模組 / 太空船'],
+    ['H', '賞金合約（需賞金終端）'],
     ['J', '任務清單'],
     ['Esc', '關閉面板 / 暫停'],
     ['M', '音效開關']

@@ -12,6 +12,17 @@ const launch = {
 function startLaunch() {
   const ready = Object.values(game.parts).every(Boolean) && countType('dock') > 0;
   if (!ready) { toast('太空船尚未完成'); return; }
+  /* v0.5 升空 gate（GDD §4 節奏：魚槍 Lv3／潛水衣 Lv2／火箭研發中心；缺什麼就講什麼） */
+  const lv = (k) => (game.up[k] || 0) + ((game.cheatUp && game.cheatUp[k]) || 0);
+  const lack = [];
+  if (lv('harpoon') < 3) lack.push('魚槍需 Lv3（目前 Lv' + lv('harpoon') + '）');
+  if (lv('suit') < 2) lack.push('潛水衣需 Lv2（目前 Lv' + lv('suit') + '）');
+  if (countType('rnd') <= 0) lack.push('需要建造「火箭研發中心」');
+  if (lack.length) {
+    toast('無法升空：' + lack.join(' · '), 'gold');
+    if (typeof sfx === 'function') sfx('deny');
+    return;
+  }
   game.stats.launched = true;
   saveGame();
   transition(initLaunch);

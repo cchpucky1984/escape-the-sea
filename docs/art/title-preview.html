@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>標題畫面 key art 合成預覽（1920×1080）</title>
+<!--
+  用途：驗證 docs/art/title-art/title-1920x1080.webp 當標題底圖的可讀性。
+  合成順序與 TITLE-ART.md 給 B 的接線相同：
+    1) drawImage 全幅 cover
+    2) 18% 暗化（rgba(2,7,13,.18)）
+    3) 既有 #title CSS 漸層（style.css）
+  這不是遊戲本體，只是給 Lead/B 看的靜態預覽。
+-->
+<link rel="stylesheet" href="../../style.css">
+<style>
+  html,body{width:1920px;height:1080px;overflow:hidden}
+  #art{position:fixed;inset:0;width:1920px;height:1080px;object-fit:cover;display:block}
+  #art-dark{position:fixed;inset:0;background:rgba(2,7,13,.18);z-index:1}
+  /* 預覽頁把 .screen 疊在底圖上（遊戲內是 canvas 繪製） */
+  #title.screen{z-index:2}
+</style>
+</head>
+<body data-scene="title">
+<img id="art" src="title-art/title-1920x1080.webp" alt="">
+<div id="art-dark"></div>
+<div id="title" class="screen">
+  <div class="title-inner">
+    <div class="kicker">海洋生存 · 基地建造 · 星際復仇</div>
+    <h1>逃出大海</h1>
+    <div class="en">E S C A P E &nbsp; T H E &nbsp; S E A</div>
+    <p class="blurb">外星飛船的一炮把你打進海裡，暗湧把你沖到無人的海域。<br>
+    收集海上漂流垃圾、建造會自己長大的自動化基地、派出 BOT 出海，<br>
+    最後造一艘太空船飛上月球——把帳算清楚。</p>
+    <div class="tbtns">
+      <button class="primary">開始遊戲</button>
+      <button class="ghost">操作說明</button>
+    </div>
+    <div class="ctrl">WASD 游動 · Shift 衝刺 · 滑鼠瞄準 / 點擊發射 · B 基地 · C 裝備 · J 任務 · M 靜音</div>
+    <div class="ver">v0.5.0-alpha · BUILD 2026-11-04</div>
+  </div>
+</div>
+</body>
+</html>

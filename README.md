@@ -3,12 +3,20 @@
 單機 HTML5 網頁遊戲：在海灘被外星飛船巨炮打落海，被暗湧沖到大海中央。
 收集海上垃圾 → 建造會長大的自動化基地 → 派出 BOT 出海 → 升級裝備 → 造太空船飛上月球 → 與外星母船決戰。
 
-目前版本 **v0.3.0**；**v0.4.0 開發中**（賞金海域），施工內容與已知問題見文末〈開發中（v0.4）〉。
+目前版本 **v0.4.0-alpha**；**v0.5 開發中**（內容深度：賞金合約／魚槍模組／深海巨獸／深海裂縫），進度見文末〈開發中（v0.5）〉。
 
 ## 開始玩
 
 雙擊 `index.html`，或執行 `start.bat`（用預設瀏覽器開啟）。
 免安裝、免網絡、免伺服器。進度自動存在瀏覽器 `localStorage`（key：`escape-the-sea-v2`）。
+
+## 商店與連結（上架中）
+
+- **itch.io**：`[待填]` — 付費版 Coming soon；另有「前 15 分鐘試玩」免費頁。
+- **Steam 願望清單**：`[待填]` — 先開頁收集關注，桌面打包在 v0.7 之後評估。
+- **GitHub Pages**：`[待填]` — 可免費直接玩最新開發版。
+- 隱私、AI 揭露與素材授權：[docs/marketing/LEGAL.md](docs/marketing/LEGAL.md)　媒體素材：[docs/marketing/PRESSKIT.md](docs/marketing/PRESSKIT.md)
+- 商店 key art 為 AI 生成（ComfyUI）；**遊戲內美術與音效全部是程式即時生成**，沒有任何圖片檔或音檔。
 
 ## 操作
 
@@ -92,36 +100,50 @@
 
 死亡：在基地復活，失去 15% 塑膠。升空／登艦失敗：回基地修理（金屬 -8）。母船戰敗：可再次出擊。
 
-## 開發中（v0.4）
+## 開發中（v0.5）
 
-施工方向是 GDD 方案 A「**賞金海域**」：把戰鬥接回經濟——賞金合約（新面板 `H` ＋「賞金終端」建築）、魚槍模組 3 槽（穿透／爆裂／電磁）、深海巨獸與深海裂縫，並把母船決戰改成「艙壓值」制。
+方向：把「戰鬥」接回「經濟」，讓每一輪路線不一樣（`docs/PRODUCT-v1.0.md` 支柱 A／B）。
 
-**S1a 先修 P0／P1**（不新增內容）：
-- 母船內敵傷 7–13 對上玩家 3–7 HP ＝ 一擊必死（修復中，改成艙壓＋減傷）。
-- 失敗重試會卡在升空 100%（soft-lock）、返回基地可能雙重扣款。
-- 資源不即時存檔，F5 可能掉進度（改成 10 秒自動存檔＋切頁強制存）。
-- 效能：漸層與粒子重建造成低階機掉 fps（漸層快取＋粒子池）。
-
-預期版本：**v0.4.0-alpha**（S1a，現在的施工線）→ **v0.4.0-beta**（S1b，賞金海域新內容）→ **v0.4.0 正式版**。實際日期不承諾，完成才發。
+- **賞金合約**：新面板 `H`＋建築「賞金終端」；3 張合約（清剿／拆解／打撈／巡弋／獵首），完成換合金。
+- **魚槍模組**：3 槽（穿透／爆裂／電磁），需「模組工作台」。
+- **深海巨獸**：四角守衛升級版（3 階段、弱點核心）。
+- **深海裂縫**：每 3 分鐘開啟的限時熱點。
+- **母船艙壓值**：把一擊必死改成艙壓＋減傷＋補給艙（v0.4.0-alpha 已修完 soft-lock／雙重扣款／存檔掉資料）。
+- 目標：一輪 90–150 分鐘、新玩家 3 分鐘內知道下一步（`PRODUCT-v1.0.md`）。實際日期不承諾，完成才發。
 
 ## 檔案
 
 - `index.html` 入口　·　`style.css` 介面　·　`start.bat` 本機啟動
-- `js/core.js` 狀態 / 存檔 / 資源 / 面板 / 任務 / 音效
+- `js/core.js` 狀態 / 存檔 / 資源 / 面板 / 任務 / 音效 / i18n 資料
+- `js/fx.js` 粒子、鏡頭震動、漸層快取、合成音效
 - `js/base.js` 基地平台、安全圈、BOT、砲塔、建築繪製
-- `js/sea.js` 大海場景（收集、敵人、雷達、指北針）
+- `js/sea.js` 大海場景（收集、敵人、雷達、指北針、賞金合約）
 - `js/space.js` 升空、登艦與月球決戰
 - `js/main.js` 輸入、場景切換、主迴圈
 
 ## 文件索引
 
-- [docs/ROADMAP-v0.4.md](docs/ROADMAP-v0.4.md) — v0.4 施工路線圖與工單（Lead）
-- [docs/design/GDD-v0.4.md](docs/design/GDD-v0.4.md) — v0.4 企劃定案：賞金海域、數值、驗收（A）
-- [docs/design/DATA-v0.4.md](docs/design/DATA-v0.4.md) — 任務／建築／文案資料塊（A）
-- [docs/tech/AUDIT-v0.4.md](docs/tech/AUDIT-v0.4.md) — 架構與技術債審查（B）
-- [docs/art/STYLE-v0.4.md](docs/art/STYLE-v0.4.md) — 視覺風格與 HUD／面板規格（C）
-- [docs/vfx/VFX-AUDIO-v0.4.md](docs/vfx/VFX-AUDIO-v0.4.md) — 打擊感、粒子與音效設計（D）
-- [docs/content/LEVELS-v0.4.md](docs/content/LEVELS-v0.4.md) — 海域事件、守衛、數值與任務擴充（E）
-- [docs/marketing/MARKETING-v0.4.md](docs/marketing/MARKETING-v0.4.md) — 商店頁、預告分鏡、社群與截圖腳本（E）
-- [docs/qa/QA-BASELINE.md](docs/qa/QA-BASELINE.md) — 25 項 QA 基準線與已知問題（Lead）
+- [docs/PRODUCT-v1.0.md](docs/PRODUCT-v1.0.md) — 商業級品質標準（六支柱＋里程碑）
+- [docs/ROADMAP-v0.4.md](docs/ROADMAP-v0.4.md) — 施工路線圖與工單
+- [docs/design/GDD-v0.4.md](docs/design/GDD-v0.4.md) — v0.4 企劃定案：賞金海域、數值、驗收
+- [docs/design/DATA-v0.4.md](docs/design/DATA-v0.4.md) — 任務／建築／文案資料塊
+- [docs/tech/AUDIT-v0.4.md](docs/tech/AUDIT-v0.4.md) — 架構與技術債審查
+- [docs/art/STYLE-v0.4.md](docs/art/STYLE-v0.4.md) — 視覺風格與 HUD／面板規格；概念圖見 [CONCEPTS-v0.4.md](docs/art/CONCEPTS-v0.4.md)
+- [docs/vfx/VFX-AUDIO-v0.4.md](docs/vfx/VFX-AUDIO-v0.4.md) — 打擊感、粒子與音效設計
+- [docs/content/LEVELS-v0.4.md](docs/content/LEVELS-v0.4.md) — 海域事件、守衛、數值與任務擴充
+- [docs/marketing/STORE-v0.5.md](docs/marketing/STORE-v0.5.md) — 商店頁定稿（itch／Steam）與素材清單
+- [docs/marketing/PRESSKIT.md](docs/marketing/PRESSKIT.md) — 媒體素材包與事實表
+- [docs/marketing/LEGAL.md](docs/marketing/LEGAL.md) — 隱私聲明、字型／AI／音樂授權清單
+- [docs/i18n/STRINGS.md](docs/i18n/STRINGS.md) — zh-Hant → en 字串字典（v0.8 i18n 基礎）
+- [docs/qa/QA-BASELINE.md](docs/qa/QA-BASELINE.md) — QA 基準線與已知問題
 - [docs/TEAM.md](docs/TEAM.md) — 團隊規範與檔案擁有權
+
+## English
+
+**Escape the Sea** is a single-player HTML5 survival / base-building game: an alien ship blasts you into the ocean, and you turn floating trash into a growing offshore base, a BOT fleet, and finally a spacecraft to take the fight to the alien mothership.
+
+- **Play**: open `index.html` (or run `start.bat`). No install, no network, no account.
+- **Controls**: WASD/Arrows swim · Shift sprint · Mouse aim/fire · B base · C gear · J quests · Esc pause · M mute.
+- **Loop**: collect trash → grow the platform base → send out BOTs → upgrade gear → build a spacecraft → storm the mothership.
+- **Status**: v0.4.0-alpha is playable; v0.5 (bounty contracts, harpoon mods, leviathan, rifts) is in development; full English localisation is planned for v0.8.
+- **Privacy**: no accounts, no tracking; progress stays in your browser's `localStorage`. See [LEGAL.md](docs/marketing/LEGAL.md).

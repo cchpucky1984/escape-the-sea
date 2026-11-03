@@ -69,6 +69,7 @@ window.addEventListener('keydown', (e) => {
   if (game.scene === 'sea') {
     if (k === 'b') openBase();
     if (k === 'c') openCraft();
+    if (k === 'h') openBounty();
     if (k === 'j') openQuests();
     if (k === ' ') shootSea();
   }
@@ -227,7 +228,7 @@ function beginGame() {
   setScene('sea');
   refreshHud();
   saveGame();
-  toast('目標：收集垃圾 → 建造基地 → 攻入母船');
+  toast('先游回基地 → 按 B 建造（基地在 ' + fmtDist(Math.hypot(game.pos.x, game.pos.y)) + ' 外；HUD 左上會顯示下一步）', 'gold');
   if (game.cheat) setTimeout(() => { if (game.scene === 'sea' && !game.paused) openCheat(); }, 700);
 }
 
@@ -347,6 +348,8 @@ window.__T = {
   startLaunch, nextWave, baseRadius, baseTiles, freeTileFor, addStructure,
   initDock, updateDock, drawDock, dock, callAlliance,
   calcStats, saveGame, loadGame, migrateSave, validateSave, MODS,
+  openBounty, claimBounty, rerollBounty, bountyOn, grantRandomMod, bulletMods,
+  BOUNTY, nextStepText,
   give(k, n) { addRes(k, n); refreshHud(); },
   mountAll() {
     for (const k of STRUCT_KEYS) {
