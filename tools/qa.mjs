@@ -1,4 +1,4 @@
-﻿// QA regression suite for escape-the-sea (rebuilt 2026-11-05 after an encoding accident).
+// QA regression suite for escape-the-sea (rebuilt 2026-11-05 after an encoding accident).
 // Versioned copy lives in the repo at escape-the-sea/tools/qa.mjs — keep them in sync.
 //
 // Prereqs:
@@ -527,6 +527,9 @@ await check('challenge: 3 挑戰、一命失敗、赤手空拳封鎖、不寫主
   // 一命深海：開始後死亡即失敗
   const start = await q(`(() => { const ok = beginChallenge('iron'); if (!ok) return JSON.stringify({ok:false}); saveGame(true); return JSON.stringify({ok:true, id: __T.game.challenge ? __T.game.challenge.id : null}); })()`);
   const s = JSON.parse(start);
+  await sleep(700);
+  const hud = JSON.parse(await q(`(() => { const el = document.getElementById('nextstep'); const txt = el ? el.innerText : ''; const missing = __T.i18nMissing ? __T.i18nMissing() : ['no-hook']; return JSON.stringify({ txt, missing }); })()`));
+  const labelOk = /一命深海|Iron Dive/.test(hud.txt);
   const saveBlocked = await q(`saveGame(true) === false`);
   const persistKey = await q(`localStorage.getItem('escape-the-sea-v2')`);
   await q(`(() => { const P = __T.sea.player; P.x = 3000; P.y = 3000; P.hp = 1; P.inv = 0; hurtPlayer(99); return true; })()`);
@@ -538,7 +541,7 @@ await check('challenge: 3 挑戰、一命失敗、赤手空拳封鎖、不寫主
   await sleep(300);
   const bare = JSON.parse(await q(`JSON.stringify({ towers: countType('tower'), speed: Math.round(calcStats().speed), id: __T.game.challenge ? __T.game.challenge.id : null })`));
   await q(`(() => { __T.game.challenge = null; document.getElementById('modal').classList.remove('show'); setScene('sea'); return true; })()`);
-  return { ok: n === 3 && s.ok === true && s.id === 'iron' && saveBlocked === true && persistKey === null && (ironEnd.modal === true || ironEnd.ending === true) && bare.id === 'bare' && bare.towers === 0 && bare.speed === 152, detail: JSON.stringify({ n, s, saveBlocked, persistKey, ironEnd, bare }) };
+  return { ok: n === 3 && s.ok === true && s.id === 'iron' && labelOk && hud.missing.length === 0 && saveBlocked === true && persistKey === null && (ironEnd.modal === true || ironEnd.ending === true) && bare.id === 'bare' && bare.towers === 0 && bare.speed === 152, detail: JSON.stringify({ n, s, hud, labelOk, saveBlocked, persistKey, ironEnd, bare }) };
 });
 
 await check('ngplus: ngMul 倍率與核心/鏡像 NG 套用', async () => {

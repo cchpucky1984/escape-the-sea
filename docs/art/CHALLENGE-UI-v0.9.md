@@ -1,119 +1,105 @@
 # v0.9-C1：挑戰模式／NG+／可及性 UI 契約
 
 > 擁有者：C（CSS／docs）。只改 `style.css`、`index.html`、`docs/art/`。
-> B 已實作 challenge/NG+ 的 JS（`core.js`、`main.js`）；本檔以**實際 DOM**為準，列出 CSS 已吃的 class、B 尚缺的 hook、以及 i18n key 清單。
-> 截圖：`_shots/C10/`（1920/390）；商店版另存 `docs/art/store/screenshots/`。
+> B 已於 v0.9 接完 challenge/NG+/a11y；本檔以**實際 DOM**為準。
+> 截圖：`_shots/C10/`（1920／390，B 實際 UI）；商店版在 `docs/art/store/screenshots/`。
+> QA：**46/46 PASS、pageErrors 0**（B 最新版重跑）。
 
 ## 1. 挑戰模式
 
-### 1.1 選單（B 的 `openChallengeMenu()`，modal）
+### 1.1 選單（`openChallengeMenu()`，modal）
 實際 DOM：
 ```html
-<!-- #modal.show -->
 <div class="grid challenge-grid">
-  <div class="card challenge-card">
-    <div class="card-h"><span class="ico" style="--c:#ffd166">◆</span><b>一命深海</b></div>
-    <p>不能死亡。死亡即結束，不重生。</p>
+  <div class="card challenge-card" data-diff="hard">
+    <div class="card-h">
+      <span class="ico" style="--c:#ffd166">◆</span>
+      <b>一命深海</b>
+      <span class="ch-diff">困難</span>
+    </div>
+    <p>不能死。死一次就結束。</p>
     <div class="cost"><span>規則：不能死。死一次就結束。</span></div>
-    <div class="done">最佳分數：12,840</div>
+    <div class="done">最佳分 12,840</div>
     <button data-challenge="iron">開始挑戰</button>
   </div>
-  <!-- speed / bare 同構；未解鎖時沒有 button，只有 .done（鎖定文案） -->
+  <!-- speed data-diff=normal / bare data-diff=hard -->
 </div>
 ```
 CSS 已吃：
-- `.challenge-grid`：桌機 3 欄、≤768 1 欄（覆蓋 `.grid` 的 auto-fill）。
-- `.card.challenge-card`：左側 3px 難度色條、底色、`.card-h b`/`p`/`.cost`/`.done`/`button[data-challenge]` 的字級與顏色。
-- 難度色（目前由 B 的 `data-challenge` 判定）：`iron`＝紅、`speed`＝金、`bare`＝紫；卡內 `.ico` 也跟著變色。
-- **建議 B 補**：`<div class="card challenge-card" data-diff="hard|normal">` ＋卡內 `<span class="ch-diff">困難</span>`；CSS 已支援 `data-diff` 的色與 `body.colorblind`/`body.cb-safe` 下的 `● ◆ ▲` 符號（目前用 `:has([data-challenge])` 也有色條，但沒有文字難度標籤）。
+- `.challenge-grid`：桌機 3 欄、≤768 1 欄（覆蓋 `.grid`）。
+- `.card.challenge-card`：難度色左條（hard 紅／normal 金／bare 紫）、底色、`.ch-diff` 難度 pill、`.card-h b`、`p`、`.cost`、`.done`、`button[data-challenge]`。
+- 難度色優先序：`data-diff` → 無 `data-diff` 時以 `:has([data-challenge])` fallback。
+- 未解鎖：B 只放 `.done`（無 button），既有 `.card:not(:has(button))` 會給金色/透明度；本輪不動。
 
-### 1.2 挑戰 HUD（B 目前用既有 `#nextstep`）
-實際：`#nextstep > b`＝挑戰模式、`span`＝`challenge.timeLeft` 或 `challenge.*.rule`（由 `challengeHudText()` 產生）。
-- **建議 B 補**：挑戰進行中給 `#nextstep` 加 `class="challenge"`＋`data-challenge="iron|speed|bare"`；CSS 已寫 `#nextstep.challenge` 的紅色左框與 `data-challenge` 色。
-- 若之後改用獨立容器，CSS 也有 `.challenge-hud` 系（未使用，可留作備援）。
+### 1.2 挑戰 HUD
+B 用既有 `#nextstep`，並已加：
+```html
+<div id="nextstep" class="nextstep challenge" data-challenge="speed">
+  <b>挑戰模式</b><span>剩餘 44:59</span>
+</div>
+```
+- CSS：`#nextstep.challenge[data-challenge="iron|speed|bare"]` 分別紅／金／紫左框與 label 色。
+- **建議（非阻塞）**：label 目前是 `t('chal.title')`（挑戰模式），不是當前挑戰名；若要符合「顯示當前挑戰名」，把 label 改成 `t('chal.'+id+'.name')` 即可（CSS 不用改）。
 
-### 1.3 挑戰結算（沿用 `#ending`）
-B 目前只換 `#end-kicker/#end-title/#end-text/#end-stats`，沒有 mode 屬性。
-- **建議 B 補**：`#ending.dataset.mode='challenge'`、`#ending.dataset.result='win'|'lose'`；CSS 會套金色/紅色 kicker、金/紅框、`#end-title` 失敗色，並隱藏 NG+ 按鈕。
-- 若 B 想用獨立分數卡：CSS 已有 `.challenge-result`（`.chr-badge/.chr-time/.chr-score-num/.chr-best-num`），B 可自行 insert。
-- 目前畫面：時間／擊殺／裝備／分數＋最佳分都在 `.end-stats` 內，沿用結局卡即可。
+### 1.3 挑戰結算
+B 已設 `#ending.dataset.mode='challenge'` 與 `data-result='win|lose'`（C 的 CSS 兩種都吃 `fail`/`lose`）。
+- CSS：金色 kicker/邊框（win）、紅色 kicker/邊框（lose）、失敗標題色；`data-mode=challenge` 時隱藏 NG+ 按鈕。
+- 分數/最佳分在 `.end-stats` 內（B 的 `challengeEnd()` 產生）；若之後要獨立分數卡，CSS 已有 `.challenge-result`（`.chr-*`）可接。
 
-### 1.4 B 的 i18n key（目前缺，會顯示 raw key）
+### 1.4 i18n key（B 已改 E 的 `chal.*`，`i18nMissing()` 空）
 | key | zh-Hant | en |
 |---|---|---|
-| challenge.records | 挑戰紀錄 | Challenge Records |
-| challenge.entry | 挑戰模式 | Challenge Mode |
-| challenge.rule | 規則 | Rule |
-| challenge.iron.desc | 不能死亡。死亡即結束，不重生。 | No deaths. One death ends the run. |
-| challenge.speed.desc | 45 分鐘內攻入母船核心，逾時失敗。 | Reach the mothership core within 45 minutes. |
-| challenge.bare.desc | 不能建砲塔、不能裝模組；四件裝備不可升級。 | No turrets, no modules, four gear lines locked. |
-| challenge.best | 最佳分數：{score} | Best: {score} |
-| challenge.bestEmpty | 尚無紀錄 | No record yet |
-| challenge.start | 開始挑戰 | Start Challenge |
-| challenge.locked | 通關一次後解鎖 | Clear the game once to unlock |
-| challenge.success | 挑戰成功 — {score} 分 | Challenge clear — {score} points |
-| challenge.fail | 挑戰失敗 — {reason} | Challenge failed — {reason} |
-| challenge.newRecord | 新紀錄！ | New record! |
-| challenge.score | 分數 {score} | Score {score} |
-| challenge.retry | 再挑戰一次 | Retry Challenge |
-| challenge.exit | 返回 | Back |
-| challenge.timeLeft | 剩餘 {time} | {time} left |
+| chal.title | 挑戰模式 | Challenge Mode |
+| chal.start | 開始挑戰 | Start Challenge |
+| chal.rules | 規則 | Rules |
+| chal.iron.name / .desc | 一命深海／不能死。死一次就結束。 | Iron Dive／No deaths. One death ends the run. |
+| chal.speed.name / .desc | 限時 45／45 分鐘內攻入母船核心。 | Speed Dive／Reach the mothership core within 45 minutes. |
+| chal.bare.name / .desc | 赤手空拳／不能建砲塔、不能裝模組，四件裝備不可升級。 | Bare Hands／No turrets, no modules, four gear lines locked. |
+| chal.diffHard / .diffNormal | 困難／一般 | Hard／Normal |
+| chal.bestOnly / .bestEmpty | 最佳分 {score}／尚無紀錄 | Best {score}／No record yet |
+| chal.locked | 先通關一次 | Finish a run first |
+| chal.winTitle / .failTitle | 挑戰完成／挑戰失敗：{name} | Challenge complete／Challenge failed: {name} |
+| chal.best / .newRecord | 最佳分 {best} · 本次 {score}／新紀錄！{score} | Best {best} · This run {score}／New record! {score} |
+| chal.score / .timeLeft | 分數 {score}／剩餘 {time} | Score {score}／{time} left |
+| chal.retry / .back | 再試一次／回標題 | Try again／Back to title |
 
-> `challenge.<id>.name`、`challenge.<id>.rule` 已在 STRINGS.js；`challenge.records/entry/rule/desc/start/best/bestEmpty/success/fail/newRecord/score/retry/exit/timeLeft` 尚未（E 的 task-39 會補；B 的 `t()` 現在會 fallback 成 raw key，截圖已用 sample 翻譯驗證版面）。
+> B 的卡片規則仍引用舊 `challenge.<id>.rule`（STRINGS 仍保留這些舊 key）；目前 `i18nMissing()` 空。若 E 之後移除舊 key，需把 `core.js` 的 `t('challenge.'+id+'.rule')` 換成 `chal.<id>.rule`（或直接沿用 `chal.<id>.desc`）。
 
-## 2. NG+ UI
+## 2. NG+ UI（B 已接）
+- 結局：`.ng-badge.end-ng`（例：`NG+3`）顯示在 `#end-title` 上方；`#end-title` 不再後綴。`#end-ng.primary` 由 CSS 改金色。
+- HUD：B 在 `refreshHud()` 建立 `.ng-badge.hud-ng`（`NG+3`），`ng=0` 時隱藏。
+- CSS 已吃：`.ng-badge`／`.hud-ng`／`.end-ng`／`#ending #end-ng`。
+- i18n：`ng.label`、`ng.start`、`ng.count`、`ng.enemyBuff`、`ng.max`（已有）。
 
-- 結局：B 目前在 `#end-title` 後綴「· NG+3」，標題會變兩行大字；**建議改成 badge**：
-  - `#end-title` 保持單行；在 `.ending-inner` 插 `<div class="ng-badge end-ng">NG+3</div>`（CSS 已備金框 pill）。
-  - 「開始 NG+」按鈕 B 已用 `#end-ng.primary`；CSS 已把它改成金色（`#ending #end-ng`）。
-  - `data-mode="challenge"` 時 CSS 會隱藏 NG+ 按鈕（挑戰中禁用 NG+）。
-- HUD：B 目前沒有 NG+ 標記；**建議**在 `#hud` 內加 `<div class="ng-badge hud-ng">NG+3</div>`（CSS 已備）。`game.ng=0` 時 hidden。
-- i18n：`ng.label`（NG+{n}）、`ng.start`（開始 NG+{n}）、`ng.count`、`ng.enemyBuff` 已在 STRINGS.js；badge 直接顯示 `t('ng.label',{n})` 即可。
+## 3. 可及性（B 已接）
 
-## 3. 可及性
+### reduce motion
+- `body.reduce-motion`（B 的 toggle）→ 全域 `animation:none!important;transition:none!important`。
+- 實測（390/1920）：toast、cue `animationName=none`、`animationDuration=0s`、`transitionDuration=0s`。
 
-### 3.1 reduce motion
-- `body.reduce-motion`（B 已加）與 `prefers-reduced-motion`：所有 `*`／`*::before`／`*::after` 的 `animation:none!important;transition:none!important`。
-- 實測（390/1920）：toast `animationName=none`、`animationDuration=0s`、`transitionDuration=0s`。
-- 影響：toast 進出、crown pulse、boss warning、cue arrow、achUnlock、dock shake 全部停用。
+### 色盲輔助
+- B 的 `applySettings()` 現在同時 toggle `colorblind`＋`cb-safe`；CSS 兩者都吃。
+- 符號：toast `●`／`★`（gold）；挑戰卡 `.ch-diff` `● ◆ ○ ▲`；boss move `▶`；`ach-tab.on` `✓`；`#nextstep.challenge` 雙線左框；通用 `.state-ready/danger/warn` → `✓ ⚠ !`。
+- 賞金 ready 本來已有「✓ 可領取」文字。
 
-### 3.2 色盲輔助（不靠顏色）
-- B 的 `applySettings()` 目前用 `body.colorblind`；C 同時支援 `body.cb-safe`（任務規格名），兩者都吃。
-- 已加符號/文字：
-  - toast：`●`／`★`（gold）前綴。
-  - 挑戰卡：`iron ●`、`speed ◆`、`bare ▲`（`card-h b::after`）。
-  - 難度資料若加 `data-diff`，`.ch-diff` 也會加符號。
-  - `boss-move.on::after`＝`▶`；`ach-tab.on`＝`✓`；`#nextstep.challenge` 雙線左框。
-  - 通用 class：`.state-ready`→`✓`、`.state-danger`→`⚠`、`.state-warn`→`!`（B 可在賞金 ready／事件／危險處加這些 class）。
-- 賞金 ready 本來就有「✓ 可領取」文字；挑戰用文字規則與分數，不依賴顏色。
+### 大字
+- B 的 `fontScale=1.2` 同時 toggle `font-large`＋`text-lg`。
+- `html:has(body:is(.font-large,.text-lg)){font-size:120%}`；v0.9 元件用 rem；既有 UI 有重點 px 覆寫。
+- 實測：root 19.2px、settings label 18.816px；390 `docSW=390`、無橫向溢出。
 
-### 3.3 大字 120%
-- B 用 `game.settings.fontScale=1.2` 並在 body 加 `font-large`；C 同時支援 `body.text-lg`（任務規格名）。
-- `html:has(body.font-large),html:has(body.text-lg){font-size:120%}`；新 v0.9 元件全部用 `rem`，會跟著放大。
-- 既有 px 元件加了 `body.font-large/.text-lg` 的重點覆寫（資源列、任務卡、設定 label、成就卡、賞金卡、標題 blurb、modal 標題/內文）；標題卡在 `#title .title-inner` 可垂直滾動，390 實測 `docSW=390`。
-- 實測 root font 19.2px、settings label 18.816px。
-
-### 3.4 設定面板（B 接線，C 給樣式）
-B 的 `openSettings()` 目前只有 mute/reduceMotion/lang；請加兩列：
-```html
-<div class="settings-row"><label>${t('settings.colorblind')}</label>
-  <button class="toggle" data-setting="colorblind" aria-checked="${!!s.colorblind}">...</button></div>
-<div class="settings-row"><label>${t('settings.fontScale')}</label>
-  <button class="toggle" data-setting="fontScale" aria-checked="${s.fontScale===1.2}">...</button></div>
-```
-- CSS 已吃 `button.toggle[data-setting="colorblind"]`、`[data-setting="fontScale"]`（也支援 `cbSafe`/`textLarge` 別名）；checked 時指示燈分別金色/綠色。
-- i18n：`settings.colorblind`＝色盲輔助／Colorblind assist；`settings.fontScale`＝大字模式（120%）／Large text (120%)。
-- B 若要在 UI 文案顯示「已開啟」的 body class，建議同時 toggle `colorblind`＋`cb-safe`、`font-large`＋`text-lg`（QA/截圖驗收看得到）。
+### 設定面板（B 已加兩列）
+- `<button class="toggle" data-setting="colorblind">`、`data-setting="fontScale"`；CSS checked 指示燈金／綠。
+- i18n：`settings.colorblind`／`settings.fontScale`（B 已補）。
 
 ## 4. 驗收（C 實測）
-- 390：挑戰 modal 374px、卡片 348（1 欄）、`docSW=390`；設定 modal 374、bottom 836<844。
-- 1902 對照：挑戰 modal 980、grid 938、card 304.7；結局卡 640。
-- reduce-motion：`animation:none / duration 0s / transition 0s`（toast／cue）。
-- 大字：root 19.2px、label 18.8px；390 無橫向溢出。
+- 390：挑戰 modal 374、卡片 348（1 欄）、`docSW=390`；設定 modal 374、bottom 836<844。
+- 1920：挑戰 modal 980、grid 938、card 304.7；結局卡 640。
+- reduce-motion：`animation:none / 0s / transition 0s`。
+- 大字：root 19.2、label 18.8；390 無溢出。
 - 截圖：`_shots/C10/01-challenge-menu-{1920,390}.png`、`02-challenge-{iron,speed,bare}-*`、`03-challenge-win-*`、`04-challenge-fail-*`、`05-hud-ngplus-*`、`06-ngplus-ending-*`、`07-a11y-settings-*`。
-- `qa.mjs`（v0.9 進行中）：**42/43 PASS、pageErrors 0**；唯一 FAIL 是 FPS 28.3（門檻 30）——對照 v0.8 的 37.5，屬 B 的敵人密度／新彈幕負載，不是 CSS 造成的（本輪只加 hidden overlay 與少量靜態樣式）。另第一次跑 `save-persist` 曾出現 3→6（B 的存檔／產出時序），第二次已 PASS。
+- **QA：46/46 PASS、pageErrors 0**。
 
-## 5. 尚缺／依賴
-- 挑戰與 NG+ 的 i18n keys 由 E（task-39）補；補完 B 重拍即可去掉 raw key。
-- B 需補：`#nextstep.challenge`＋`data-challenge`、`#ending.dataset.mode/result`、NG+ badge（結局/HUD）、`settings.colorblind/fontScale` 兩列、挑戰卡 `data-diff`/`.ch-diff`（可選）。
-- 本輪截圖為 B 的實際 DOM＋sample 翻譯注入；非 JS 接線完成後的最終字串。
+## 5. 尚缺／建議
+- 挑戰 HUD label 顯示當前挑戰名（目前「挑戰模式」；改 `t('chal.<id>.name')` 即可）。
+- `core.js` 舊 `challenge.<id>.rule` key 未清（目前有對應字串，無 raw key）。
+- 商店 5 張 1920 為 C9 截圖（含中文 UI）；英文商店頁待另拍。

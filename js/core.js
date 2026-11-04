@@ -621,8 +621,7 @@ function challengeHudText() {
   const c = challengeDef(game.challenge.id);
   if (!c) return '';
   if (c.rules.timeLimit) return t('chal.timeLeft', { time: fmtTime(Math.max(0, game.challenge.tLeft)) });
-  if (c.id === 'iron') return t('challenge.iron.rule');
-  return t('challenge.bare.rule');
+  return t('chal.' + c.id + '.desc');
 }
 function challengeEnd(win) {
   const ch = game.challenge;
@@ -796,7 +795,7 @@ function baseIncomePer5() {
   return inc;
 }
 function addStructure(type) {
-  if (challengeBareBlocks(type)) { toast(t('challenge.bare.rule')); sfx('deny'); return false; }
+  if (challengeBareBlocks(type)) { toast(t('chal.bare.desc')); sfx('deny'); return false; }
   const def = STRUCTS[type];
   if (!def || countType(type) >= def.max) return false;
   const tile = freeTileFor();
@@ -1178,7 +1177,7 @@ function openBounty() {
 function grantRandomMod() {
   if (game.challenge && game.challenge.id === 'bare') {
     addRes('alloy', 3);
-    toast(t('challenge.bare.rule') + ' +3');
+    toast(t('chal.bare.desc') + ' +3');
     return null;
   }
   const left = MODS.filter(m => !hasMod(m.id));
@@ -1276,7 +1275,7 @@ function refreshHud() {
     nsEl.classList.toggle('challenge', !!game.challenge);
     if (game.challenge) nsEl.dataset.challenge = game.challenge.id;
     else delete nsEl.dataset.challenge;
-    const label = chalTxt ? t('chal.title') : t('hint.title') + (tutTxt && curTut ? ' · ' + curTut.press : '');
+    const label = chalTxt ? t('chal.' + (game.challenge ? game.challenge.id : 'title') + '.name') : t('hint.title') + (tutTxt && curTut ? ' · ' + curTut.press : '');
     setHudHtml('nextstep', ns ? `<b>${label}</b><span>${ns}</span>` : '', 'nextstep');
   }
   /* NG+ HUD badge（index 由 C 管；動態建立） */
@@ -1494,7 +1493,7 @@ function openBase() {
   modalBody.querySelectorAll('[data-build]').forEach(btn => {
     btn.onclick = () => {
       const type = btn.dataset.build;
-      if (challengeBareBlocks(type)) { toast(t('challenge.bare.rule')); sfx('deny'); return; }
+      if (challengeBareBlocks(type)) { toast(t('chal.bare.desc')); sfx('deny'); return; }
       if (countType(type) >= STRUCTS[type].max) return;
       if (STRUCTS[type].req && !countType(STRUCTS[type].req)) { toast(t('toast.needStruct', { name: structName(STRUCTS[type].req) })); return; }
       const cost = structureCost(type);
@@ -1550,7 +1549,7 @@ function openCraft() {
       <div class="card-h"><span class="ico" style="--c:${u.c}">${icoOf(u, u.id)}</span><b>${upgName(u.id)}</b><span class="lv">Lv ${lv}/${u.max}</span></div>
       <p>${upgDesc(u, lv)}</p>
       ${maxed ? '<div class="done">' + t('craft.maxed') + '</div>'
-        : bareLock ? '<div class="done" style="color:#ffb3a0">' + t('challenge.bare.rule') + '</div>'
+        : bareLock ? '<div class="done" style="color:#ffb3a0">' + t('chal.bare.desc') + '</div>'
         : !hasEquip ? '<div class="done" style="color:#ffb3a0">' + t('craft.needEquip') + '</div>'
         : `<div class="cost">${costHtml(cost)}</div>
            <button data-buy-up="${u.id}">${lv ? t('craft.upgradeTo', { n: lv + 1 }) : t('craft.make')}</button>`}
@@ -1629,7 +1628,7 @@ function openCraft() {
     btn.onclick = () => {
       if (!hasEquip) { toast(t('craft.needEquip')); return; }
       const u = UPG.find(x => x.id === btn.dataset.buyUp);
-      if (game.challenge && game.challenge.id === 'bare' && ['fin', 'tank', 'suit', 'magnet'].includes(u.id)) { toast(t('challenge.bare.rule')); sfx('deny'); return; }
+      if (game.challenge && game.challenge.id === 'bare' && ['fin', 'tank', 'suit', 'magnet'].includes(u.id)) { toast(t('chal.bare.desc')); sfx('deny'); return; }
       const lv = game.up[u.id] || 0;
       if (lv >= u.max) return;
       if (!pay(u.costs[lv])) { toast(t('toast.noRes')); return; }
@@ -1777,7 +1776,7 @@ function openChallengeMenu() {
     h += `<div class="card challenge-card" data-diff="${c.id === 'speed' ? 'normal' : 'hard'}">
       <div class="card-h"><span class="ico" style="--c:#ffd166">◆</span><b>${t('chal.' + c.id + '.name')}</b><span class="ch-diff">${t(c.id === 'speed' ? 'chal.diffNormal' : 'chal.diffHard')}</span></div>
       <p>${t('chal.' + c.id + '.desc')}</p>
-      <div class="cost"><span>${t('chal.rules')}：${t('challenge.' + c.id + '.rule')}</span></div>
+      <div class="cost"><span>${t('chal.rules')}：${t('chal.' + c.id + '.desc')}</span></div>
       <div class="done">${best ? t('chal.bestOnly', { score: best.score }) : t('chal.bestEmpty')}</div>
       ${unlocked ? `<button data-challenge="${c.id}">${t('chal.start')}</button>`
         : `<div class="done" style="color:#ffb3a0">${t('chal.locked')}</div>`}

@@ -453,13 +453,7 @@ window.I18N_DATA = {
   "tut.stuck": ["卡住了嗎？按 Esc 看操作說明；資源不够時 HUD 會顯示差多少","Stuck? Press Esc for controls; the HUD shows what you're missing"], // core.js:66
   "tut.done": ["教學完成 — 接下來自由探索，J 看任務","Tutorial complete — explore freely, press J for quests"], // core.js:60
 
-  /* ── 挑戰模式（待接線） ── */
-  "challenge.iron.name": ["一命深海","Iron Dive"], // DATA-v0.9.md:25
-  "challenge.iron.rule": ["不能死。死一次就結束。","No deaths. One death ends the run."], // DATA-v0.9.md:26
-  "challenge.speed.name": ["限時 45","Speed Dive"], // DATA-v0.9.md:29
-  "challenge.speed.rule": ["45 分鐘內攻入母船核心。","Reach the mothership core within 45 minutes."], // DATA-v0.9.md:30
-  "challenge.bare.name": ["赤手空拳","Bare Hands"], // DATA-v0.9.md:33
-  "challenge.bare.rule": ["不能建砲塔、不能裝模組，四件裝備不可升級。","No turrets, no modules, four gear lines locked."], // DATA-v0.9.md:34
+  /* ── 挑戰模式（正式 key 為 chal.*；舊 challenge.*.name/rule 已於 v0.9 移除） ── */
 
   /* ── NG+（待接線） ── */
   "ng.label":                  ["NG+{n}","NG+{n}"], // CONTENT-v0.5.md:92
