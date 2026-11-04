@@ -4,6 +4,20 @@
 > 可視化預覽：`docs/art/title-preview.html`、截圖 `_shots/C5/00-title-art-preview-1920x1080.png`
 > 本輪**不直接改 js**；以下程式碼片段可直接貼。
 
+> **2026-11-04 更新：已改由 CSS 接線（不需要 B 動 `main.js`）**
+> `style.css` 的 `#title` 現在直接吃這張圖：
+> ```css
+> body[data-scene="title"] #cv{opacity:0}   /* 標題場景關掉 canvas 程序背景 */
+> #title{background:
+>   linear-gradient(rgba(2,7,13,.18),rgba(2,7,13,.18)),
+>   radial-gradient(ellipse 62% 58% at 50% 44%,rgba(2,7,13,.52),rgba(2,7,13,0) 100%),
+>   linear-gradient(180deg,rgba(3,16,26,.30),rgba(2,7,13,.52) 55%,rgba(2,7,13,.82)),
+>   url("docs/art/title-art/title-1920x1080.webp") center 42%/cover no-repeat,
+>   var(--c-abyss)}
+> ```
+> 驗收截圖：`_shots/C6/title-final-390.png`、`title-final-1280.png`、`title-final-1920.png`（`_dev/qa.mjs` 37/37 PASS）。
+> §3 的 canvas 版本保留為備案：**若 B 之後實作 canvas 版，請同時把 CSS 的 url() 圖層拿掉**，否則會疊兩層。
+
 ## 1. 檔案（2026-11-04 換圖：ComfyUI hires 原生 1920）
 
 | 檔案 | 尺寸 | 容量 | 用途 |

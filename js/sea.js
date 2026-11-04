@@ -9,7 +9,7 @@ const sea = {
   cam: { x: 0, y: 0 },
   aim: { x: 0, y: 0 },
   pickups: [], hazards: [], bullets: [], ebullets: [], floats: [], parts: [], beams: [],
-  specks: [], fish: [], bots: [], shieldHits: [],
+  specks: [], fish: [], bots: [], shieldHits: [], bosses: [],
   t: 0, spawnT: 0, hazT: 6, baseT: 0, tick: 0, shake: 0,
   dead: false, safeT: 0, wasSafe: false
 };
@@ -530,7 +530,7 @@ function updateSea(dt) {
 
   /* hazards */
   sea.hazT -= dt;
-  const nearBoss = sea.bosses.some(b => b.alive && Math.hypot(P.x - b.x, P.y - b.y) < 1000);
+  const nearBoss = (sea.bosses || []).some(b => b.alive && Math.hypot(P.x - b.x, P.y - b.y) < 1000);
   const hazLimit = nearBoss ? 2 : Z.hazCap;
   if (sea.hazT <= 0 && sea.hazards.length < hazLimit) {
     spawnHazard();

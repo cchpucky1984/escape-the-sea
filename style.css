@@ -151,6 +151,7 @@ body[data-scene="moon"] #toasts{top:196px}
 .screen[hidden]{display:none !important}
 #title{background:
   linear-gradient(rgba(2,7,13,.18),rgba(2,7,13,.18)),
+  radial-gradient(ellipse 62% 58% at 50% 44%,rgba(2,7,13,.52),rgba(2,7,13,0) 100%),
   linear-gradient(180deg,rgba(3,16,26,.30),rgba(2,7,13,.52) 55%,rgba(2,7,13,.82)),
   url("docs/art/title-art/title-1920x1080.webp") center 42%/cover no-repeat,
   var(--c-abyss)}
