@@ -1,0 +1,7 @@
+{
+  "res": { "plastic": 40, "wood": 30, "metal": 25, "alloy": 3 },
+  "up": { "fin": 1, "tank": 1, "suit": 1, "magnet": 0, "harpoon": 2, "shield": 0 },
+  "mod": { "equip": 1, "rnd": 0, "dock": 0, "net": 3, "recycler": 2, "botdock": 1, "tower": 1, "reverse": 0, "satellite": 0 },
+  "pos": { "x": 1500, "y": 1100 },
+  "stats": { "collected": 12, "kills": 3, "time": 420, "deaths": 1, "launched": false, "won": false, "botCollected": 5, "built": 8, "bosses": 0 }
+}

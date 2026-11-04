@@ -5,9 +5,129 @@
 
 const launch = {
   prog: 0, hp: 100, maxhp: 100, x: 0, y: 0,
-  rocks: [], stars: [], fighters: [], pdb: [], ebullets: [],
-  t: 0, spawnT: 0, fighterT: 2, pdCool: 0, shake: 0, state: 'fly', winT: 0, flash: 0
+  rocks: [], stars: [], fighters: [], interceptors: [], pdb: [], mb: [], ebullets: [],
+  t: 0, spawnT: 0, fighterT: 2, interT: 8, pdCool: 0, mCool: 0, shake: 0, state: 'fly', winT: 0, flash: 0,
+  hits: { rock: 0, fighter: 0, plasma: 0, interceptor: 0 }
 };
+
+/* ---------- v0.8 §4 升空難度（DIFFICULTY-v0.8） ---------- */
+const LC = {
+  progBase: 2.6, progBoost: 2.1,
+  rockGapMin: 0.22, rockGapBase: 0.75, rockGapK: 0.004, rockSpeedMul: 1.1, rockDmgMul: 0.5, rockPad: 14,
+  fighterGapMin: 1.8, fighterGapBase: 4.2, fighterGapK: 0.02, fighterCap: 4,
+  fighterW: 22, fighterH: 38, fighterDmg: 8, fighterFire: [1.9, 2.9],
+  interEvery: 8, interHp: 8, interSpeed: 240, interDmg: 10, interW: 30, interH: 40,
+  bulletSpeed: 900, hitR: 27
+};
+
+/* ---------- v0.8 §6 四合一核心 / §7 鏡像 ---------- */
+const BOSS_CFG = {
+  hp: 900, r: 64, switchInv: 1.5,
+  ring: { n: 12, spd: 165, dmg: 4, gap: 2.2 },
+  beam: { charge: 1.4, dur: 3.0, sweep: 0.5, half: 70, tick: 0.25, dmg: 4, len: 900, width: 26 },
+  missile: { n: 2, spd: 220, turn: 2.2, dmg: 6, life: 4.5, every: 4 },
+  gravity: { pull: 60, pullP3: 90, dur: 2.0, every: 6 },
+  charge: { windup: 1.0, spd: 560, dur: 0.5, dmg: 12 },
+  sumEvery: 3.5, sumCap: 8, bulletCap: 140
+};
+const MIRROR_CFG = {
+  escapeTime: 90, spawnAt: 20,
+  hpBase: 300, hpGear: 55, hpMod: 40,
+  cycle: 8,
+  spear: { spd: 520, n: 3, dmg: 2 },
+  beam: { charge: 1.2, sweep: 0.6, tick: 0.25, dmg: 3 },
+  missile: { n: 2, turn: 2.4, dmg: 5 },
+  charge: { windup: 0.8, spd: 600, dmg: 8 },
+  gravity: { r: 380, pull: 110, dur: 2.5 }
+};
+
+/* ---------- i18n / v0.8 overlay 接線（C 的 DOM；只切 class 與文字，不建 DOM） ---------- */
+function _i18n(k, vars) {
+  if (typeof window.t === 'function') { try { return window.t(k, vars); } catch (e) { } }
+  return '';
+}
+function cueEl() { return document.getElementById('dockcue'); }
+function cueShow(state, dist, prog, angDeg) {
+  const cue = cueEl();
+  if (!cue) return;
+  cue.hidden = false;
+  cue.dataset.visible = 'true';
+  cue.dataset.state = state;
+  const p = Math.max(0, Math.min(1, prog == null ? 0 : prog));
+  cue.style.setProperty('--dock-progress', String(p));
+  if (angDeg != null) cue.style.setProperty('--cue-angle', String(angDeg) + 'deg');
+  const distEl = cue.querySelector('.cue-dist');
+  if (distEl) {
+    const txt = _i18n('dockcue.distance', { n: Math.max(0, Math.round(dist || 0)) });
+    distEl.textContent = txt || (Math.max(0, Math.round(dist || 0)) + ' m');
+  }
+}
+function cueHide(delay) {
+  const cue = cueEl();
+  if (!cue) return;
+  cue.dataset.visible = 'false';
+  const done = () => { if (cue.dataset.visible === 'false') cue.hidden = true; };
+  if (delay == null) cue.hidden = true;
+  else setTimeout(done, Math.max(0, delay));
+}
+function bossuiEl() { return document.getElementById('bossui'); }
+function bossuiShow(mode) {
+  const el = bossuiEl();
+  if (!el) return;
+  el.hidden = false;
+  el.dataset.visible = 'true';
+  el.dataset.mode = mode || 'final';
+  el.dataset.phase = '1';
+  el.style.setProperty('--hp', '1');
+  el.style.setProperty('--mirror-hp', '1');
+  _bossText(el, '.boss-hp-text', _i18n('bossui.name') || '');
+}
+function bossuiHide() {
+  const el = bossuiEl();
+  if (!el) return;
+  el.dataset.visible = 'false';
+  setTimeout(() => { if (el.dataset.visible === 'false') el.hidden = true; }, 500);
+}
+function _bossText(el, sel, txt) {
+  const n = el.querySelector(sel);
+  if (n && txt != null) n.textContent = txt;
+}
+let _bossuiLast = { mode: '', phase: 0, active: '', hp: -1, mhp: -1 };
+function bossuiUpdate(boss, mirror) {
+  const el = bossuiEl();
+  if (!el) return;
+  if (!boss && !mirror) { bossuiHide(); return; }
+  const mode = mirror ? 'mirror' : 'final';
+  if (el.hidden || el.dataset.visible !== 'true' || _bossuiLast.mode !== mode) {
+    bossuiShow(mode);
+    _bossuiLast = { mode, phase: 0, active: '', hp: -1, mhp: -1 };
+  }
+  const hp = mirror ? (mirror.hp / Math.max(1, mirror.maxhp)) : (boss.hp / Math.max(1, boss.maxhp));
+  if (Math.abs(hp - _bossuiLast.hp) > 0.004 || _bossuiLast.phase !== (mirror ? mirror.phase : boss.phase)) {
+    _bossuiLast.hp = hp;
+    el.style.setProperty('--hp', String(Math.max(0, Math.min(1, hp))));
+    if (mirror) el.style.setProperty('--mirror-hp', String(Math.max(0, Math.min(1, hp))));
+  }
+  const phase = mirror ? mirror.phase : boss.phase;
+  if (phase !== _bossuiLast.phase) {
+    _bossuiLast.phase = phase;
+    el.dataset.phase = String(phase);
+    _bossText(el, '.boss-phase', _i18n('bossui.phase', { n: phase }) || ('PHASE ' + phase + ' / 4'));
+  }
+  const active = (mirror ? mirror.active : boss.active) || '';
+  if (active !== _bossuiLast.active) {
+    _bossuiLast.active = active;
+    el.dataset.active = active;
+    const moves = el.querySelectorAll('.boss-move');
+    for (const mv of moves) mv.classList.toggle('on', mv.getAttribute('data-move') === active);
+  }
+  if (mirror) {
+    _bossText(el, '.mc-player', 'YOU');
+    _bossText(el, '.mc-mirror', 'MIRROR');
+  }
+  _bossText(el, '.boss-hp-text', Math.ceil(hp * 100) + '%');
+}
+
 
 function startLaunch() {
   const ready = Object.values(game.parts).every(Boolean) && countType('dock') > 0;
@@ -36,26 +156,33 @@ function initLaunch() {
   L.speed = 195 + S0.speed * 0.55;
   L.prog = 0; L.hp = L.hullMax; L.maxhp = L.hullMax;
   L.x = VW / 2; L.y = VH * 0.76;
-  L.rocks = []; L.stars = []; L.fighters = []; L.pdb = []; L.ebullets = [];
-  L.t = 0; L.spawnT = 0.7; L.fighterT = 2.5; L.pdCool = 0;
+  L.rocks = []; L.stars = []; L.fighters = []; L.interceptors = []; L.pdb = []; L.mb = []; L.ebullets = [];
+  L.t = 0; L.spawnT = 0.7; L.fighterT = 2.5; L.interT = 8; L.pdCool = 0; L.mCool = 0;
   L.shake = 0; L.state = 'fly'; L.winT = 0; L.flash = 0;
-  L.docked = false;   /* [Lead hotfix S1a] 重試升空 soft-lock：上一次成功後 docked 殘留會讓 winT 到頂也無法進 dock */
+  L.hits = { rock: 0, fighter: 0, plasma: 0, interceptor: 0 };
+  L.aim = { x: VW / 2, y: VH * 0.3 };
+  L.docked = false;
   for (let i = 0; i < 190; i++) {
     L.stars.push({ x: rnd(0, VW), y: rnd(0, VH), z: rnd(0.15, 1), r: rnd(0.5, 1.9) });
   }
   setScene('launch');
-  toast('點火！A / D 左右閃避，W 加速；艦上防禦炮會自動開火');
+  cueHide(0);
+  toast('點火！A / D 閃避、W 加速；滑鼠瞄準＋左鍵開火，艦上防禦炮自動反擊');
 }
 
 function updateLaunch(dt) {
   const L = launch;
   const keys = window.KEYS || {};
+  const S = calcStats();
   L.t += dt;
 
   if (L.state === 'win') {
     L.winT += dt;
     L.prog = Math.min(100, L.prog + 30 * dt);
     L.flash = Math.min(1, L.flash + dt * 1.6);
+    /* §5 機庫轉場：approach 提示（距離＝剩餘進度換算） */
+    const dist = Math.round((100 - L.prog) * 30);
+    cueShow('approach', dist, L.prog / 100, 0);
     if (L.winT > 2.0 && !L.docked) { L.docked = true; transition(initDock); }
     return;
   }
@@ -67,26 +194,40 @@ function updateLaunch(dt) {
   L.x = clamp(L.x + dir * (L.speed || 380) * dt, 46, VW - 46);
   const boost = !!(keys['w'] || keys['arrowup']);
   L.y = lerp(L.y, boost ? VH * 0.7 : VH * 0.77, 1 - Math.exp(-3 * dt));
-  L.prog = Math.min(100, L.prog + (3.1 + (boost ? 1.6 : 0)) * dt);
+  L.prog = Math.min(100, L.prog + (LC.progBase + (boost ? LC.progBoost : 0)) * dt);
 
   if (L.shake > 0) L.shake = Math.max(0, L.shake - 26 * dt);
 
-  /* 隕石 */
+  /* 滑鼠瞄準＋手動開火（§4） */
+  if (window.MOUSE) L.aim = { x: window.MOUSE.x, y: window.MOUSE.y };
+  if (L.mCool > 0) L.mCool -= dt;
+  if (window.MOUSE && window.MOUSE.down && L.mCool <= 0) {
+    const mult = S.gunMult;
+    if (mult > 0) {
+      L.mCool = S.fireRate;
+      const a = Math.atan2(L.aim.y - L.y, L.aim.x - L.x);
+      L.mb.push({ x: L.x, y: L.y - 6, vx: Math.cos(a) * LC.bulletSpeed, vy: Math.sin(a) * LC.bulletSpeed, life: 1.4, dmg: S.dmg * mult, alive: true, ang: a });
+      tone(720, 0.04, 'square', 0.05, 320);
+    } else L.mCool = 0.2;
+  }
+
+  /* 隕石：間隔 0.75−prog×0.004（min 0.22）、速度 +10%、圓形判定、傷害 r×0.5 */
   L.spawnT -= dt;
   if (L.spawnT <= 0 && L.prog < 96) {
-    L.spawnT = Math.max(0.28, 0.9 - L.prog * 0.005);
+    L.spawnT = Math.max(LC.rockGapMin, LC.rockGapBase - L.prog * LC.rockGapK);
     L.rocks.push({
       x: rnd(20, VW - 20), y: -50, r: rnd(9, 34),
-      vy: rnd(150, 260) + L.prog * 0.8, vx: rnd(-40, 40),
+      vy: (rnd(150, 260) + L.prog * 0.8) * LC.rockSpeedMul, vx: rnd(-40, 40),
       rot: rnd(0, 6.3), spin: rnd(-2.5, 2.5)
     });
   }
   for (const r of L.rocks) {
     r.y += r.vy * dt; r.x += r.vx * dt; r.rot += r.spin * dt;
     if (r.y > VH + 60) r.dead = true;
-    if (!r.dead && Math.abs(r.x - L.x) < 20 + r.r && r.y > L.y - 50 - r.r && r.y < L.y + 50 + r.r) {
+    if (!r.dead && Math.hypot(r.x - L.x, r.y - L.y) < r.r + LC.rockPad) {
       r.dead = true;
-      L.hp -= r.r * 0.6;
+      L.hp -= r.r * LC.rockDmgMul;
+      L.hits.rock++;
       L.shake = Math.min(20, L.shake + 10);
       L.flash = 0.6;
       sfx('boom');
@@ -95,10 +236,10 @@ function updateLaunch(dt) {
   }
   L.rocks = L.rocks.filter(r => !r.dead);
 
-  /* 外星戰機 */
+  /* 外星戰機：同屏上限 4、射速 1.9–2.9、碰撞盒縮小 */
   L.fighterT -= dt;
-  if (L.fighterT <= 0 && L.prog > 8 && L.fighters.length < 3) {
-    L.fighterT = Math.max(2.4, 5.0 - L.prog * 0.02);
+  if (L.fighterT <= 0 && L.prog > 8 && L.fighters.length < LC.fighterCap) {
+    L.fighterT = Math.max(LC.fighterGapMin, LC.fighterGapBase - L.prog * LC.fighterGapK);
     const fromLeft = Math.random() < 0.5;
     L.fighters.push({
       x: fromLeft ? -40 : VW + 40, y: rnd(80, VH * 0.42),
@@ -109,33 +250,64 @@ function updateLaunch(dt) {
   for (const f of L.fighters) {
     f.t += dt;
     if (f.hit > 0) f.hit -= dt;
-    /* 朝火箭方向偏航 */
     f.vx += (L.x - f.x) * 0.35 * dt;
     f.vx = clamp(f.vx, -210, 210);
     f.x += f.vx * dt;
     f.y += f.vy * dt + Math.sin(f.t * 2) * 8 * dt;
     f.fire -= dt;
     if (f.fire <= 0 && f.x > 0 && f.x < VW) {
-      f.fire = rnd(2.2, 3.4);
+      f.fire = rnd(LC.fighterFire[0], LC.fighterFire[1]);
       const a = Math.atan2(L.y - f.y, L.x - f.x);
-      L.ebullets.push({ x: f.x, y: f.y, vx: Math.cos(a) * 300, vy: Math.sin(a) * 300, life: 3, r: 6, alive: true });
+      L.ebullets.push({ x: f.x, y: f.y, vx: Math.cos(a) * 300, vy: Math.sin(a) * 300, life: 3, r: 6, alive: true, dmg: 5 });
     }
-    if (Math.abs(f.x - L.x) < 34 && Math.abs(f.y - L.y) < 56) {
-      L.hp -= 8; L.shake = Math.min(20, L.shake + 10); L.flash = 0.5;
-      f.dead = true; sfx('boom');
+    if (Math.abs(f.x - L.x) < LC.fighterW && Math.abs(f.y - L.y) < LC.fighterH) {
+      L.hp -= LC.fighterDmg;
+      L.hits.fighter++;
+      L.shake = Math.min(20, L.shake + 10);
+      L.flash = 0.5;
+      f.dead = true;
+      sfx('boom');
       if (L.hp <= 0) { L.hp = 0; launchFail(); return; }
     }
     if (f.x < -120 || f.x > VW + 120 || f.y > VH + 80) f.dead = true;
   }
   L.fighters = L.fighters.filter(f => !f.dead);
 
-  /* 艦上防禦炮（自動反擊） */
+  /* §4 攔截艇：每 8s 從下方升起、追玩家 x、hp 8、撞擊 10 */
+  L.interT -= dt;
+  if (L.interT <= 0 && L.prog > 20) {
+    L.interT = LC.interEvery;
+    L.interceptors.push({ x: rnd(90, VW - 90), y: VH + 40, hp: LC.interHp, maxhp: LC.interHp, t: 0, hit: 0 });
+  }
+  for (const it of L.interceptors) {
+    it.t += dt;
+    if (it.hit > 0) it.hit -= dt;
+    it.y -= LC.interSpeed * dt;
+    it.x = lerp(it.x, L.x, 1 - Math.exp(-1.6 * dt));
+    if (it.y < -80) it.dead = true;
+    if (Math.abs(it.x - L.x) < LC.interW && Math.abs(it.y - L.y) < LC.interH) {
+      it.dead = true;
+      L.hp -= LC.interDmg;
+      L.hits.interceptor++;
+      L.shake = Math.min(20, L.shake + 12);
+      L.flash = 0.6;
+      sfx('boom');
+      if (L.hp <= 0) { L.hp = 0; launchFail(); return; }
+    }
+  }
+  L.interceptors = L.interceptors.filter(it => !it.dead);
+
+  /* 艦上防禦炮（自動、780 內、0.3s 一發、傷害 1） */
   L.pdCool -= dt;
   if (L.pdCool <= 0) {
-    let best = null, bd = 780;
+    let best = null, bd = 780, bestKind = '';
     for (const f of L.fighters) {
       const d = Math.hypot(f.x - L.x, f.y - L.y);
-      if (d < bd) { bd = d; best = f; }
+      if (d < bd) { bd = d; best = f; bestKind = 'fighter'; }
+    }
+    for (const it of L.interceptors) {
+      const d = Math.hypot(it.x - L.x, it.y - L.y);
+      if (d < bd) { bd = d; best = it; bestKind = 'inter'; }
     }
     if (best) {
       L.pdCool = 0.3;
@@ -148,25 +320,52 @@ function updateLaunch(dt) {
     if (!b.alive) continue;
     b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
     if (b.life <= 0) { b.alive = false; continue; }
+    let hitDone = false;
     for (const f of L.fighters) {
       if (f.dead) continue;
-      if (Math.hypot(f.x - b.x, f.y - b.y) < 22) {
-        b.alive = false;
-        const gl = L.gunLv || 0;
-        if (gl < 3) {
-          f.shieldT = 0.45;
-          f.hit = 0.1;
-          tone(180, 0.12, 'sine', 0.12, 90);
-        } else {
-          f.hp -= (1 + gl);
-          f.hit = 0.15;
-          if (f.hp <= 0) { f.dead = true; sfx('boom'); game.stats.kills++; }
-        }
+      if (Math.hypot(f.x - b.x, f.y - b.y) < LC.hitR) {
+        b.alive = false; hitDone = true;
+        f.hp -= 1; f.hit = 0.15;
+        if (f.hp <= 0) { f.dead = true; sfx('boom'); game.stats.kills++; }
+        break;
+      }
+    }
+    if (!hitDone) for (const it of L.interceptors) {
+      if (it.dead) continue;
+      if (Math.hypot(it.x - b.x, it.y - b.y) < LC.hitR) {
+        b.alive = false; it.hp -= 1; it.hit = 0.15;
+        if (it.hp <= 0) { it.dead = true; sfx('boom'); game.stats.kills++; }
         break;
       }
     }
   }
   L.pdb = L.pdb.filter(b => b.alive);
+
+  /* 玩家瞄準子彈（傷害 S.dmg×gunMult、900 px/s、命中 r27） */
+  for (const b of L.mb) {
+    if (!b.alive) continue;
+    b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+    if (b.life <= 0 || b.y < -40 || b.y > VH + 40 || b.x < -40 || b.x > VW + 40) { b.alive = false; continue; }
+    let done = false;
+    for (const f of L.fighters) {
+      if (f.dead) continue;
+      if (Math.hypot(f.x - b.x, f.y - b.y) < LC.hitR) {
+        b.alive = false; done = true;
+        f.hp -= b.dmg; f.hit = 0.15;
+        if (f.hp <= 0) { f.dead = true; sfx('boom'); game.stats.kills++; }
+        break;
+      }
+    }
+    if (!done) for (const it of L.interceptors) {
+      if (it.dead) continue;
+      if (Math.hypot(it.x - b.x, it.y - b.y) < LC.hitR) {
+        b.alive = false; it.hp -= b.dmg; it.hit = 0.15;
+        if (it.hp <= 0) { it.dead = true; sfx('boom'); game.stats.kills++; }
+        break;
+      }
+    }
+  }
+  L.mb = L.mb.filter(b => b.alive);
 
   /* 敵方電漿 */
   for (const b of L.ebullets) {
@@ -175,7 +374,10 @@ function updateLaunch(dt) {
     if (b.life <= 0) { b.alive = false; continue; }
     if (Math.abs(b.x - L.x) < 24 && Math.abs(b.y - L.y) < 46) {
       b.alive = false;
-      L.hp -= 5; L.shake = Math.min(16, L.shake + 6); sfx('hurt');
+      L.hp -= 5;
+      L.hits.plasma++;
+      L.shake = Math.min(16, L.shake + 6);
+      sfx('hurt');
       if (L.hp <= 0) { L.hp = 0; launchFail(); return; }
     }
   }
@@ -195,12 +397,22 @@ function updateLaunch(dt) {
 function launchFail() {
   launch.state = 'fail';
   sfx('lose');
+  cueHide(0);
+  const h = launch.hits || { rock: 0, fighter: 0, plasma: 0, interceptor: 0 };
+  const src = [];
+  if (h.rock) src.push('隕石 ' + h.rock);
+  if (h.fighter) src.push('戰機撞擊 ' + h.fighter);
+  if (h.plasma) src.push('電漿 ' + h.plasma);
+  if (h.interceptor) src.push('攔截艇 ' + h.interceptor);
+  const srcLine = src.length ? ('<p class="muted" style="margin-top:8px">主要傷害來源：' + src.join(' · ') + '</p>') : '';
   openModal('太空船解體', `<p class="muted">船體承受不住高速上升的震動，隔熱層一塊塊剝落。你按下了緊急分離。</p>
+    ${srcLine}
     <p class="muted" style="margin-top:10px">逃生艙落回海面，就在基地不遠處。太空船需要修理（金屬 -8）。</p>`,
     [{ label: '返回基地修理', cls: 'primary', onClick: backToBaseFromLaunch }]);
 }
 
 function backToBaseFromLaunch() {
+  cueHide(0);
   if (canPay({ metal: 8 })) pay({ metal: 8 });
   else game.res.metal = 0;
   game.pos = { x: 40, y: 150 };
@@ -496,6 +708,7 @@ function initDock() {
     { fx: 0.5, fy: 0.10, cool: 3.6 }
   ];
   setScene('dock');
+  cueShow('approach', Math.hypot(D.x - dockHangar().x, D.y - dockHangar().y), 0, 0);
   toast('衝進母船機庫 — 按住 W 前進，避開砲火');
 }
 
@@ -548,8 +761,17 @@ function updateDock(dt) {
 
   /* 進入機庫 */
   const h = dockHangar();
+  const dhx = D.x - h.x, dhy = D.y - h.y;
+  const distH = Math.hypot(dhx, dhy);
+  const angH = Math.atan2(-dhx, dhy) * 180 / Math.PI;
+  /* #dockcue：距離／進度／箭頭角度＋ready 判定（需接近且對準機庫） */
+  if (D.state === 'fly') {
+    const ready = distH < 120 && Math.abs(dhx) < h.w / 2 + 40 && Math.abs(dhy) < h.h / 2 + 60;
+    cueShow(ready ? 'ready' : 'approach', distH, 1 - Math.min(1, distH / 620), angH);
+  }
   if (Math.abs(D.x - h.x) < h.w / 2 && Math.abs(D.y - h.y) < h.h / 2) {
     D.state = 'in';
+    cueHide(350);
     sfx('win');
     transition(initMoon);
     return;
@@ -560,6 +782,8 @@ function updateDock(dt) {
 function dockFail() {
   dock.state = 'fail';
   sfx('lose');
+  cueShow('failed', 0, 0, 0);
+  setTimeout(() => cueHide(0), 1200);
   openModal('太空船被擊落', `<p class="muted">母船的防禦砲火把太空船撕開。你彈射出去，看著它燒成碎片。</p>
     <p class="muted" style="margin-top:10px">逃生艙落回海面。修理需要金屬 8。</p>`,
     [{ label: '返回基地', cls: 'primary', onClick: backToBaseFromLaunch }]);
@@ -840,11 +1064,14 @@ function initMoon() {
   M.stars = []; M.dust = []; M.rocks = [];
   M.allies = []; M.alliance = false; M.radio = 0; M.radioText = '';
   M.beam = null; M.beam1 = false; M.beam2 = false; M.shieldHint = 0;
+  M.escapeT = 0; M.mirror = null; M.mirrorSpawned = false;
   M.supplies = []; M.supplyT = MOON_SUPPLY.coreEvery;
   for (let i = 0; i < 200; i++) M.stars.push({ x: rnd(0, 1), y: rnd(0, 1), r: rnd(0.4, 1.7), p: rnd(0, 6.3) });
   for (let i = 0; i < 40; i++) M.dust.push({ x: rnd(0, ARENA.w), y: rnd(ARENA.h * 0.58, ARENA.h), r: rnd(14, 60) });
   for (let i = 0; i < 26; i++) M.rocks.push({ x: rnd(20, ARENA.w - 20), y: rnd(ARENA.h * 0.62, ARENA.h - 20), s: rnd(4, 14) });
   setScene('moon');
+  cueHide(0);
+  bossuiHide();
   nextWave();
   toast('艙壓 ' + S.moonHp + ' · 裝甲 ' + Math.round(S.armor * 100) + '%　—　目標：核心反應爐', S.gunMult > 0 ? 'gold' : 'gold');
   if (S.gunMult <= 0) toast('武器 Lv' + S.gunLv + ' — 外星人有護盾，攻擊無效', 'gold');
@@ -852,13 +1079,12 @@ function initMoon() {
 }
 
 function addAlien(type, x, y) {
+  const spec = type === 'elite' ? { hp: 12, r: 22, speed: 60, cool: 1.6 }
+    : type === 'grunt' ? { hp: 4, r: 15, speed: 100, cool: rnd(1, 2.4) }
+      : { hp: 6, r: 18, speed: 74, cool: rnd(1, 2.4) };
   moon.aliens.push({
-    type, x, y,
-    hp: type === 'grunt' ? 4 : 6,
-    maxhp: type === 'grunt' ? 4 : 6,
-    r: type === 'grunt' ? 15 : 18,
-    speed: type === 'grunt' ? 100 : 74,
-    cool: rnd(1, 2.4), t: rnd(0, 6), hit: 0, ang: 0
+    type, x, y, hp: spec.hp, maxhp: spec.hp, r: spec.r, speed: spec.speed,
+    cool: spec.cool, t: rnd(0, 6), hit: 0, ang: 0
   });
 }
 
@@ -866,20 +1092,329 @@ function nextWave() {
   moon.wave++;
   moon.aliens = [];
   if (moon.wave <= 2) {
-    const grunts = moon.wave === 1 ? 6 : 7;
-    for (let i = 0; i < grunts; i++) addAlien('grunt', rnd(90, ARENA.w - 90), rnd(-120, -30));
-    if (moon.wave === 2) for (let i = 0; i < 3; i++) addAlien('shooter', rnd(90, ARENA.w - 90), rnd(-140, -60));
+    /* §5 v0.8：第 1 波 8 grunt＋2 shooter；第 2 波 14 grunt＋8 shooter＋2 菁英 */
+    const w1 = moon.wave === 1;
+    const grunts = w1 ? 8 : 14;
+    for (let i = 0; i < grunts; i++) addAlien('grunt', rnd(90, ARENA.w - 90), rnd(-140, -30));
+    const shooters = w1 ? 2 : 8;
+    for (let i = 0; i < shooters; i++) addAlien('shooter', rnd(60, ARENA.w - 60), rnd(-180, -60));
+    if (!w1) for (let i = 0; i < 2; i++) addAlien('elite', rnd(120, ARENA.w - 120), rnd(-220, -120));
     moon.bannerText = '母船守軍 · 第 ' + moon.wave + ' 波';
     moon.banner = 2.2;
     sfx('wave');
     spawnMoonSupplies(MOON_SUPPLY.perWave);
   } else {
-    moon.boss = { x: ARENA.w / 2, y: 175, r: 64, hp: 200, maxhp: 200, t: 0, fire: 2.4, spawn: 6, hit: 0, ang: 0, vy: 0 };
+    moon.boss = makeBoss();
+    bossuiShow('final');
     moon.bannerText = '母船核心 · 反應爐';
     moon.banner = 2.6;
     moon.supplyT = MOON_SUPPLY.coreEvery;
     sfx('boss');
     toast('擊毀核心！');
+  }
+}
+
+/* ---------- §6 四合一核心 BOSS ---------- */
+function makeBoss() {
+  return {
+    x: ARENA.w / 2, y: 175, r: BOSS_CFG.r, hp: BOSS_CFG.hp, maxhp: BOSS_CFG.hp,
+    t: 0, hit: 0, ang: 0, vy: 0, inv: 1.2, phase: 1, active: '',
+    moveT: 1.8, cycleIdx: 0, beam: null, charge: null, gravityT: 0,
+    sumT: BOSS_CFG.sumEvery
+  };
+}
+
+function moonShoot(o) {
+  if (moon.ebullets.length >= BOSS_CFG.bulletCap) return;
+  moon.ebullets.push(o);
+}
+
+function bossPhase(hp, maxhp) {
+  const r = hp / Math.max(1, maxhp);
+  return r > 0.75 ? 1 : r > 0.5 ? 2 : r > 0.25 ? 3 : 4;
+}
+
+function startEscape() {
+  const M = moon;
+  if (M.state !== 'fight') return;
+  M.boss = null;
+  M.state = 'escape';
+  M.escapeT = MIRROR_CFG.escapeTime;
+  M.mirror = null;
+  M.mirrorSpawned = false;
+  bossuiHide();
+  sfx('boom');
+  if (typeof window.fx !== 'undefined' && window.fx) {
+    window.fx.flash('#ffffff', 0.5, 300);
+    window.fx.shake(16, 600);
+    window.fx.hitstop(100);
+  }
+  M.bannerText = '核心爆炸 — 90 秒逃生倒數';
+  M.banner = 3.0;
+  toast('核心爆炸！90 秒逃生倒數 — 擊敗「鏡像」才能離開');
+}
+
+function spawnMirror() {
+  const M = moon, S = calcStats();
+  const gearSum = (game.up.fin || 0) + (game.up.tank || 0) + (game.up.suit || 0) + (game.up.magnet || 0) + (game.up.harpoon || 0);
+  const mods = Array.isArray(game.mods) ? game.mods.length : 0;
+  const hp = MIRROR_CFG.hpBase + MIRROR_CFG.hpGear * gearSum + MIRROR_CFG.hpMod * mods;
+  const P = M.p;
+  M.mirror = {
+    x: clamp(P.x + 260, 120, ARENA.w - 120), y: clamp(P.y - 220, 120, ARENA.h - 120),
+    hp, maxhp: hp, r: 26, t: 0, hit: 0, phase: 1, active: '',
+    cycleIdx: 0, cycleT: 1.2, cool: 0, beam: null, charge: null, gravityT: 0, kb: 0,
+    dmg: 2 + 0.6 * S.dmg,
+    rate: Math.max(0.16, S.fireRate * 0.85),
+    speed: S.speed * 1.08,
+    skillPlus: 1
+  };
+  M.mirrorSpawned = true;
+  bossuiShow('mirror');
+  sfx('boss');
+  M.bannerText = '鏡像 · 同型態 · 技能 +1';
+  M.banner = 2.6;
+  toast('鏡像現身 — 打敗它才能進入逃生艙');
+  if (typeof window.fx !== 'undefined' && window.fx) {
+    window.fx.ring(M.mirror.x, M.mirror.y, { r0: 20, r1: 160, life: 0.6, w: 4, col: 'red' });
+    window.fx.flash('#ff4050', 0.2, 240);
+  }
+}
+
+function updateBoss(dt) {
+  const M = moon, B = M.boss, P = M.p;
+  if (!B) return;
+  B.t += dt;
+  if (B.hit > 0) B.hit -= dt;
+  if (B.inv > 0) B.inv -= dt;
+  B.x = ARENA.w / 2 + Math.sin(B.t * 0.3) * 270;
+  B.y = 175 + Math.sin(B.t * 0.7) * 26;
+  B.ang = Math.atan2(P.y - B.y, P.x - B.x);
+  const ph = bossPhase(B.hp, B.maxhp);
+  if (ph !== B.phase) {
+    B.phase = ph;
+    B.inv = BOSS_CFG.switchInv;
+    B.moveT = 1.2; B.cycleIdx = 0;
+    /* 全場衝擊波：把玩家推開＋畫面震動 */
+    const a = Math.atan2(P.y - B.y, P.x - B.x);
+    P.x = clamp(P.x + Math.cos(a) * 90, 26, ARENA.w - 26);
+    P.y = clamp(P.y + Math.sin(a) * 90, 70, ARENA.h - 26);
+    M.shake = 22;
+    M.bannerText = '核心進入第 ' + B.phase + ' 階段';
+    M.banner = 2.0;
+    sfx('boss');
+    if (typeof window.fx !== 'undefined' && window.fx) { window.fx.flash('#ff4050', 0.25, 220); window.fx.shake(12, 420); }
+  }
+  /* 召喚：每 3.5s 2 grunt 或 1 shooter（場上 ≤8） */
+  B.sumT -= dt;
+  if (B.sumT <= 0 && M.aliens.length < BOSS_CFG.sumCap) {
+    B.sumT = BOSS_CFG.sumEvery;
+    if (Math.random() < 0.6) { addAlien('grunt', B.x - 70, B.y + 50); addAlien('grunt', B.x + 70, B.y + 50); }
+    else addAlien('shooter', B.x + rnd(-80, 80), B.y + 60);
+  }
+  /* 招式循環（P1：重力→環形；P2：光束→環形→導彈→重力；P4：衝撞→光束→導彈→環形） */
+  if (!B.beam && !B.charge) {
+    B.moveT -= dt;
+    if (B.moveT <= 0) {
+      const order = B.phase >= 4 ? ['charge', 'beam', 'missile', 'ring'] : B.phase >= 2 ? ['beam', 'ring', 'missile', 'gravity'] : ['gravity', 'ring'];
+      B.active = order[B.cycleIdx % order.length];
+      B.cycleIdx++;
+      const gap = B.phase >= 4 ? 0.8 : 1.2;
+      if (B.active === 'ring') {
+        for (let i = 0; i < BOSS_CFG.ring.n; i++) {
+          const a2 = B.t * 0.5 + i / BOSS_CFG.ring.n * Math.PI * 2;
+          moonShoot({ x: B.x, y: B.y, vx: Math.cos(a2) * BOSS_CFG.ring.spd, vy: Math.sin(a2) * BOSS_CFG.ring.spd, life: 3.4, r: 7, dmg: BOSS_CFG.ring.dmg, alien: true });
+        }
+        B.moveT = gap + 0.5;
+        tone(120, 0.2, 'sawtooth', 0.1, 60);
+      } else if (B.active === 'gravity') {
+        B.gravityT = BOSS_CFG.gravity.dur;
+        B.moveT = gap + BOSS_CFG.gravity.dur;
+        M.bannerText = '重力脈衝'; M.banner = 1.2; sfx('charge');
+      } else if (B.active === 'missile') {
+        for (let i = 0; i < BOSS_CFG.missile.n; i++) {
+          const a3 = B.ang + (i - 0.5) * 0.4;
+          moonShoot({ x: B.x, y: B.y, vx: Math.cos(a3) * BOSS_CFG.missile.spd, vy: Math.sin(a3) * BOSS_CFG.missile.spd, life: BOSS_CFG.missile.life, r: 7, dmg: BOSS_CFG.missile.dmg, alien: true, homing: true, turn: BOSS_CFG.missile.turn });
+        }
+        B.moveT = gap + 0.4;
+        tone(180, 0.2, 'square', 0.08, 220);
+      } else if (B.active === 'beam') {
+        B.beam = { stage: 'charge', t: BOSS_CFG.beam.charge, ang: B.ang, startAng: B.ang, sweep: BOSS_CFG.beam.sweep * (Math.random() < 0.5 ? -1 : 1), elapsed: 0, hitCd: 0 };
+        B.moveT = gap + BOSS_CFG.beam.charge + BOSS_CFG.beam.dur;
+        sfx('charge'); tone(220, 0.5, 'sawtooth', 0.06, 900);
+      } else if (B.active === 'charge') {
+        B.charge = { stage: 'windup', t: BOSS_CFG.charge.windup, ang: B.ang };
+        B.moveT = gap + BOSS_CFG.charge.windup + BOSS_CFG.charge.dur + 0.4;
+        sfx('charge');
+      }
+    }
+  }
+  /* 持續招式 */
+  if (B.gravityT > 0) {
+    B.gravityT -= dt;
+    const pull = (B.phase >= 3 ? BOSS_CFG.gravity.pullP3 : BOSS_CFG.gravity.pull) * dt;
+    const a = Math.atan2(B.y - P.y, B.x - P.x);
+    P.x = clamp(P.x + Math.cos(a) * pull, 26, ARENA.w - 26);
+    P.y = clamp(P.y + Math.sin(a) * pull, 70, ARENA.h - 26);
+    if (B.gravityT <= 0) B.active = '';
+  }
+  if (B.beam) {
+    const bm = B.beam;
+    bm.t -= dt;
+    if (bm.stage === 'charge') {
+      bm.ang = bm.ang;
+      if (bm.t <= 0) {
+        bm.stage = 'beam'; bm.t = BOSS_CFG.beam.dur; bm.startAng = bm.ang; bm.elapsed = 0; bm.hitCd = 0;
+        mShake(6); sfx('beam');
+      }
+    } else {
+      bm.elapsed += dt;
+      const half = BOSS_CFG.beam.half * Math.PI / 180;
+      bm.ang = bm.startAng + Math.max(-half, Math.min(half, bm.sweep * bm.elapsed));
+      bm.hitCd -= dt;
+      if (bm.hitCd <= 0 && playerOnBeam(B, bm, P)) {
+        hurtMoon(BOSS_CFG.beam.dmg);
+        bm.hitCd = BOSS_CFG.beam.tick;
+      }
+      if (bm.t <= 0) { B.beam = null; B.active = ''; }
+    }
+  }
+  if (B.charge) {
+    const c = B.charge;
+    c.t -= dt;
+    if (c.stage === 'windup') {
+      if (c.t <= 0) { c.stage = 'rush'; c.t = BOSS_CFG.charge.dur; }
+    } else {
+      B.x += Math.cos(c.ang) * BOSS_CFG.charge.spd * dt;
+      B.y += Math.sin(c.ang) * BOSS_CFG.charge.spd * dt;
+      if (Math.hypot(P.x - B.x, P.y - B.y) < B.r + 22) hurtMoon(BOSS_CFG.charge.dmg);
+      if (c.t <= 0) { B.charge = null; B.active = ''; }
+    }
+  }
+  if (Math.hypot(P.x - B.x, P.y - B.y) < B.r + 16) hurtMoon(MOON_DMG.coreTouch);
+}
+
+function playerOnBeam(B, bm, P) {
+  const ex = B.x + Math.cos(bm.ang) * BOSS_CFG.beam.len;
+  const ey = B.y + Math.sin(bm.ang) * BOSS_CFG.beam.len;
+  const dx = ex - B.x, dy = ey - B.y;
+  const l2 = dx * dx + dy * dy || 1;
+  let t = ((P.x - B.x) * dx + (P.y - B.y) * dy) / l2;
+  t = Math.max(0, Math.min(1, t));
+  const cx = B.x + dx * t, cy = B.y + dy * t;
+  return Math.hypot(P.x - cx, P.y - cy) < BOSS_CFG.beam.width * 0.5 + 16;
+}
+
+function mShake(n) { moon.shake = Math.min(20, moon.shake + n); }
+
+/* ---------- §7 鏡像 BOSS（與玩家同型態、技能 +1；不新增場景） ---------- */
+function updateMirror(dt) {
+  const M = moon, mm = M.mirror, P = M.p;
+  if (!mm || M.state !== 'escape') return;
+  mm.t += dt;
+  if (mm.hit > 0) mm.hit -= dt;
+  const ratio = mm.hp / Math.max(1, mm.maxhp);
+  const ph = ratio > 0.5 ? 1 : ratio > 0.2 ? 2 : 3;
+  if (ph !== mm.phase) {
+    mm.phase = ph;
+    M.shake = 16;
+    M.bannerText = '鏡像 · 第 ' + ph + ' 階段';
+    M.banner = 1.6;
+    sfx('boss');
+  }
+  const dx = P.x - mm.x, dy = P.y - mm.y, d = Math.hypot(dx, dy) || 1;
+  const aim = Math.atan2(dy, dx);
+  const sp = mm.speed * (ph === 3 ? 1.15 : 1);
+  const dir = d > 330 ? 1 : d < 230 ? -1 : 0;
+  const strafe = (Math.sin(mm.t * 0.7) > 0 ? 1 : -1) * Math.PI / 2;
+  mm.x = clamp(mm.x + Math.cos(aim) * dir * sp * dt + Math.cos(aim + strafe) * sp * 0.55 * dt, 40, ARENA.w - 40);
+  mm.y = clamp(mm.y + Math.sin(aim) * dir * sp * dt + Math.sin(aim + strafe) * sp * 0.55 * dt, 80, ARENA.h - 40);
+
+  /* 招式循環（8s；<50% 加導彈/重力，<20% 冷卻 ×0.8、移速 ×1.15） */
+  mm.cycleT -= dt;
+  if (mm.cycleT <= 0 && !mm.beam && !mm.charge) {
+    const pool = ph >= 2 ? ['spear', 'beam', 'charge', 'missile', 'gravity'] : ['spear', 'beam', 'charge'];
+    const mv = pool[mm.cycleIdx % pool.length];
+    mm.cycleIdx++;
+    mm.active = mv;
+    mm.cycleT = MIRROR_CFG.cycle * (ph === 3 ? 0.8 : 1);
+    if (mv === 'spear') {
+      for (let i = 0; i < MIRROR_CFG.spear.n; i++) {
+        const a = aim + (i - 1) * 0.14;
+        moonShoot({ x: mm.x, y: mm.y, vx: Math.cos(a) * MIRROR_CFG.spear.spd, vy: Math.sin(a) * MIRROR_CFG.spear.spd, life: 2.8, r: 6, dmg: mm.dmg });
+      }
+      tone(700, 0.05, 'square', 0.05, 300);
+    } else if (mv === 'beam') {
+      mm.beam = { stage: 'charge', t: MIRROR_CFG.beam.charge * (ph === 3 ? 0.8 : 1), ang: aim, startAng: aim, sweep: MIRROR_CFG.beam.sweep * (Math.random() < 0.5 ? -1 : 1), elapsed: 0, hitCd: 0, dur: 2.8 };
+      sfx('charge');
+    } else if (mv === 'missile') {
+      for (let i = 0; i < MIRROR_CFG.missile.n; i++) {
+        const a = aim + (i - 0.5) * 0.5;
+        moonShoot({ x: mm.x, y: mm.y, vx: Math.cos(a) * 220, vy: Math.sin(a) * 220, life: 4.5, r: 7, dmg: MIRROR_CFG.missile.dmg, homing: true, turn: MIRROR_CFG.missile.turn });
+      }
+    } else if (mv === 'charge') {
+      mm.charge = { stage: 'windup', t: MIRROR_CFG.charge.windup * (ph === 3 ? 0.8 : 1), ang: aim };
+      sfx('charge');
+    } else if (mv === 'gravity') {
+      mm.gravityT = MIRROR_CFG.gravity.dur;
+      M.bannerText = '重力井';
+      M.banner = 1.0;
+      sfx('charge');
+    }
+  }
+  if (mm.gravityT > 0) {
+    mm.gravityT -= dt;
+    const gd = Math.hypot(mm.x - P.x, mm.y - P.y) || 1;
+    if (gd < MIRROR_CFG.gravity.r) {
+      const pull = MIRROR_CFG.gravity.pull * dt;
+      P.x = clamp(P.x + (mm.x - P.x) / gd * pull, 26, ARENA.w - 26);
+      P.y = clamp(P.y + (mm.y - P.y) / gd * pull, 70, ARENA.h - 26);
+    }
+    if (mm.gravityT <= 0) mm.active = '';
+  }
+  if (mm.beam) {
+    const bm = mm.beam;
+    bm.t -= dt;
+    if (bm.stage === 'charge') {
+      bm.ang = aim;
+      if (bm.t <= 0) { bm.stage = 'beam'; bm.t = bm.dur; bm.startAng = bm.ang; bm.elapsed = 0; bm.hitCd = 0; sfx('beam'); }
+    } else {
+      bm.elapsed += dt;
+      const half = 60 * Math.PI / 180;
+      bm.ang = bm.startAng + Math.max(-half, Math.min(half, bm.sweep * bm.elapsed));
+      bm.hitCd -= dt;
+      if (bm.hitCd <= 0 && playerOnBeam({ x: mm.x, y: mm.y }, bm, P)) { hurtMoon(MIRROR_CFG.beam.dmg); bm.hitCd = MIRROR_CFG.beam.tick; }
+      if (bm.t <= 0) { mm.beam = null; mm.active = ''; }
+    }
+  }
+  if (mm.charge) {
+    const c = mm.charge;
+    c.t -= dt;
+    if (c.stage === 'windup') {
+      if (c.t <= 0) { c.stage = 'rush'; c.t = 0.45; }
+    } else {
+      mm.x += Math.cos(c.ang) * MIRROR_CFG.charge.spd * dt;
+      mm.y += Math.sin(c.ang) * MIRROR_CFG.charge.spd * dt;
+      if (Math.hypot(P.x - mm.x, P.y - mm.y) < mm.r + 18) hurtMoon(MIRROR_CFG.charge.dmg);
+      if (c.t <= 0) { mm.charge = null; mm.active = ''; }
+    }
+  }
+  if (Math.hypot(P.x - mm.x, P.y - mm.y) < mm.r + 16) hurtMoon(6);
+}
+
+function escapeWin() {
+  const M = moon;
+  M.mirror = null;
+  M.state = 'win';
+  M.endT = 0;
+  bossuiHide();
+  sfx('win');
+  M.bannerText = '鏡像被擊敗 — 逃生艙開啟';
+  M.banner = 2.4;
+  if (typeof window.fx !== 'undefined' && window.fx) {
+    window.fx.flash('#ffffff', 0.5, 320);
+    window.fx.shake(12, 500);
+    window.fx.slowmo(0.35, 300);
   }
 }
 
@@ -957,7 +1492,7 @@ function hurtMoon(n) {
 }
 
 function moonLose() {
-  if (moon.state !== 'fight') return;
+  if (moon.state !== 'fight' && moon.state !== 'escape') return;
   moon.state = 'lose';
   moon.endT = 0;
   sfx('lose');
@@ -1042,6 +1577,14 @@ function updateMoon(dt) {
   if (M.banner > 0) M.banner -= dt;
   if (M.radio > 0) M.radio -= dt;
 
+  /* §7 逃生階段：90 秒倒數，第 20 秒生成鏡像；擊敗才通關 */
+  if (M.state === 'escape') {
+    M.escapeT -= dt;
+    if (!M.mirrorSpawned && M.escapeT <= MIRROR_CFG.escapeTime - MIRROR_CFG.spawnAt) spawnMirror();
+    updateMirror(dt);
+    if (M.escapeT <= 0) { moonLose(); return; }
+  }
+
   if (M.state === 'win' || M.state === 'lose') {
     M.endT += dt;
     for (const b of M.ebullets) { b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt; }
@@ -1107,41 +1650,16 @@ function updateMoon(dt) {
     a.y = clamp(a.y, 40, ARENA.h - 20);
   }
 
-  /* 核心 Boss */
-  if (M.boss) {
-    const B = M.boss;
-    B.t += dt;
-    if (B.hit > 0) B.hit -= dt;
-    B.x = ARENA.w / 2 + Math.sin(B.t * 0.3) * 270;
-    B.y = 175 + Math.sin(B.t * 0.7) * 26;
-    B.ang = Math.atan2(P.y - B.y, P.x - B.x);
-    B.fire -= dt;
-    if (B.fire <= 0) {
-      B.fire = Math.max(1.5, 2.4 - (1 - B.hp / B.maxhp) * 0.7);
-      const n = 10;
-      const off = B.t * 0.5;
-      for (let i = 0; i < n; i++) {
-        const a = off + i / n * Math.PI * 2;
-        M.ebullets.push({ x: B.x, y: B.y, vx: Math.cos(a) * 165, vy: Math.sin(a) * 165, life: 3.4, r: 7, dmg: MOON_DMG.coreRing, alien: true });
-      }
-      const aim = Math.atan2(P.y - B.y, P.x - B.x);
-      for (let i = -1; i <= 1; i++) {
-        M.ebullets.push({ x: B.x, y: B.y + 20, vx: Math.cos(aim + i * 0.16) * 260, vy: Math.sin(aim + i * 0.16) * 260, life: 4, r: 6, dmg: MOON_DMG.coreAim, alien: true });
-      }
-      tone(120, 0.28, 'sawtooth', 0.12, 60);
-    }
-    B.spawn -= dt;
-    if (B.spawn <= 0 && M.aliens.length < 5) {
-      B.spawn = 7;
-      addAlien('grunt', B.x - 60, B.y + 40);
-      addAlien('grunt', B.x + 60, B.y + 40);
-    }
-    if (Math.hypot(P.x - B.x, P.y - B.y) < B.r + 16) hurtMoon(MOON_DMG.coreTouch);
-    /* 核心階段：每 MOON_SUPPLY.coreEvery 秒掉一個補給艙 */
+  /* 核心 Boss（§6 四合一） */
+  if (M.boss && M.state === 'fight') updateBoss(dt);
+  bossuiUpdate(M.boss, M.mirror);
+
+  /* 核心階段：每 MOON_SUPPLY.coreEvery 秒掉一個補給艙 */
+  if (M.boss && M.state === 'fight') {
     M.supplyT -= dt;
     if (M.supplyT <= 0) { M.supplyT = MOON_SUPPLY.coreEvery; spawnMoonSupply(); }
     /* 同盟軍登場 */
-    if (!M.alliance && B.hp < B.maxhp * 0.50) callAlliance();
+    if (!M.alliance && M.boss.hp < M.boss.maxhp * 0.50) callAlliance();
   }
 
   /* 補給艙拾取（每波 2 個、核心每 20s 1 個） */
@@ -1173,7 +1691,7 @@ function updateMoon(dt) {
       M.shake = 26;
       M.boss.hit = 0.4;
       if (M.beam.stage === 1) { M.boss.hp = M.boss.maxhp * 0.6; sfx('boom'); }
-      else { M.boss.hp = 0; sfx('boom'); moonWin(); }
+      else { M.boss.hp = 0; sfx('boom'); startEscape(); }
     }
     if (M.beam.t > 1.9) M.beam = null;
   }
@@ -1206,16 +1724,26 @@ function updateMoon(dt) {
         break;
       }
     }
-    if (!hitDone && M.boss && Math.hypot(M.boss.x - b.x, M.boss.y - b.y) < M.boss.r) {
+    if (!hitDone && M.boss && M.state === 'fight' && Math.hypot(M.boss.x - b.x, M.boss.y - b.y) < M.boss.r) {
       b.dead = true;
       if (b.shielded) {
         M.shieldHint = 0.8;
         M.ebullets.push({ x: b.x, y: b.y, vx: rnd(-60, 60), vy: rnd(-60, 60), life: 0.4, r: 12, dmg: 0, boom: true });
         tone(200, 0.1, 'sine', 0.1, 120);
+      } else if (M.boss.inv > 0) {
+        M.ebullets.push({ x: b.x, y: b.y, vx: rnd(-60, 60), vy: rnd(-60, 60), life: 0.3, r: 10, dmg: 0, boom: true });
+        tone(180, 0.1, 'sine', 0.1, 100);
       } else {
         M.boss.hp -= b.dmg; M.boss.hit = 0.12;
-        if (M.boss.hp <= 0) { M.boss.hp = 0; moonWin(); }
+        if (M.boss.hp <= 0) { M.boss.hp = 0; startEscape(); }
       }
+    }
+    /* §7 鏡像 */
+    if (!hitDone && M.mirror && Math.hypot(M.mirror.x - b.x, M.mirror.y - b.y) < M.mirror.r + 8) {
+      b.dead = true;
+      M.mirror.hp -= b.dmg;
+      M.mirror.hit = 0.12;
+      if (M.mirror.hp <= 0) { M.mirror.hp = 0; escapeWin(); }
     }
   }
   M.bullets = M.bullets.filter(b => !b.dead);
@@ -1224,6 +1752,16 @@ function updateMoon(dt) {
   /* 敵方子彈 */
   for (const b of M.ebullets) {
     if (b.dead) continue;
+    if (b.homing) {
+      const cur = Math.atan2(b.vy, b.vx);
+      const want = Math.atan2(P.y - b.y, P.x - b.x);
+      let da = ((want - cur + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      const turn = (b.turn || 2.2) * dt;
+      da = Math.max(-turn, Math.min(turn, da));
+      const spd = Math.hypot(b.vx, b.vy);
+      b.vx = Math.cos(cur + da) * spd;
+      b.vy = Math.sin(cur + da) * spd;
+    }
     b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
     if (b.life <= 0) { b.dead = true; continue; }
     if (b.dmg > 0 && Math.hypot(P.x - b.x, P.y - b.y) < 20) {
@@ -1409,6 +1947,7 @@ function drawMoon() {
 
   for (const a of M.aliens) drawAlien(a);
   if (M.boss) drawBoss(M.boss);
+  drawBossFx();
   for (const a of M.allies) drawAlly(a);
 
   /* 子彈 */
@@ -1683,8 +2222,123 @@ function drawBoss(B) {
   ctx.restore();
 }
 
-function drawAstronaut(P) {
+function drawBossFx() {
+  const M = moon, B = M.boss;
+  if (B) {
+    /* 重力脈衝：向心環 */
+    if (B.gravityT > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(180,120,255,' + (0.2 + 0.15 * Math.abs(Math.sin(M.t * 6))) + ')';
+      ctx.lineWidth = 2.4;
+      ctx.setLineDash([16, 12]);
+      ctx.lineDashOffset = -M.t * 60;
+      ctx.beginPath(); ctx.arc(B.x, B.y, 240, 0, 7); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+    /* 核心光束（1.4s 前搖＋3.0s 掃描） */
+    if (B.beam) {
+      const bm = B.beam;
+      const ex = B.x + Math.cos(bm.ang) * BOSS_CFG.beam.len;
+      const ey = B.y + Math.sin(bm.ang) * BOSS_CFG.beam.len;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      if (bm.stage === 'charge') {
+        const prog = 1 - bm.t / BOSS_CFG.beam.charge;
+        ctx.strokeStyle = 'rgba(255,120,150,' + (0.12 + 0.5 * prog) + ')';
+        ctx.lineWidth = bm.t > 0.5 ? 2 : 8 + (0.5 - bm.t) * 40;
+        ctx.beginPath(); ctx.moveTo(B.x, B.y); ctx.lineTo(ex, ey); ctx.stroke();
+      } else {
+        ctx.strokeStyle = 'rgba(255,90,130,.18)'; ctx.lineWidth = BOSS_CFG.beam.width * 2.4;
+        ctx.beginPath(); ctx.moveTo(B.x, B.y); ctx.lineTo(ex, ey); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,150,180,.6)'; ctx.lineWidth = BOSS_CFG.beam.width * 1.1;
+        ctx.beginPath(); ctx.moveTo(B.x, B.y); ctx.lineTo(ex, ey); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = BOSS_CFG.beam.width * 0.42;
+        ctx.beginPath(); ctx.moveTo(B.x, B.y); ctx.lineTo(ex, ey); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+  /* 鏡像 */
+  if (M.mirror) drawMirror(M.mirror);
+}
+
+function drawMirror(mm) {
+  const P = moon.p;
   ctx.save();
+  ctx.translate(mm.x, mm.y);
+  /* 紅色警示圈 */
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const gg = ctx.createRadialGradient(0, 0, 10, 0, 0, 90);
+  gg.addColorStop(0, 'rgba(255,80,110,.28)');
+  gg.addColorStop(0.6, 'rgba(255,60,90,.10)');
+  gg.addColorStop(1, 'rgba(255,60,90,0)');
+  ctx.fillStyle = gg;
+  ctx.beginPath(); ctx.arc(0, 0, 90, 0, 7); ctx.fill();
+  ctx.restore();
+  /* 人型：頭／身／雙臂 */
+  ctx.fillStyle = mm.hit > 0 ? '#ffffff' : '#2a2533';
+  ctx.beginPath(); ctx.arc(0, -16, 11, 0, 7); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,140,160,.9)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(0, -16, 11, 0, 7); ctx.stroke();
+  ctx.fillStyle = '#1e1a27';
+  ctx.beginPath(); ctx.roundRect(-9, -3, 18, 26, 7); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,120,150,.7)'; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.roundRect(-9, -3, 18, 26, 7); ctx.stroke();
+  ctx.fillStyle = '#ff8fa3';
+  ctx.beginPath(); ctx.arc(0, 8, 4, 0, 7); ctx.fill();
+  /* 面向玩家 */
+  const ang = Math.atan2(P.y - mm.y, P.x - mm.x);
+  ctx.fillStyle = '#ffd9e3';
+  ctx.beginPath(); ctx.arc(Math.cos(ang) * 7, -16 + Math.sin(ang) * 7, 2.2, 0, 7); ctx.fill();
+  /* 施放光束 */
+  if (mm.beam) {
+    const bm = mm.beam;
+    const ex = mm.x + Math.cos(bm.ang) * BOSS_CFG.beam.len;
+    const ey = mm.y + Math.sin(bm.ang) * BOSS_CFG.beam.len;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    if (bm.stage === 'charge') {
+      ctx.strokeStyle = 'rgba(255,140,160,.5)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(ex - mm.x, ey - mm.y); ctx.stroke();
+    } else {
+      ctx.strokeStyle = 'rgba(255,120,150,.55)';
+      ctx.lineWidth = 10;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(ex - mm.x, ey - mm.y); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,.9)';
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(ex - mm.x, ey - mm.y); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  if (mm.gravityT > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = 'rgba(200,120,255,.3)';
+    ctx.lineWidth = 2.2;
+    ctx.setLineDash([14, 10]);
+    ctx.lineDashOffset = -moon.t * 50;
+    ctx.beginPath(); ctx.arc(0, 0, MIRROR_CFG.gravity.r, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+  /* HP 條 */
+  const ratio = Math.max(0, Math.min(1, mm.hp / Math.max(1, mm.maxhp)));
+  ctx.textAlign = 'center';
+  ctx.font = '700 10px "Microsoft JhengHei",system-ui';
+  ctx.fillStyle = 'rgba(255,180,190,.9)';
+  ctx.fillText('鏡像 · 同型態 · 技能 +1', 0, -48);
+  ctx.fillStyle = 'rgba(0,0,0,.6)';
+  ctx.beginPath(); ctx.roundRect(-60, -40, 120, 7, 3.5); ctx.fill();
+  ctx.fillStyle = '#ff5d73';
+  ctx.beginPath(); ctx.roundRect(-60, -40, Math.max(2, 120 * ratio), 7, 3.5); ctx.fill();
+  ctx.restore();
+}
+
+function drawAstronaut(P) {  ctx.save();
   ctx.translate(P.x, P.y);
   const flick = P.inv > 0 && Math.floor(P.inv * 14) % 2 === 0;
 
@@ -1778,6 +2432,18 @@ function drawMoonHud() {
     ctx.fillText('護盾無效', VW / 2, VH * 0.6);
   }
 
+  if (M.state === 'escape') {
+    const left = Math.max(0, Math.ceil(M.escapeT));
+    ctx.textAlign = 'center';
+    ctx.font = '700 30px "Microsoft JhengHei",system-ui';
+    ctx.fillStyle = left <= 20 ? 'rgba(255,120,140,.95)' : 'rgba(255,235,180,.92)';
+    ctx.fillText('逃生倒數 ' + left + ' 秒', VW / 2, 78);
+    if (!M.mirror) {
+      ctx.font = '700 12px "Microsoft JhengHei",system-ui';
+      ctx.fillStyle = 'rgba(255,190,200,.85)';
+      ctx.fillText('鏡像將於 ' + Math.max(0, Math.ceil(M.escapeT - (MIRROR_CFG.escapeTime - MIRROR_CFG.spawnAt))) + ' 秒後出現', VW / 2, 102);
+    }
+  }
   if (M.boss) {
     const bw = Math.min(520, VW * 0.5), bx = VW / 2 - bw / 2, by = 46;
     ctx.fillStyle = 'rgba(0,0,0,.6)';
@@ -1788,7 +2454,17 @@ function drawMoonHud() {
     ctx.beginPath(); ctx.roundRect(bx, by, bw * clamp(M.boss.hp / M.boss.maxhp, 0, 1), 14, 7); ctx.fill();
     ctx.strokeStyle = 'rgba(255,140,170,.5)';
     ctx.beginPath(); ctx.roundRect(bx, by, bw, 14, 7); ctx.stroke();
-  } else {
+  } else if (M.mirror) {
+    const bw = Math.min(520, VW * 0.5), bx = VW / 2 - bw / 2, by = 46;
+    ctx.fillStyle = 'rgba(0,0,0,.6)';
+    ctx.beginPath(); ctx.roundRect(bx, by, bw, 14, 7); ctx.fill();
+    const bg = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+    bg.addColorStop(0, '#ff5d73'); bg.addColorStop(1, '#ffb36b');
+    ctx.fillStyle = bg;
+    ctx.beginPath(); ctx.roundRect(bx, by, bw * clamp(M.mirror.hp / Math.max(1, M.mirror.maxhp), 0, 1), 14, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,140,170,.6)';
+    ctx.beginPath(); ctx.roundRect(bx, by, bw, 14, 7); ctx.stroke();
+  } else if (M.state !== 'escape') {
     ctx.textAlign = 'right';
     ctx.font = '12px "Microsoft JhengHei",system-ui';
     ctx.fillStyle = 'rgba(160,210,230,.75)';

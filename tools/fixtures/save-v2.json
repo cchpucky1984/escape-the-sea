@@ -1,0 +1,26 @@
+{
+  "res": { "plastic": 120, "wood": 90, "metal": 210, "alloy": 14 },
+  "up": { "fin": 2, "tank": 2, "suit": 3, "magnet": 2, "harpoon": 3, "shield": 1 },
+  "base": {
+    "structures": [
+      { "type": "equip", "gx": 0, "gy": -1, "born": 0 },
+      { "type": "rnd", "gx": 1, "gy": 0, "born": 0 },
+      { "type": "dock", "gx": -1, "gy": 0, "born": 0 },
+      { "type": "net", "gx": 0, "gy": 1, "born": 0 },
+      { "type": "net", "gx": 1, "gy": 1, "born": 0 },
+      { "type": "recycler", "gx": -1, "gy": 1, "born": 0 },
+      { "type": "botdock", "gx": 2, "gy": 0, "born": 0 },
+      { "type": "tower", "gx": 0, "gy": -2, "born": 0 },
+      { "type": "reverse", "gx": -2, "gy": 0, "born": 0 }
+    ]
+  },
+  "parts": { "hull": true, "engine": true, "fuel": false, "nav": false },
+  "stats": { "collected": 210, "kills": 46, "time": 2100, "deaths": 2, "launched": false, "won": false, "botCollected": 88, "built": 9, "bosses": 1 },
+  "quest": { "claimed": ["collect", "firstnet", "equip"] },
+  "pos": { "x": 300, "y": 400 },
+  "muted": false,
+  "tech": 1,
+  "bossesKilled": ["nw"],
+  "cheat": false,
+  "cheatUp": { "fin": 0, "tank": 0, "suit": 0, "magnet": 0, "harpoon": 0 }
+}
