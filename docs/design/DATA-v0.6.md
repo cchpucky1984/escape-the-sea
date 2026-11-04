@@ -107,8 +107,8 @@ const RIFT = {
 - 欄位對照：`mult.drop→data.dropMul`、`mult.spawn→data.spawnMul`、`mult.current→data.currentMul`、`mult.spd→data.speedMul`、`mult.ox→data.oxMul`、`mult.aggr→data.aggrMul`（EV09 用 2.18＝2400/1100）；`extra.*→data.{sharks,drones,hpMul,alloyDrop,alloyPerKill,crates,radius,vortexR,pull,endAlloy}`。
 - **缺口（待 D 補，§6-7 會量到）**：`RIFT` 目前只有 `dropMul 1.5` 與 `limitBonus 2`，缺 `spawnMul:3`（裂縫內垃圾生成 ×3）與 `aggrMul:1.2`（GDD §3.5／CONTENT §4）。補法：`RIFT.spawnMul` 乘進 `sea.spawnT`、`RIFT.aggrMul` 乘進裂縫內生怪 aggr。
   - **2026-11-04 23:55 Lead 更正：此缺口已補。** D 的最終版 `js/events.js`：`RIFT` 常數含 `spawnMul:3`／`aggrMul:1.2`（`:69`），並在裂縫內以 `r.acc += dt*(RIFT.spawnMul-1)/…`（`:471-474`）補生成、`h.aggr *= RIFT.aggrMul`（`:431`、`:488`）套用；`SEA_EVENTS.rift` 也曝露 `spawnMul/dropMul/limitBonus/aggrMul` 供 QA 讀。**此條驗收已可自動化。**
-- 視覺：D 目前用 `FX()` 呼叫 flash/sfx，事件沒有 `radarColor` 欄位；§6-6 的「HUD 事件列顏色」若不做，至少要補「事件名＋倒數」在 HUD（A 可接受的降級）。
-- QA 鉤子：`__T.SEA_EVENTS.active`／`.rift` 可讀；建議 D 再加 `SEA_EVENTS.defs`（唯讀 `EVENTS` 表）與 `SEA_EVENTS.spawn(id)`（測試注入），這樣 §6-5 就能直接驗 8 事件與權重，不用等自然觸發。
+- 視覺：**已補（D，23:12）**——8 事件＋裂縫都有 `radarColor`，並在相機 transform 內畫「名稱＋倒數」膠囊（世界座標換算，不佔 DOM；截圖 `_shots/D5/ev-rift.png` 可見「深海裂縫 49s」「垃圾潮 24s」「裂縫核心 30/30」）。
+- QA 鉤子：**已補（D，23:12）**——`SEA_EVENTS.defs`（唯讀 EVENT 表，8 筆、weight 總和 100）與 `SEA_EVENTS.spawn(id)`（注入）；兩者 non-enumerable，`Object.keys` 仍是凍結的 5 個 key，B 的掛鉤／雷達不受影響。§6-5 可直接自動驗。
 ## 3. 挑戰模式 3 個（v0.6 只做資料與規則；選單 v0.7）
 [貼到 `js/core.js`，`ACH` 之後]
 ```js
