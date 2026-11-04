@@ -38,6 +38,96 @@ const fmtTime = (s) => {
 };
 const fmtNum = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(Math.floor(n)));
 
+/* ---------- i18n（docs/i18n/STRINGS.js；缺檔時沿用 zh 原文，不顯示 key） ---------- */
+/* E 的 STRINGS.js 快照漏了 7 個成就名稱，先補英文避免 en 面板殘留中文 */
+const I18N_EXTRA = {
+  'ach.first_dive.name': ['第一次下潛', 'First Dive'],
+  'ach.iron_isles.name': ['鋼鐵群島', 'Iron Isles'],
+  'ach.full_kit.name': ['五體全滿', 'Full Kit'],
+  'ach.iron_dive.name': ['鐵人潛水', 'Iron Dive'],
+  'ach.safe_dive.name': ['穩健船長', 'Steady Captain'],
+  'ach.no_mods.name': ['素槍主義', 'Purist'],
+  'ach.no_tower.name': ['走位上癮', 'No Turrets'],
+  'hint.giant': ['最近巨獸：{dir} {dist}（雷達紫點）· 或接賞金合約', 'Nearest Leviathan: {dir} {dist} (purple on radar) · or take bounties'],
+  'hint.title': ['下一步', 'Next step'],
+  'bounty.modbox': ['模組箱 ×{n}', 'Mod box ×{n}'],
+  'ui.sail': ['出海 ▸', 'Set Sail ▸'],
+  'end.statAch': ['成就 {n}/{total}（本輪 +{add}）', 'Achievements {n}/{total} (this run +{add})'],
+  'bounty.icon': ['賞', '★'],
+  'gate.gun': ['魚槍 Lv3（目前 Lv{n}）', 'Harpoon Lv3 (now Lv{n})'],
+  'gate.suit': ['潛水衣 Lv2（目前 Lv{n}）', 'Dive Suit Lv2 (now Lv{n})'],
+  'gate.rnd': ['火箭研發中心', 'Rocket R&D Center'],
+  'tut.done': ['教學完成 — 接下來自由探索，J 看任務', 'Tutorial complete — explore freely, press J for quests'],
+  'tut.step1': ['先游回基地 — 跟著箭頭，進到綠色安全圈', 'Swim back to base — follow the arrow into the green safe zone'],
+  'tut.step2': ['按 B 建造「自動收集網」— 讓基地自己賺資源', 'Press B to build a Collection Net — your base earns for you'],
+  'tut.step3': ['按 B 建「裝備房」，再按 C 把魚槍升到 Lv1', 'Build the Gear Room with B, then press C to upgrade the Harpoon to Lv1'],
+  'tut.step4': ['按 B 建「賞金終端」（金屬 14·塑膠 8），按 H 接第一張合約', 'Build the Bounty Terminal (Metal 14 · Plastic 8) with B, then press H for your first contract'],
+  'tut.step5': ['升空門檻：魚槍 Lv3、潛水衣 Lv2、火箭研發中心（按 C 看進度）', 'Launch gate: Harpoon Lv3, Suit Lv2, Rocket R&D Center (press C for progress)'],
+  'tut.stuck': ['卡住了嗎？按 Esc 看操作說明；資源不够時 HUD 會顯示差多少', "Stuck? Press Esc for controls; the HUD shows what you're missing"],
+  'ui.brand': ['逃出大海', 'Escape the Sea'],
+  'dir.北': ['北', 'N'], 'dir.東北': ['東北', 'NE'], 'dir.東': ['東', 'E'], 'dir.東南': ['東南', 'SE'],
+  'dir.南': ['南', 'S'], 'dir.西南': ['西南', 'SW'], 'dir.西': ['西', 'W'], 'dir.西北': ['西北', 'NW']
+};
+const I18N_USED = new Set();
+const I18N_MISSING = new Set();
+function langOf() {
+  return (typeof game !== 'undefined' && game.settings && game.settings.lang === 'en') ? 'en' : 'zh';
+}
+function t(key, vars) {
+  if (!key) return '';
+  I18N_USED.add(key);
+  const row = I18N_EXTRA[key] || (window.I18N_DATA && window.I18N_DATA[key]);
+  let s = null;
+  if (row) s = langOf() === 'en' ? (row[1] || row[0]) : row[0];
+  if (!s) { I18N_MISSING.add(key); s = row ? row[0] : key; }
+  if (vars) s = String(s).replace(/\{(\w+)\}/g, (m, k) => (vars[k] === undefined ? m : String(vars[k])));
+  return s;
+}
+function i18nMissing() { return Array.from(I18N_MISSING); }
+const ZONE_KEYS = ['near', 'mid', 'deep', 'far'];
+function zoneKey(z) { return ZONE_KEYS[z && z.id >= 0 && z.id < 4 ? z.id : 0]; }
+function zoneName(z) { return t('zone.' + zoneKey(z) + '.name'); }
+function zoneTip(z) { return t('zone.' + zoneKey(z) + '.tip'); }
+function resName(k) { return t('res.' + k); }
+function structName(k) { return t('struct.' + k + '.name'); }
+function structDesc(k) { return t('struct.' + k + '.desc'); }
+function structTag(def) { const m = { prod: 'tag.prod', auto: 'tag.auto', def: 'tag.defense', '': 'tag.required' }; return t(m[def.tagCls] || 'tag.required'); }
+function upgName(id) { return t('upg.' + id + '.name'); }
+function upgDesc(u, lv) {
+  if (u.id === 'fin') return t('upg.fin.desc', { n: lv * 18 });
+  if (u.id === 'tank') return t('upg.tank.desc', { n: lv * 25, m: lv * 14 });
+  if (u.id === 'suit') return t('upg.suit.desc', { n: 3 + lv });
+  if (u.id === 'magnet') return t('upg.magnet.desc', { n: lv * 44 });
+  return t('upg.harpoon.desc', { n: 1 + lv, m: Math.round((1 - Math.pow(0.86, lv)) * 100) });
+}
+function partName(id) { return t('part.' + id + '.name'); }
+function partDesc(id) { return t('part.' + id + '.desc'); }
+/* 面板 32px 圖示：zh 用原字，en 用 key 首字母（避免 en 面板殘留中文方塊） */
+function icoOf(def, key) {
+  if (langOf() !== 'en') return def.ch;
+  return String(key || '').replace(/[^a-z]/gi, '').slice(0, 1).toUpperCase() || '·';
+}
+function modName(id) { return t('mod.' + id + '.name'); }
+function modDesc(id) { return t('mod.' + id + '.desc'); }
+function bntyName(id) { return t('bounty.' + id); }
+function achName(a) { return t('ach.' + a.id + '.name'); }
+function achDesc(a) { return t('ach.' + a.id + '.desc'); }
+function questText(q) { return t('quest.' + q.id + '.text'); }
+function questSub(q) { return t('quest.' + q.id + '.sub'); }
+function setLang(lang) {
+  game.settings.lang = lang === 'en' ? 'en' : 'zh';
+  document.documentElement.lang = game.settings.lang === 'zh' ? 'zh-Hant' : 'en';
+  saveGame(true);
+  refreshStaticUI();
+  refreshHud();
+  if (modalEl.classList.contains('show')) {
+    if (modalBody.querySelector('.settings')) openSettings();
+    else if (modalBody.querySelector('.qlist')) openQuests();
+    else if (modalBody.querySelector('.bounty-grid')) openBounty();
+    else if (modalBody.querySelector('.mod-grid')) openCraft();
+  }
+}
+
 /* ---------- audio ---------- */
 let AC = null, master = null, muted = false, amb = null;
 function sfxMasterVol() { return muted ? 0 : 0.22 * (clamp(game.settings.sfxVol, 0, 100) / 80); }
@@ -79,9 +169,25 @@ function applyMute() {
 function applySettings() {
   if (typeof document !== 'undefined' && game.settings) {
     document.body.classList.toggle('reduce-motion', !!game.settings.reduceMotion);
+    document.documentElement.lang = game.settings.lang === 'en' ? 'en' : 'zh-Hant';
   }
   applyMute();
   if (typeof MUSIC !== 'undefined') MUSIC.updateVolume();
+}
+/* 標題畫面在 loadGame 前也套用存檔的語言／音量（重整後不先閃回 zh） */
+function restoreBootSettings() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (!s || !s.settings) return;
+    for (const k of ['musicVol', 'sfxVol', 'reduceMotion', 'lang']) {
+      if (s.settings[k] !== undefined) game.settings[k] = s.settings[k];
+    }
+    if (game.settings.lang !== 'en') game.settings.lang = 'zh';
+    if (typeof game.settings.reduceMotion !== 'boolean') game.settings.reduceMotion = false;
+    applySettings();
+  } catch (e) {}
 }
 function tone(f0, dur, type, vol, f1) {
   if (!AC || muted) return;
@@ -453,13 +559,51 @@ function checkAch() {
     if (!ok) continue;
     game.ach.push(a.id);
     achNewRun++;
-    toast(a.toast || ('成就解鎖：' + a.name), 'gold');
+    toast(t('ach.toast', { name: achName(a) }), 'gold');
     sfx('quest');
     const F = (typeof window !== 'undefined') ? window.fx : null;
     if (F && typeof F.ring === 'function' && typeof sea !== 'undefined' && sea.player) {
       F.ring(sea.player.x, sea.player.y - 18, { r0: 8, r1: 90, life: 0.5, col: '#ffd166' });
     }
     saveGame(true);
+  }
+}
+
+/* ---------- v0.7 教學（A 的 ONBOARD-v0.7 §1；本輪先接欄位、HUD 與基本前進） ---------- */
+const TUTORIAL = [
+  { step: 1, id: 'goHome', press: 'WASD / Shift', failT: 30,
+    done: () => typeof sea !== 'undefined' && sea.player && Math.hypot(sea.player.x, sea.player.y) < baseRadius() },
+  { step: 2, id: 'buildNet', press: 'B', failT: 45,
+    done: () => countType('net') >= 1 },
+  { step: 3, id: 'equipRoom', press: 'B → C', failT: 60,
+    done: () => countType('equip') >= 1 && game.up.harpoon >= 1 },
+  { step: 4, id: 'bounty', press: 'B → H', failT: 120,
+    done: () => game.bounty.done >= 1 },
+  { step: 5, id: 'launchGate', press: 'C', failT: 180,
+    done: () => game.up.harpoon >= 3 && game.up.suit >= 2 && countType('rnd') >= 1 }
+];
+function tutCur() { return TUTORIAL.find(x => x.step === game.tut.step) || null; }
+function tutHudText() {
+  if (!game.tut || game.tut.done || game.scene !== 'sea') return '';
+  const cur = tutCur();
+  if (!cur) return '';
+  return game.tut.t > cur.failT ? t('tut.stuck') : t('tut.step' + cur.step);
+}
+function updateTutorial(dt) {
+  if (!game.tut || game.tut.done || game.scene !== 'sea') return;
+  const cur = tutCur();
+  if (!cur) { game.tut.done = true; return; }
+  game.tut.t += dt;
+  if (!cur.done()) return;
+  if (game.tut.doneIds.indexOf(cur.id) < 0) game.tut.doneIds.push(cur.id);
+  if (game.tut.step >= TUTORIAL.length) {
+    game.tut.done = true;
+    toast(t('tut.done'), 'gold');
+    saveGame(true);
+  } else {
+    game.tut.step++;
+    game.tut.t = 0;
+    saveGame();
   }
 }
 
@@ -497,7 +641,8 @@ const game = {
   mods: [],
   ach: [],
   ng: 0,
-  settings: { musicVol: 55, sfxVol: 80, reduceMotion: false }
+  tut: { step: 1, t: 0, done: false, doneIds: [] },
+  settings: { musicVol: 55, sfxVol: 80, reduceMotion: false, lang: 'zh' }
 };
 window.game = game;
 
@@ -574,7 +719,7 @@ function saveSnapshot() {
     res: game.res, up: game.up, base: game.base, parts: game.parts,
     stats: game.stats, quest: game.quest, pos: game.pos, muted: muted,
     tech: game.tech, bossesKilled: game.bossesKilled, cheat: game.cheat, cheatUp: game.cheatUp,
-    bounty: game.bounty, mods: game.mods, ach: game.ach, ng: game.ng, settings: game.settings
+    bounty: game.bounty, mods: game.mods, ach: game.ach, ng: game.ng, tut: game.tut, settings: game.settings
   };
 }
 /* 立即存檔；同內容 250ms 內只寫一次（debounce）。force 忽略 debounce。
@@ -631,6 +776,11 @@ function migrateSave(s) {
   if (typeof s.settings.musicVol !== 'number') s.settings.musicVol = 55;
   if (typeof s.settings.sfxVol !== 'number') s.settings.sfxVol = 80;
   if (typeof s.settings.reduceMotion !== 'boolean') s.settings.reduceMotion = false;
+  if (s.settings.lang !== 'en') s.settings.lang = 'zh';
+  /* 舊檔／既有玩家跳過教學（A 的 ONBOARD §3） */
+  if (!s.tut || typeof s.tut !== 'object') {
+    s.tut = { step: 1, t: 0, done: !!(s.stats && (s.stats.built >= 1 || s.stats.won)), doneIds: [] };
+  }
   s.v = SAVE_VER;
   return s;
 }
@@ -685,6 +835,13 @@ function validateSave(s) {
   s.settings.musicVol = int(s.settings.musicVol, 0, 100, 55);
   s.settings.sfxVol = int(s.settings.sfxVol, 0, 100, 80);
   s.settings.reduceMotion = !!s.settings.reduceMotion;
+  s.settings.lang = s.settings.lang === 'en' ? 'en' : 'zh';
+  if (!s.tut || typeof s.tut !== 'object') s.tut = { step: 1, t: 0, done: false, doneIds: [] };
+  s.tut.step = int(s.tut.step, 1, 5, 1);
+  s.tut.t = Math.max(0, Number(s.tut.t) || 0);
+  s.tut.done = !!s.tut.done;
+  s.tut.doneIds = Array.isArray(s.tut.doneIds) ? s.tut.doneIds.filter(x => typeof x === 'string') : [];
+  if (s.tut.done) s.tut.step = 5;
   s.bossesKilled = Array.isArray(s.bossesKilled) ? [...new Set(s.bossesKilled.filter(x => typeof x === 'string'))] : [];
   s.pos = { x: int(s.pos.x, -1e5, 1e5, 1000), y: int(s.pos.y, -1e5, 1e5, 700) };
   return s;
@@ -716,6 +873,7 @@ function loadGame() {
     game.mods = s.mods;
     game.ach = s.ach;
     game.ng = s.ng;
+    game.tut = s.tut;
     game.settings = s.settings;
     achNewRun = 0;
     achBaseline = game.ach.length;
@@ -763,6 +921,7 @@ function resetGame() {
   game.mods = [];
   game.ach = [];
   game.ng = 0;
+  game.tut = { step: 1, t: 0, done: false, doneIds: [] };
   achNewRun = 0;
   achBaseline = 0;
   bountyRefillT = 0;
@@ -833,8 +992,8 @@ function grantBountyReward(rw) {
 }
 function rewardHtml(rw) {
   const parts = [];
-  for (const k in rw) if (k !== 'modBox' && RESMETA[k]) parts.push(RESMETA[k].name + ' ' + rw[k]);
-  if (rw.modBox) parts.push('模組箱 ×' + rw.modBox);
+  for (const k in rw) if (k !== 'modBox' && RESMETA[k]) parts.push(resName(k) + ' ' + rw[k]);
+  if (rw.modBox) parts.push(t('bounty.modbox', { n: rw.modBox }));
   return parts.join(' · ');
 }
 function claimBounty(i) {
@@ -853,14 +1012,13 @@ function claimBounty(i) {
     if (modalEl.classList.contains('show') && document.querySelector('.bounty-grid')) openBounty();
   }, BOUNTY.refill * 1000);
   sfx('quest');
-  const def = bountyDef(c.id);
-  toast('賞金合約完成：' + (def ? def.text : c.id) + '（' + rewardHtml(c.reward) + '）', 'gold');
+  toast(t('bounty.doneToast', { text: bntyName(c.id), rewards: rewardHtml(c.reward) }), 'gold');
   saveGame(); refreshHud(); openBounty();
   return true;
 }
 function rerollBounty(i) {
   if (!game.bounty.active[i]) return false;
-  if (!pay(BOUNTY.reroll)) { toast('金屬不足（需要 ' + BOUNTY.reroll.metal + '）'); return false; }
+  if (!pay(BOUNTY.reroll)) { toast(t('bounty.rerollDeny', { n: BOUNTY.reroll.metal })); return false; }
   game.bounty.active[i] = bountyRoll(game.bounty.active[i].tier);
   sfx('build'); saveGame(); refreshHud(); openBounty();
   return true;
@@ -868,37 +1026,36 @@ function rerollBounty(i) {
 function bountyHtml() {
   let h = '<div class="bounty-grid grid">';
   game.bounty.active.forEach((c, i) => {
-    const def = bountyDef(c.id) || { text: c.id };
     const ready = c.prog >= c.target;
     const pct = clamp(c.prog / c.target * 100, 0, 100);
     h += `<div class="card bounty${ready ? ' ready' : ''}" data-bounty="${c.id}" data-tier="${c.tier}" data-ready="${ready}">
-      <div class="card-h"><span class="ico" style="--c:#ffc247">賞</span><b>${def.text}</b><span class="tag">T${c.tier}</span><span class="lv">${Math.floor(c.prog)} / ${c.target}</span></div>
+      <div class="card-h"><span class="ico" style="--c:#ffc247">${t('bounty.icon')}</span><b>${bntyName(c.id)}</b><span class="tag">T${c.tier}</span><span class="lv">${Math.floor(c.prog)} / ${c.target}</span></div>
       <div class="bounty-bar"><i style="width:${pct}%"></i></div>
-      <p class="bounty-reward">獎勵：${rewardHtml(c.reward)}</p>
+      <p class="bounty-reward">${t('bounty.reward', { list: rewardHtml(c.reward) })}</p>
       <div class="bounty-actions">
-        <button class="primary" data-claim="${i}" ${ready ? '' : 'disabled'}>${ready ? '領取獎勵' : '進行中'}</button>
-        <button class="ghost" data-reroll="${i}">換一張（${BOUNTY.reroll.metal} 金屬）</button>
+        <button class="primary" data-claim="${i}" ${ready ? '' : 'disabled'}>${ready ? t('bounty.claim') : t('bounty.progress')}</button>
+        <button class="ghost" data-reroll="${i}">${t('bounty.reroll', { n: BOUNTY.reroll.metal })}</button>
       </div>
     </div>`;
   });
   for (let i = game.bounty.active.length; i < BOUNTY.slots; i++) {
-    h += `<div class="card bounty slot-empty" data-bounty-slot="${i}"><div class="done">等待新合約…（${BOUNTY.refill} 秒內補上）</div></div>`;
+    h += `<div class="card bounty slot-empty" data-bounty-slot="${i}"><div class="done">${t('bounty.empty', { n: BOUNTY.refill })}</div></div>`;
   }
   h += '</div>';
-  h += `<p class="muted bounty-note">完成一張後 ${BOUNTY.refill} 秒補一張；${BOUNTY.reroll.metal} 金屬可換掉不想要的合約。擊殺與打撈進度會即時更新。</p>`;
+  h += `<p class="muted bounty-note">${t('bounty.note', { refill: BOUNTY.refill, reroll: BOUNTY.reroll.metal })}</p>`;
   return h;
 }
 function openBounty() {
   if (game.scene !== 'sea') return;
   if (countType('bounty') <= 0) {
     sfx('deny');
-    toast('需要「賞金終端」— 在基地按 B 建造（金屬 14 · 塑膠 8）');
+    toast(t('bounty.needTerminal'));
     return;
   }
   if (game.bounty.active.length === 0 && bountyRefillT <= 0) ensureBounties();
-  openModal('賞金終端 — 海上合約',
-    `<div class="bounty-top"><span>合約 <b>${game.bounty.active.length}</b> / ${BOUNTY.slots}</span><span>·</span><span>已完成 <b>${game.bounty.done || 0}</b> 張</span><span>·</span><span>擊殺等級 <b>T${bountyTier()}</b></span></div>` + bountyHtml(),
-    [{ label: '關閉 (Esc)' }]);
+  openModal(t('bounty.title'),
+    `<div class="bounty-top"><span>${t('bounty.top', { n: game.bounty.active.length, slots: BOUNTY.slots, done: game.bounty.done || 0, tier: bountyTier() })}</span></div>` + bountyHtml(),
+    [{ label: t('base.close') }]);
   modalBody.querySelectorAll('[data-claim]').forEach(btn => { btn.onclick = () => claimBounty(+btn.dataset.claim); });
   modalBody.querySelectorAll('[data-reroll]').forEach(btn => { btn.onclick = () => rerollBounty(+btn.dataset.reroll); });
 }
@@ -906,11 +1063,11 @@ function openBounty() {
 /* ---------- 魚槍模組（DATA-v0.4 §6） ---------- */
 function grantRandomMod() {
   const left = MODS.filter(m => !hasMod(m.id));
-  if (!left.length) { addRes('alloy', 3); toast('模組已滿 — 轉換為外星合金 +3'); return null; }
+  if (!left.length) { addRes('alloy', 3); toast(t('mod.full')); return null; }
   const m = pick(left);
   game.mods.push(m.id);
   saveGame(); refreshHud();
-  toast('取得模組：' + m.name + '（按 C 查看魚槍模組）', 'gold');
+  toast(t('mod.got', { name: modName(m.id) }), 'gold');
   return m.id;
 }
 function bulletMods() { return { pierce: hasMod('pierce'), blast: hasMod('blast'), emp: hasMod('emp') }; }
@@ -984,17 +1141,19 @@ function refreshHud() {
   setHudHtml('basetag', baseTagHtml(), 'basetag');
   const zp = (typeof sea !== 'undefined' && sea.player) ? seaZone(Math.hypot(sea.player.x, sea.player.y)) : null;
   if (zp) {
-    setHudHtml('zone', `<span style="color:${zp.color}">● ${zp.name}</span>
-      <span>${zp.tip}</span>
-      <span>怪物上限 <b>${zp.hazCap}</b></span>`, 'zone');
+    setHudHtml('zone', `<span style="color:${zp.color}">● ${zoneName(zp)}</span>
+      <span>${zoneTip(zp)}</span>
+      <span>${t('hud.zoneCap', { n: zp.hazCap })}</span>`, 'zone');
   }
-  /* v0.5 上手引導：HUD「下一步」chip（index.html 沒有就先動態建立） */
+  /* v0.5 上手引導／v0.7 教學：HUD「下一步」chip（沿用 #nextstep，不新增 DOM） */
   const nsEl = ensureNextStepEl();
-  const ns = nextStepText();
+  const curTut = game.tut && !game.tut.done ? tutCur() : null;
+  const tutTxt = tutHudText();
+  const ns = tutTxt || nextStepText();
   if (nsEl) {
     nsEl.hidden = !ns;
     nsEl.style.display = ns ? '' : 'none';
-    setHudHtml('nextstep', ns ? `<b>下一步</b><span>${ns}</span>` : '', 'nextstep');
+    setHudHtml('nextstep', ns ? `<b>${t('hint.title')}${tutTxt && curTut ? ' · ' + curTut.press : ''}</b><span>${ns}</span>` : '', 'nextstep');
   }
 }
 function ensureNextStepEl() {
@@ -1014,21 +1173,50 @@ function nextStepText() {
   if (game.scene !== 'sea' || typeof sea === 'undefined' || !sea.player || sea.dead) return '';
   const P = sea.player, d = Math.hypot(P.x, P.y), R = baseRadius();
   const near = d < R + 90;
-  const back = (s) => near ? s : '游回基地（' + fmtDist(d) + '）→ ' + s;
-  if (countType('net') === 0) return back('按 B 建造「自動收集網」');
-  if (countType('equip') === 0) return back('按 B 建造「裝備房」');
-  if (countType('bounty') === 0) return back('按 B 建造「賞金終端」→ 按 H 接合約');
-  if (game.bounty.active.length === 0 && bountyRefillT > 0) return '等 ' + Math.ceil(bountyRefillT) + ' 秒補新合約（按 H 查看）';
-  if (game.up.harpoon < 2) return back('按 C 把壓縮魚槍升到 Lv2');
+  const back = (s) => near ? s : t('hint.back', { dist: fmtDist(d), step: s });
+  if (countType('net') === 0) return back(t('hint.net'));
+  if (countType('equip') === 0) return back(t('hint.equip'));
+  if (countType('bounty') === 0) return back(t('hint.bounty'));
+  if (game.bounty.active.length === 0 && bountyRefillT > 0) return t('hint.refill', { n: Math.ceil(bountyRefillT) });
+  if (game.up.harpoon < 2) return back(t('hint.harpoon2'));
   if (game.tech < 4) {
     const li = nearestLeviathanInfo();
-    if (li) return '最近巨獸：' + li.dir + ' ' + fmtDist(li.dist) + '（雷達紫點）· 或接賞金合約';
-    return '打四角守衛（雷達紫色）或接賞金合約';
+    if (li) return t('hint.giant', { dir: t('dir.' + li.dir), dist: fmtDist(li.dist) });
+    return t('hint.tech');
   }
-  if (countType('rnd') === 0) return back('按 B 建造「火箭研發中心」');
-  if (partCount() < 4) return back('按 C 建造 4 個太空船零件');
-  if (countType('dock') === 0) return back('按 B 建造「火箭工坊」');
-  return back('按 C 發射太空船');
+  if (countType('rnd') === 0) return back(t('hint.rnd'));
+  if (partCount() < 4) return back(t('hint.parts'));
+  if (countType('dock') === 0) return back(t('hint.dock'));
+  return back(t('hint.launch'));
+}
+/* 靜態 HTML（index 由 C 管）在語言切換時同步；不動 canvas */
+function refreshStaticUI() {
+  document.title = t('ui.htmlTitle');
+  const title = $('title');
+  if (title) {
+    const kicker = title.querySelector('.kicker'), blurb = title.querySelector('.blurb'), ctrl = title.querySelector('.ctrl');
+    const h1 = title.querySelector('h1');
+    if (h1) h1.textContent = t('ui.brand');
+    if (kicker) kicker.textContent = t('ui.kicker');
+    if (blurb) blurb.innerHTML = t('ui.blurb');
+    if (ctrl) ctrl.textContent = t('ui.ctrl');
+  }
+  const setTxt = (id, key) => { const el = $(id); if (el) el.textContent = t(key); };
+  setTxt('end-kicker', 'ui.endKicker');
+  setTxt('end-title', 'ui.endTitle');
+  setTxt('btn-help', 'ui.help');
+  setTxt('end-again', 'ui.endAgain');
+  setTxt('hint', 'ui.hint');
+  setTxt('btn-start', hasSave() ? 'main.restart' : 'ui.start');
+  setTxt('btn-continue', 'ui.continue');
+  const chips = document.querySelectorAll('#hud .res-row .chip');
+  ['plastic', 'wood', 'metal', 'alloy'].forEach((k, i) => {
+    const chip = chips[i];
+    if (!chip) return;
+    const labels = chip.querySelectorAll('i');
+    if (labels.length) labels[labels.length - 1].textContent = resName(k);
+  });
+  document.documentElement.lang = game.settings.lang === 'en' ? 'en' : 'zh-Hant';
 }
 /* 最近巨獸方位（讀 D 的 LEVIATHANS.list；沒有檔案時回 null） */
 function nearestLeviathanInfo() {
@@ -1049,12 +1237,11 @@ function nearestLeviathanInfo() {
 function idleText() {
   const inc = baseIncomePer5();
   const parts = [];
-  const names = { plastic: '塑膠', wood: '木材', metal: '金屬' };
-  for (const k in inc) if (inc[k]) parts.push(names[k] + '+' + inc[k]);
+  for (const k in inc) if (inc[k]) parts.push(resName(k) + '+' + inc[k]);
   const rev = countType('reverse');
-  if (!parts.length && !rev) return '基地尚未自動化 — 按 B 建造收集網與 BOT 船塢';
-  if (rev) parts.push('合金+' + rev + '（每10秒）');
-  return '基地每 5 秒：' + parts.join(' · ');
+  if (!parts.length && !rev) return t('hud.idleNone');
+  if (rev) parts.push(t('hud.idleAlloy', { n: rev }));
+  return t('hud.idleEvery5') + parts.join(' · ');
 }
 
 function baseTagHtml() {
@@ -1062,12 +1249,12 @@ function baseTagHtml() {
   const bots = (typeof sea !== 'undefined' && sea.bots) ? sea.bots.length : countType('botdock');
   const maxBots = countType('botdock');
   const inside = (typeof sea !== 'undefined' && sea.player) ? (Math.hypot(sea.player.x, sea.player.y) < baseRadius()) : false;
-  return `${inside ? '<span style="color:#c8ffd4">● 安全區 · 補給中</span>' : ''}
-    <span>基地 <b>${game.base.structures.length}</b> 座</span>
-    <span>平台 <b>${tiles}</b> 格</span>
-    <span>安全圈 <b>${Math.round(baseRadius())}</b> m</span>
-    <span>BOT <b>${bots}</b>/${maxBots}</span>
-    <span>科技碎片 <b>${game.tech}</b>/4</span>`;
+  return `${inside ? '<span style="color:#c8ffd4">● ' + t('hud.safeResupply') + '</span>' : ''}
+    <span>${t('hud.baseCount', { n: game.base.structures.length })}</span>
+    <span>${t('hud.baseTiles', { n: tiles })}</span>
+    <span>${t('hud.baseRadius', { n: Math.round(baseRadius()) })}</span>
+    <span>${t('hud.baseBots', { n: bots, max: maxBots })}</span>
+    <span>${t('hud.baseShards', { n: game.tech })}</span>`;
 }
 
 function atBase() {
@@ -1079,12 +1266,12 @@ function questHtml() {
   const done = game.quest.claimed.length;
   const cur = QUESTS.find(q => !game.quest.claimed.includes(q.id));
   const pct = Math.round(done / total * 100);
-  if (!cur) return `<div class="q-top">任務 ${done}/${total}<div class="qbar"><i style="width:100%"></i></div></div>
-    <div>全部任務完成 — 你已經把帳算清楚了</div>`;
+  if (!cur) return `<div class="q-top">${t('hud.quest', { done, total })}<div class="qbar"><i style="width:100%"></i></div></div>
+    <div>${t('hud.questAllDone')}</div>`;
   const prog = cur.prog ? cur.prog() : '';
-  return `<div class="q-top">任務 ${done}/${total}<div class="qbar"><i style="width:${pct}%"></i></div></div>
-    <div>${cur.text}</div>
-    <div class="q-sub">${prog ? prog + '　·　' : ''}${cur.sub || ''}</div>`;
+  return `<div class="q-top">${t('hud.quest', { done, total })}<div class="qbar"><i style="width:${pct}%"></i></div></div>
+    <div>${questText(cur)}</div>
+    <div class="q-sub">${prog ? prog + '　·　' : ''}${questSub(cur)}</div>`;
 }
 
 /* ---------- modal ---------- */
@@ -1096,7 +1283,7 @@ function openModal(title, html, buttons) {
   modalBody.innerHTML = html;
   modalBody.scrollTop = 0;
   modalFoot.innerHTML = '';
-  (buttons || [{ label: '關閉' }]).forEach(b => {
+  (buttons || [{ label: t('base.close') }]).forEach(b => {
     const el = document.createElement('button');
     el.textContent = b.label;
     el.className = b.cls || 'ghost';
@@ -1122,56 +1309,54 @@ function openBase() {
   if (game.scene !== 'sea') return;
   if (!atBase()) {
     sfx('deny');
-    toast('距離基地 ' + Math.round(Math.hypot(sea.player.x, sea.player.y)) + ' m — 游回安全圈再按 B');
+    toast(t('toast.needBase', { dist: Math.round(Math.hypot(sea.player.x, sea.player.y)) + ' m' }));
     return;
   }
   const inc = baseIncomePer5();
   const rev = countType('reverse');
   const incTxt = [];
-  if (inc.plastic) incTxt.push('塑膠 +' + inc.plastic);
-  if (inc.wood) incTxt.push('木材 +' + inc.wood);
-  if (inc.metal) incTxt.push('金屬 +' + inc.metal);
-  if (rev) incTxt.push('合金 +' + rev + '（10秒）');
+  for (const k of ['plastic', 'wood', 'metal']) if (inc[k]) incTxt.push(resName(k) + ' +' + inc[k]);
+  if (rev) incTxt.push(t('hud.idleAlloy', { n: rev }));
 
   let h = `<div class="base-summary">
     <canvas id="basemini" width="264" height="264"></canvas>
     <div class="bs-stats">
-      <div class="row"><span>建築 / 平台</span><b>${game.base.structures.length} 座 · ${baseTileCount()} 格</b></div>
-      <div class="row"><span>安全圈半徑</span><b class="hi">${Math.round(baseRadius())} m</b></div>
-      <div class="row"><span>BOT 艦隊</span><b>${countType('botdock')} / 3　<span style="color:#7fa3b4">（自動出海收集）</span></b></div>
-      <div class="row"><span>每 5 秒產出</span><b>${incTxt.length ? incTxt.join(' · ') : '—'}</b></div>
-      <div class="row"><span>科技碎片</span><b class="${game.tech >= 4 ? 'hi' : ''}">${game.tech} / 4 ${game.tech >= 4 ? '· 已可研發護盾' : '· 擊敗四角守衛'}</b></div>
+      <div class="row"><span>${t('base.rows')}</span><b>${game.base.structures.length} / ${baseTileCount()}</b></div>
+      <div class="row"><span>${t('base.radiusRow')}</span><b class="hi">${Math.round(baseRadius())} m</b></div>
+      <div class="row"><span>${t('base.botRow')}</span><b>${countType('botdock')} / 3　<span style="color:#7fa3b4">${t('base.botAuto')}</span></b></div>
+      <div class="row"><span>${t('base.per5')}</span><b>${incTxt.length ? incTxt.join(' · ') : '—'}</b></div>
+      <div class="row"><span>${t('base.shardRow')}</span><b class="${game.tech >= 4 ? 'hi' : ''}">${game.tech} / 4 ${game.tech >= 4 ? t('base.shardReady') : t('base.shardHint')}</b></div>
     </div>
   </div>`;
 
-  h += '<p class="muted">每次建造都會在平台上多佔一格，基地會一格格長大。敵怪無法進入安全圈。</p><div class="grid">';
+  h += '<p class="muted">' + t('base.summaryHint') + '</p><div class="grid">';
   for (const k of STRUCT_KEYS) {
     const def = STRUCTS[k], n = countType(k), maxed = n >= def.max, cost = structureCost(k);
     const locked = def.req && !countType(def.req);
     h += `<div class="card${maxed ? ' maxed' : ''}">
-      <div class="card-h"><span class="ico" style="--c:${def.c}">${def.ch}</span><b>${def.name}</b>
-        <span class="tag ${def.tagCls}">${def.tag}</span><span class="lv">${n}/${def.max}</span></div>
-      <p>${def.desc}</p>
-      ${maxed ? '<div class="done">已達上限</div>'
-        : locked ? `<div class="done" style="color:#ffb3a0">需要：${STRUCTS[def.req].name}</div>`
+      <div class="card-h"><span class="ico" style="--c:${def.c}">${icoOf(def, k)}</span><b>${structName(k)}</b>
+        <span class="tag ${def.tagCls}">${structTag(def)}</span><span class="lv">${n}/${def.max}</span></div>
+      <p>${structDesc(k)}</p>
+      ${maxed ? '<div class="done">' + t('base.maxed') + '</div>'
+        : locked ? `<div class="done" style="color:#ffb3a0">${t('base.locked', { name: structName(def.req) })}</div>`
         : `<div class="cost">${costHtml(cost)}</div>
-           <button data-build="${k}">建造（第 ${n + 1} 座）</button>`}
+           <button data-build="${k}">${t('base.build', { n: n + 1 })}</button>`}
     </div>`;
   }
   h += '</div>';
 
-  openModal('自動化基地 — 海上平台', h, [{ label: '關閉 (Esc)' }]);
+  openModal(t('base.title'), h, [{ label: t('base.close') }]);
   drawBaseMini($('basemini'));
   modalBody.querySelectorAll('[data-build]').forEach(btn => {
     btn.onclick = () => {
-      const t = btn.dataset.build;
-      if (countType(t) >= STRUCTS[t].max) return;
-      if (STRUCTS[t].req && !countType(STRUCTS[t].req)) { toast('需要先建造' + STRUCTS[STRUCTS[t].req].name); return; }
-      const cost = structureCost(t);
-      if (!pay(cost)) { toast('資源不足'); return; }
-      addStructure(t);
+      const type = btn.dataset.build;
+      if (countType(type) >= STRUCTS[type].max) return;
+      if (STRUCTS[type].req && !countType(STRUCTS[type].req)) { toast(t('toast.needStruct', { name: structName(STRUCTS[type].req) })); return; }
+      const cost = structureCost(type);
+      if (!pay(cost)) { toast(t('toast.noRes')); return; }
+      addStructure(type);
       sfx('build');
-      toast(STRUCTS[t].name + ' 建造完成 — 平台擴張中');
+      toast(t('toast.structBuilt', { name: structName(type) }));
       refreshHud();
       openBase();
     };
@@ -1185,113 +1370,125 @@ function openCraft() {
   if (game.scene !== 'sea') return;
   if (!atBase()) {
     sfx('deny');
-    toast('距離基地 ' + Math.round(Math.hypot(sea.player.x, sea.player.y)) + ' m — 游回安全圈再按 C');
+    toast(t('toast.needBase2', { dist: Math.round(Math.hypot(sea.player.x, sea.player.y)) + ' m' }));
     return;
   }
   const hasEquip = countType('equip') > 0;
   const hasRnd = countType('rnd') > 0;
   const canShield = hasRnd && game.tech >= 4;
   const pc = partCount();
-  const ready = pc === 4 && countType('dock') > 0;
+  const gateLv = (k) => (game.up[k] || 0) + ((game.cheatUp && game.cheatUp[k]) || 0);
+  const gateGun = gateLv('harpoon') >= 3;
+  const gateSuit = gateLv('suit') >= 2;
+  const gateRnd = countType('rnd') > 0;
+  const gateDock = countType('dock') > 0;
+  /* 發射 gate 與 startLaunch() 一致：4 零件＋工坊＋魚槍 Lv3＋潛水衣 Lv2＋研發中心 */
+  const ready = pc === 4 && gateDock && gateGun && gateSuit && gateRnd;
+  const gateMiss = [];
+  if (!gateRnd) gateMiss.push(t('gate.rnd'));
+  if (!gateGun) gateMiss.push(t('gate.gun', { n: gateLv('harpoon') }));
+  if (!gateSuit) gateMiss.push(t('gate.suit', { n: gateLv('suit') }));
+  if (pc < 4) gateMiss.push(t('craft.partProgress', { n: pc }));
+  if (!gateDock) gateMiss.push(t('craft.noDock'));
 
   let h = '';
 
   /* ---- 裝備 ---- */
-  h += '<h3 style="margin:0 0 10px;font-size:14px;color:#9fe4ff;letter-spacing:.1em">裝備升級'
-     + (hasEquip ? '' : '　<span style="color:#ff9a8b;font-size:12px">— 需先建造「裝備房」</span>') + '</h3><div class="grid">';
+  h += '<h3 style="margin:0 0 10px;font-size:14px;color:#9fe4ff;letter-spacing:.1em">' + t('craft.equipTitle')
+     + (hasEquip ? '' : '　<span style="color:#ff9a8b;font-size:12px">' + t('craft.needEquipTip') + '</span>') + '</h3><div class="grid">';
   for (const u of UPG) {
     const lv = game.up[u.id] || 0;
     const maxed = lv >= u.max;
     const cost = u.costs[lv];
     h += `<div class="card${maxed ? ' maxed' : ''}${hasEquip ? '' : ' locked'}">
-      <div class="card-h"><span class="ico" style="--c:${u.c}">${u.ch}</span><b>${u.name}</b><span class="lv">Lv ${lv}/${u.max}</span></div>
-      <p>${u.desc(lv)}</p>
-      ${maxed ? '<div class="done">已達最高等級</div>'
-        : !hasEquip ? '<div class="done" style="color:#ffb3a0">需要裝備房</div>'
+      <div class="card-h"><span class="ico" style="--c:${u.c}">${icoOf(u, u.id)}</span><b>${upgName(u.id)}</b><span class="lv">Lv ${lv}/${u.max}</span></div>
+      <p>${upgDesc(u, lv)}</p>
+      ${maxed ? '<div class="done">' + t('craft.maxed') + '</div>'
+        : !hasEquip ? '<div class="done" style="color:#ffb3a0">' + t('craft.needEquip') + '</div>'
         : `<div class="cost">${costHtml(cost)}</div>
-           <button data-buy-up="${u.id}">${lv ? '升級至 Lv ' + (lv + 1) : '製作'}</button>`}
+           <button data-buy-up="${u.id}">${lv ? t('craft.upgradeTo', { n: lv + 1 }) : t('craft.make')}</button>`}
     </div>`;
   }
   h += '</div>';
 
   /* ---- 火箭科技 ---- */
   const sl = game.up.shield || 0;
-  h += `<h3 style="margin:22px 0 10px;font-size:14px;color:#9beaff;letter-spacing:.1em">火箭科技
-     <span style="color:#7fa3b4;font-size:11.5px">（速度＝蛙鞋　武器＝魚槍　裝甲＝潛水衣）</span></h3><div class="grid">`;
+  h += `<h3 style="margin:22px 0 10px;font-size:14px;color:#9beaff;letter-spacing:.1em">${t('craft.rocketTitle')}
+     <span style="color:#7fa3b4;font-size:11.5px">${t('craft.inherit')}</span></h3><div class="grid">`;
   h += `<div class="card${sl >= 3 ? ' maxed' : ''}">
-    <div class="card-h"><span class="ico" style="--c:#9beaff">盾</span><b>火箭護盾科技</b><span class="lv">Lv ${sl}/3</span></div>
-    <p>升空與登艦時，船體額外 +25 裝甲，並減少砲火傷害</p>
-    ${sl >= 3 ? '<div class="done">已達最高等級</div>'
-      : !hasRnd ? '<div class="done" style="color:#ffb3a0">需要火箭研發中心</div>'
-      : game.tech < 4 ? `<div class="done" style="color:#ffb3a0">需要 4 塊科技碎片（${game.tech}/4）</div>`
+    <div class="card-h"><span class="ico" style="--c:#9beaff">${icoOf({ ch: '盾' }, 'shield')}</span><b>${t('craft.shieldName')}</b><span class="lv">Lv ${sl}/3</span></div>
+    <p>${t('craft.shieldDesc')}</p>
+    ${sl >= 3 ? '<div class="done">' + t('craft.maxed') + '</div>'
+      : !hasRnd ? '<div class="done" style="color:#ffb3a0">' + t('craft.needRnd') + '</div>'
+      : game.tech < 4 ? `<div class="done" style="color:#ffb3a0">${t('craft.needShards', { n: game.tech })}</div>`
       : `<div class="cost">${costHtml(SHIELD_COSTS[sl])}</div>
-         <button data-buy-shield="1">${sl ? '升級至 Lv ' + (sl + 1) : '研發護盾'}</button>`}
+         <button data-buy-shield="1">${sl ? t('craft.upgradeTo', { n: sl + 1 }) : t('craft.research')}</button>`}
   </div>`;
   h += `<div class="card${countType('satellite') ? ' maxed' : ''}">
-    <div class="card-h"><span class="ico" style="--c:#7fd4ff">衛</span><b>衛星光束發生器</b>
-      <span class="lv">${countType('satellite') ? '已建造' : '未建造'}</span></div>
-    <p>決戰時呼叫軌道衛星，兩發藍色光束直接打穿母船核心（在基地 B 建造）</p>
-    ${countType('satellite') ? '<div class="done">✓ 已就緒</div>'
-      : hasRnd ? '<div class="done" style="color:#8ee6a4">可在基地面板建造（金屬 45 · 塑膠 30 · 合金 8）</div>'
-      : '<div class="done" style="color:#ffb3a0">需要火箭研發中心</div>'}
+    <div class="card-h"><span class="ico" style="--c:#7fd4ff">${icoOf({ ch: '衛' }, 'satellite')}</span><b>${t('craft.satName')}</b>
+      <span class="lv">${countType('satellite') ? t('craft.built') : t('craft.notBuilt')}</span></div>
+    <p>${t('craft.satDesc')}</p>
+    ${countType('satellite') ? '<div class="done">' + t('craft.ready') + '</div>'
+      : hasRnd ? '<div class="done" style="color:#8ee6a4">' + t('craft.satCost') + '</div>'
+      : '<div class="done" style="color:#ffb3a0">' + t('craft.needRnd') + '</div>'}
   </div>`;
   h += '</div>';
 
   /* ---- 魚槍模組（DATA-v0.4 §6；模組箱由巨獸／賞金獵首／裂縫給） ---- */
   const hasModTable = countType('modtable') > 0;
-  h += `<h3 style="margin:22px 0 10px;font-size:14px;color:#c9a6ff;letter-spacing:.1em">魚槍模組
-     <span style="color:#7fa3b4;font-size:11.5px">（${game.mods.length} / 3 槽）</span></h3>`;
-  if (!hasModTable) h += '<p class="muted" style="color:#ffb3a0">需要「模組工作台」（基地 B 面板建造：金屬 34 · 合金 5，需火箭研發中心）</p>';
+  h += `<h3 style="margin:22px 0 10px;font-size:14px;color:#c9a6ff;letter-spacing:.1em">${t('mod.title')}
+     <span style="color:#7fa3b4;font-size:11.5px">${t('mod.slots', { n: game.mods.length })}</span></h3>`;
+  if (!hasModTable) h += '<p class="muted" style="color:#ffb3a0">' + t('mod.needTable') + '</p>';
   h += '<div class="mod-grid grid">';
   for (let i = 0; i < 3; i++) {
     const id = game.mods[i], m = id ? modOf(id) : null;
     if (m) {
       h += `<div class="card mod" data-mod="${m.id}" data-owned="true" data-slot="${i}">
-        <div class="card-h"><span class="ico" style="--c:${m.c}">${m.ch}</span><b>${m.name}</b><span class="tag">已裝備</span></div>
-        <p class="mod-desc">${m.desc}</p></div>`;
+        <div class="card-h"><span class="ico" style="--c:${m.c}">${icoOf(m, m.id)}</span><b>${modName(m.id)}</b><span class="tag">${t('mod.equipped')}</span></div>
+        <p class="mod-desc">${modDesc(m.id)}</p></div>`;
     } else {
-      h += `<div class="card mod slot-empty" data-mod-slot="${i}"><div class="done">空模組槽 — 模組箱：巨獸／賞金獵首／裂縫核心</div></div>`;
+      h += `<div class="card mod slot-empty" data-mod-slot="${i}"><div class="done">${t('mod.emptySlot')}</div></div>`;
     }
   }
   h += '</div>';
 
   /* ---- 太空船 ---- */
-  h += '<h3 style="margin:22px 0 10px;font-size:14px;color:#ffd98a;letter-spacing:.1em">太空船零件　' + pc + ' / 4</h3><div class="grid">';
+  h += '<h3 style="margin:22px 0 10px;font-size:14px;color:#ffd98a;letter-spacing:.1em">' + t('craft.partsTitle') + '　' + pc + ' / 4</h3><div class="grid">';
   for (const p2 of PARTS) {
     const built = game.parts[p2.id];
     h += `<div class="card${built ? ' maxed' : ''}">
-      <div class="card-h"><span class="ico" style="--c:${p2.c}">${p2.ch}</span><b>${p2.name}</b><span class="lv">${built ? '完成' : '未建造'}</span></div>
-      <p>${p2.desc}</p>
-      ${built ? '<div class="done">✓ 已安裝</div>'
+      <div class="card-h"><span class="ico" style="--c:${p2.c}">${icoOf(p2, p2.id)}</span><b>${partName(p2.id)}</b><span class="lv">${built ? t('craft.done') : t('craft.notBuilt')}</span></div>
+      <p>${partDesc(p2.id)}</p>
+      ${built ? '<div class="done">' + t('craft.installed') + '</div>'
         : `<div class="cost">${costHtml(p2.cost)}</div>
-           <button data-buy-part="${p2.id}">建造零件</button>`}
+           <button data-buy-part="${p2.id}">${t('craft.buildPart')}</button>`}
     </div>`;
   }
   h += '</div>';
 
   h += `<div class="launchbar">
     <div>
-      <div class="lbl">${ready ? '太空船組裝完成，隨時可以發射。' : '發射條件：4 個零件 + 火箭工坊 ×1'}</div>
-      <div class="sub">${ready ? '月球軌道上偵測到外星母船。' : '零件進度 ' + pc + '/4' + (countType('dock') ? '' : ' · 尚未建造火箭工坊')}</div>
+      <div class="lbl">${ready ? t('craft.launchReady') : t('craft.launchReq')}</div>
+      <div class="sub">${ready ? t('craft.moonDetected') : gateMiss.join(' · ')}</div>
     </div>
-    <button class="primary" id="btn-launch" style="margin-left:auto" ${ready ? '' : 'disabled'}>發射太空船 →</button>
+    <button class="primary" id="btn-launch" style="margin-left:auto" ${ready ? '' : 'disabled'}>${t('craft.launch')}</button>
   </div>`;
 
-  if (game.cheat) h += '<div style="margin-top:12px"><button class="ghost" id="btn-cheatpanel">開啟作弊裝備（免費）</button></div>';
+  if (game.cheat) h += '<div style="margin-top:12px"><button class="ghost" id="btn-cheatpanel">' + t('cheat.open') + '</button></div>';
 
-  openModal('裝備 · 火箭科技 · 太空船', h, [{ label: '關閉 (Esc)' }]);
+  openModal(t('craft.title'), h, [{ label: t('base.close') }]);
 
   modalBody.querySelectorAll('[data-buy-up]').forEach(btn => {
     btn.onclick = () => {
-      if (!hasEquip) { toast('需要裝備房'); return; }
+      if (!hasEquip) { toast(t('craft.needEquip')); return; }
       const u = UPG.find(x => x.id === btn.dataset.buyUp);
       const lv = game.up[u.id] || 0;
       if (lv >= u.max) return;
-      if (!pay(u.costs[lv])) { toast('資源不足'); return; }
+      if (!pay(u.costs[lv])) { toast(t('toast.noRes')); return; }
       game.up[u.id] = lv + 1;
       if (u.id === 'suit') sea.player.hp += 1;
       if (u.id === 'tank') sea.player.ox += 25;
-      sfx('build'); toast(u.name + ' → Lv ' + (lv + 1));
+      sfx('build'); toast(t('craft.upgraded', { name: upgName(u.id), n: lv + 1 }));
       saveGame(); refreshHud(); openCraft();
     };
   });
@@ -1299,9 +1496,9 @@ function openCraft() {
     btn.onclick = () => {
       const p2 = PARTS.find(x => x.id === btn.dataset.buyPart);
       if (game.parts[p2.id]) return;
-      if (!pay(p2.cost)) { toast('資源不足'); return; }
+      if (!pay(p2.cost)) { toast(t('toast.noRes')); return; }
       game.parts[p2.id] = true;
-      sfx('build'); toast(p2.name + ' 建造完成');
+      sfx('build'); toast(t('toast.structBuilt', { name: partName(p2.id) }));
       saveGame(); refreshHud(); openCraft();
     };
   });
@@ -1310,9 +1507,9 @@ function openCraft() {
     if (!hasRnd || game.tech < 4) return;
     const lv = game.up.shield || 0;
     if (lv >= 3) return;
-    if (!pay(SHIELD_COSTS[lv])) { toast('資源不足'); return; }
+    if (!pay(SHIELD_COSTS[lv])) { toast(t('toast.noRes')); return; }
     game.up.shield = lv + 1;
-    sfx('build'); toast('火箭護盾科技 → Lv ' + (lv + 1));
+    sfx('build'); toast(t('craft.shieldUp', { n: lv + 1 }));
     saveGame(); refreshHud(); openCraft();
   };
   const lb = $('btn-launch');
@@ -1323,18 +1520,18 @@ function openCraft() {
 
 /* ---------- 作弊 ---------- */
 function openCheat() {
-  let h = '<p class="muted" style="color:#ff9aa8">作弊模式：以下升級完全免費，與正常升級疊加，整場有效。</p><div class="grid">';
+  let h = '<p class="muted" style="color:#ff9aa8">' + t('cheat.desc') + '</p><div class="grid">';
   for (const u of UPG) {
     const cl = game.cheatUp[u.id] || 0;
     h += `<div class="card${cl >= 4 ? ' maxed' : ''}">
-      <div class="card-h"><span class="ico" style="--c:${u.c}">${u.ch}</span><b>${u.name}</b><span class="lv">+${cl}</span></div>
-      <p>${u.desc((game.up[u.id] || 0) + cl)}</p>
-      ${cl >= 4 ? '<div class="done">作弊已滿</div>'
-        : `<button data-cheat="${u.id}">免費升級</button>`}
+      <div class="card-h"><span class="ico" style="--c:${u.c}">${icoOf(u, u.id)}</span><b>${upgName(u.id)}</b><span class="lv">+${cl}</span></div>
+      <p>${upgDesc(u, (game.up[u.id] || 0) + cl)}</p>
+      ${cl >= 4 ? '<div class="done">' + t('cheat.full') + '</div>'
+        : `<button data-cheat="${u.id}">${t('cheat.free')}</button>`}
     </div>`;
   }
   h += '</div>';
-  openModal('YOU CHEATER!!! — 免費裝備', h, [{ label: '收下 (Esc)', cls: 'primary' }]);
+  openModal(t('cheat.title'), h, [{ label: t('cheat.take'), cls: 'primary' }]);
   modalBody.querySelectorAll('[data-cheat]').forEach(btn => {
     btn.onclick = () => {
       const id = btn.dataset.cheat;
@@ -1354,29 +1551,29 @@ function openCheat() {
 function achHtml() {
   const done = game.ach.length, total = ACH.length;
   const pct = total ? Math.round(done / total * 100) : 0;
-  const tabs = [['all', '全部'], ['progress', '進度'], ['challenge', '挑戰'], ['secret', '彩蛋']];
+  const tabs = [['all', 'ach.tab.all'], ['progress', 'ach.tab.progress'], ['challenge', 'ach.tab.challenge'], ['secret', 'ach.tab.secret']];
   let h = `<div class="ach">
     <div class="ach-top">
       <div class="ach-progress"><div class="ach-bar"><i style="width:${pct}%"></i></div></div>
-      <span class="ach-count">${done} / ${total}</span>
+      <span class="ach-count">${t('ach.progress', { n: done, total })}</span>
     </div>
     <div class="ach-tabs">`;
-  for (const [id, label] of tabs) {
-    h += `<button class="ach-tab${id === 'all' ? ' on' : ''}" data-ach-cat="${id}" aria-pressed="${id === 'all'}">${label}</button>`;
+  for (const [id, key] of tabs) {
+    h += `<button class="ach-tab${id === 'all' ? ' on' : ''}" data-ach-cat="${id}" aria-pressed="${id === 'all'}">${t(key)}</button>`;
   }
   h += '</div><div class="ach-grid">';
   for (const a of ACH) {
     const unlocked = game.ach.includes(a.id);
     const hidden = !!a.hidden && !unlocked;
     const cat = a.type === 'egg' ? 'secret' : a.type;
-    const catLabel = a.type === 'progress' ? '進度' : a.type === 'challenge' ? '挑戰' : '彩蛋';
-    const name = hidden ? '???' : a.name;
-    const desc = unlocked ? a.desc : (hidden ? '隱藏成就 — 解鎖後揭曉' : '未達成：' + a.desc);
+    const catLabel = a.type === 'progress' ? t('ach.tab.progress') : a.type === 'challenge' ? t('ach.tab.challenge') : t('ach.tab.secret');
+    const name = hidden ? '???' : achName(a);
+    const desc = unlocked ? achDesc(a) : (hidden ? t('ach.hidden') : t('ach.locked', { desc: achDesc(a) }));
     const icon = unlocked ? '✓' : hidden ? '?' : a.type === 'progress' ? '◆' : a.type === 'challenge' ? '★' : '✦';
     h += `<div class="ach-card${unlocked ? ' unlocked' : ''}" data-ach="${a.id}" data-cat="${cat}" data-unlocked="${unlocked}" data-hidden="${hidden}">
       <span class="ach-icon">${icon}</span>
       <div class="ach-main"><div class="ach-name">${name}</div><div class="ach-desc">${desc}</div></div>
-      <span class="ach-badge">${unlocked ? '已解鎖' : catLabel}</span>
+      <span class="ach-badge">${unlocked ? t('ach.unlocked') : catLabel}</span>
     </div>`;
   }
   return h + '</div></div>';
@@ -1388,13 +1585,13 @@ function openQuests() {
     const done = game.quest.claimed.includes(q.id);
     h += `<div class="qrow${done ? ' done' : ''}">
       <div class="st">${done ? '✅' : '○'}</div>
-      <div><div class="txt">${q.text}</div>
-      <div class="sub">${q.prog ? q.prog() + '　·　' : ''}${q.sub || ''}</div></div>
+      <div><div class="txt">${questText(q)}</div>
+      <div class="sub">${q.prog ? q.prog() + '　·　' : ''}${questSub(q)}</div></div>
     </div>`;
   }
-  h += '</div><p class="muted" style="margin-top:14px">完成任務會獲得資源獎勵。任務只是引導，你可以用任何順序建造。</p>';
+  h += '</div><p class="muted" style="margin-top:14px">' + t('quests.body') + '</p>';
   h += achHtml();
-  openModal('任務與成就', h, [{ label: '關閉 (Esc)' }]);
+  openModal(t('ach.title'), h, [{ label: t('base.close') }]);
   modalBody.querySelectorAll('.ach-tab').forEach(btn => {
     btn.onclick = () => {
       const cat = btn.dataset.achCat;
@@ -1409,19 +1606,19 @@ function openQuests() {
 
 function openHelp() {
   const rows = [
-    ['WASD / 方向鍵', '游動'],
-    ['Shift', '衝刺（消耗體力）'],
-    ['滑鼠 / 左鍵', '瞄準、發射魚槍'],
-    ['B', '自動化基地：建造新建築（平台會擴張）'],
-    ['C', '裝備升級 / 魚槍模組 / 太空船'],
-    ['H', '賞金合約（需賞金終端）'],
-    ['J', '任務清單'],
-    ['Esc', '關閉面板 / 暫停'],
-    ['M', '音效開關']
+    ['WASD / ↑↓←→', t('help.swim')],
+    ['Shift', t('help.sprint')],
+    ['Mouse / LMB', t('help.aim')],
+    ['B', t('help.base')],
+    ['C', t('help.craft')],
+    ['H', t('help.bounty')],
+    ['J', t('help.quests')],
+    ['Esc', t('help.esc')],
+    ['M', t('help.mute')]
   ];
-  openModal('操作說明', rows.map(r => `<div class="keyrow"><span>${r[1]}</span><kbd>${r[0]}</kbd></div>`).join('') +
-    `<p class="muted" style="margin-top:16px">基地安全圈內不會被攻擊，敵怪也無法進入。氧氣耗盡會扣血——靠近基地或撿空氣泡補充。</p>`,
-    [{ label: '知道了', cls: 'primary' }]);
+  openModal(t('help.title'), rows.map(r => `<div class="keyrow"><span>${r[1]}</span><kbd>${r[0]}</kbd></div>`).join('') +
+    `<p class="muted" style="margin-top:16px">${t('help.note')}</p>`,
+    [{ label: t('help.ok'), cls: 'primary' }]);
 }
 
 function openSettings() {
@@ -1430,18 +1627,18 @@ function openSettings() {
     <input class="slider" type="range" min="0" max="100" step="1" value="${val}" data-setting="${key}">
     <output class="settings-value" data-value="${key}">${val}</output></div>`;
   const h = `<div class="settings">
-    <div class="settings-group">${row('音樂音量', 'music', s.musicVol)}${row('音效音量', 'sfx', s.sfxVol)}</div>
+    <div class="settings-group">${row(t('settings.musicVol'), 'music', s.musicVol)}${row(t('settings.sfxVol'), 'sfx', s.sfxVol)}</div>
     <div class="settings-group">
-      <div class="settings-row"><label>總靜音</label><button class="toggle" data-setting="mute" aria-checked="${muted}">${muted ? '開' : '關'}</button></div>
-      <div class="settings-row"><label>減少動態</label><button class="toggle" data-setting="reduceMotion" aria-checked="${!!s.reduceMotion}">${s.reduceMotion ? '開' : '關'}</button></div>
-      <div class="settings-row"><label>語言</label><div class="segmented">
-        <button class="seg" data-lang="zh-Hant" aria-pressed="true">繁中</button>
-        <button class="seg" data-lang="en" aria-pressed="false" disabled>EN <span class="soon">soon</span></button>
+      <div class="settings-row"><label>${t('settings.masterMute')}</label><button class="toggle" data-setting="mute" aria-checked="${muted}">${muted ? t('settings.on') : t('settings.off')}</button></div>
+      <div class="settings-row"><label>${t('settings.reduceMotion')}</label><button class="toggle" data-setting="reduceMotion" aria-checked="${!!s.reduceMotion}">${s.reduceMotion ? t('settings.on') : t('settings.off')}</button></div>
+      <div class="settings-row"><label>${t('settings.language')}</label><div class="segmented">
+        <button class="seg" data-lang="zh-Hant" aria-pressed="${s.lang !== 'en'}">${t('settings.langZh')}</button>
+        <button class="seg" data-lang="en" aria-pressed="${s.lang === 'en'}">EN</button>
       </div></div>
     </div>
-    <p class="settings-note">音樂與音效可分開調整；M 可快速總靜音。英文介面與 reduce motion 完整支援會在 v0.8 完成。</p>
+    <p class="settings-note">${t('settings.note')}</p>
   </div>`;
-  openModal('設定 — 音量', h, [{ label: '關閉 (Esc)' }]);
+  openModal(t('settings.title'), h, [{ label: t('base.close') }]);
   modalBody.querySelectorAll('input[data-setting]').forEach(inp => {
     inp.oninput = () => {
       const key = inp.dataset.setting === 'music' ? 'musicVol' : 'sfxVol';
@@ -1456,7 +1653,7 @@ function openSettings() {
     muted = !muted; game.muted = muted;
     applyMute();
     muteBtn.setAttribute('aria-checked', String(muted));
-    muteBtn.textContent = muted ? '開' : '關';
+    muteBtn.textContent = muted ? t('settings.on') : t('settings.off');
     saveGame();
   };
   const rmBtn = modalBody.querySelector('[data-setting="reduceMotion"]');
@@ -1464,29 +1661,37 @@ function openSettings() {
     game.settings.reduceMotion = !game.settings.reduceMotion;
     applySettings();
     rmBtn.setAttribute('aria-checked', String(!!game.settings.reduceMotion));
-    rmBtn.textContent = game.settings.reduceMotion ? '開' : '關';
+    rmBtn.textContent = game.settings.reduceMotion ? t('settings.on') : t('settings.off');
     saveGame();
   };
+  modalBody.querySelectorAll('.seg[data-lang]').forEach(seg => {
+    seg.onclick = () => {
+      const lang = seg.dataset.lang === 'en' ? 'en' : 'zh';
+      if (lang === game.settings.lang) return;
+      setLang(lang);
+    };
+  });
 }
 
 function openPause() {
   if (game.scene !== 'sea' && game.scene !== 'moon' && game.scene !== 'launch' && game.scene !== 'dock') return;
   const btns = [
-    { label: '繼續遊戲', cls: 'primary' },
-    { label: muted ? '音效：關閉' : '音效：開啟', keepOpen: true,
+    { label: t('pause.resume'), cls: 'primary' },
+    { label: muted ? t('pause.soundOff') : t('pause.soundOn'), keepOpen: true,
       onClick: () => { muted = !muted; game.muted = muted; applyMute(); saveGame(); openPause(); } },
-    { label: '音量設定', onClick: () => setTimeout(openSettings, 10) },
-    { label: '操作說明', onClick: () => setTimeout(openHelp, 10) }
+    { label: t('pause.settings'), onClick: () => setTimeout(openSettings, 10) },
+    { label: t('pause.help'), onClick: () => setTimeout(openHelp, 10) }
   ];
-  if (game.cheat) btns.push({ label: '作弊裝備', onClick: () => setTimeout(openCheat, 10) });
-  btns.push({ label: '重新開始', cls: 'danger', onClick: () => { game.cheat = false; resetGame(); location.reload(); } });
-  openModal('已暫停', '<p class="muted">海面暫時靜了下來。你的基地仍在自動生產。</p>', btns);
+  if (game.cheat) btns.push({ label: t('pause.cheat'), onClick: () => setTimeout(openCheat, 10) });
+  btns.push({ label: t('pause.restart'), cls: 'danger', onClick: () => { game.cheat = false; resetGame(); location.reload(); } });
+  openModal(t('pause.title'), '<p class="muted">' + t('pause.body') + '</p>', btns);
 }
 
 /* ---------- 任務結算 ---------- */
 let questT = 0;
 function updateQuests(dt) {
   checkAch();   /* A 指定：放在 scene guard 之前，ending 才會結算通關成就 */
+  updateTutorial(dt);
   if (game.scene !== 'sea' && game.scene !== 'moon' && game.scene !== 'launch') return;
   if (game.paused) return;   /* AUDIT P2-3：暫停中不結算任務 */
   questT += dt;
@@ -1501,8 +1706,8 @@ function updateQuests(dt) {
     if (q.reward) for (const k in q.reward) addRes(k, q.reward[k]);
     sfx('quest');
     const rw = q.reward && Object.keys(q.reward).length
-      ? '（+' + Object.keys(q.reward).map(k => RESMETA[k].name + ' ' + q.reward[k]).join(' · ') + '）' : '';
-    toast('任務完成：' + q.text + rw, 'gold');
+      ? ' (+' + Object.keys(q.reward).map(k => resName(k) + ' ' + q.reward[k]).join(' · ') + ')' : '';
+    toast(t('toast.questDone', { text: questText(q), rewards: rw }), 'gold');
     saveGame();
     refreshHud();
   }
@@ -1534,9 +1739,9 @@ function startIntro() {
   renderIntro();
 }
 function renderIntro() {
-  $('intro-text').innerHTML = `<div class="line">${INTRO_LINES[introIdx]}</div>`;
+  $('intro-text').innerHTML = `<div class="line">${t('intro.' + (introIdx + 1))}</div>`;
   $('intro-step').textContent = (introIdx + 1) + ' / ' + INTRO_LINES.length;
-  $('intro-next').textContent = introIdx >= INTRO_LINES.length - 1 ? '出海 ▸' : '繼續 ▸';
+  $('intro-next').textContent = introIdx >= INTRO_LINES.length - 1 ? t('ui.sail') : t('ui.introNext');
 }
 function nextIntro() {
   if (introIdx < INTRO_LINES.length - 1) { introIdx++; renderIntro(); }
@@ -1549,18 +1754,16 @@ function showEnding(win) {
   checkAch();   /* 「星際復仇」等通關成就在結算前解鎖，結算頁才數得到 */
   if (win) saveGame();
   if (typeof MUSIC !== 'undefined') MUSIC.setScene('ending');
-  $('end-kicker').textContent = win ? '任務完成 · 母船決戰' : '任務失敗';
-  $('end-title').textContent = win ? '你把帳算清了' : '你被擊落了';
-  $('end-text').innerHTML = win
-    ? '母船核心在你眼前炸開，整艘巨艦從內部亮成一顆白色的星。<br>同盟軍的戰機從火球兩側穿出來，護著你的逃生艙往外飛。<br>「任務完成，歡迎回家。」——遠處那顆藍色星球上，有一片海在等你。'
-    : '太空裝的警報聲蓋過了所有聲音。你按下了緊急撤離，艙體拖著黑煙墜回海面。';
+  $('end-kicker').textContent = win ? t('end.winKicker') : t('end.loseKicker');
+  $('end-title').textContent = win ? t('end.winTitle') : t('end.loseTitle');
+  $('end-text').innerHTML = win ? t('end.winText') : t('end.loseText');
   $('end-stats').innerHTML = `
-    <div>遊戲時間<b>${fmtTime(game.stats.time)}</b></div>
-    <div>收集垃圾<b>${game.stats.collected}</b></div>
-    <div>基地建築<b>${game.base.structures.length}</b></div>
-    <div>擊殺敵人<b>${game.stats.kills}</b></div>
-    <div>裝備等級<b>${Object.values(game.up).reduce((a, b) => a + b, 0)}</b></div>
-    <div>成就<b>${game.ach.length} / ${ACH.length}</b>（本輪 +${Math.max(0, game.ach.length - achBaseline)}）</div>`;
+    <div>${t('end.statTime')}<b>${fmtTime(game.stats.time)}</b></div>
+    <div>${t('end.statTrash')}<b>${game.stats.collected}</b></div>
+    <div>${t('end.statBuild')}<b>${game.base.structures.length}</b></div>
+    <div>${t('end.statKills')}<b>${game.stats.kills}</b></div>
+    <div>${t('end.statGear')}<b>${Object.values(game.up).reduce((a, b) => a + b, 0)}</b></div>
+    <div>${t('end.statAch', { n: game.ach.length, total: ACH.length, add: Math.max(0, game.ach.length - achBaseline) })}</div>`;
   $('ending').hidden = false;
   game.paused = true;
   game.scene = 'ending';

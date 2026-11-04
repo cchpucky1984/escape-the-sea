@@ -2,11 +2,17 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>逃出大海 — Escape the Sea</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2302070d'/%3E%3Cpath d='M16 4.5c4.4 5.8 7.5 9.8 7.5 13.3a7.5 7.5 0 0 1-15 0C8.5 14.3 11.6 10.3 16 4.5z' fill='%236fe3ff'/%3E%3Ccircle cx='16' cy='15.5' r='2.2' fill='%23ffd166'/%3E%3Cpath d='M3.5 26c4-2.4 8-2.4 12 0s8 2.4 12 0' fill='none' stroke='%232ab8dd' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preload" as="image" href="docs/art/title-art/title-1920x1080.webp">
-<link rel="stylesheet" href="style.css?v=0.6.0">
+<meta name="theme-color" content="#02070d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="逃出大海">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="docs/art/pwa/apple-touch-icon-180.png">
+<link rel="stylesheet" href="style.css?v=0.7.0">
 </head>
 <body data-scene="title">
 <canvas id="cv"></canvas>
@@ -51,7 +57,7 @@
       <button id="btn-help" class="ghost">操作說明</button>
     </div>
     <div class="ctrl">WASD 游動 · Shift 衝刺 · 滑鼠瞄準 / 點擊發射 · B 基地 · C 裝備 · J 任務 · M 靜音</div>
-    <div class="ver">v0.6.0-alpha · BUILD 2026-11-04</div>
+    <div class="ver">v0.7.0-alpha · BUILD 2026-11-04</div>
   </div>
 </div>
 
@@ -86,13 +92,15 @@
   </div>
 </div>
 
-<script src="js/core.js?v=0.6.0"></script>
-<script src="js/fx.js?v=0.6.0"></script>
-<script src="js/base.js?v=0.6.0"></script>
-<script src="js/sea.js?v=0.6.0"></script>
-<script src="js/leviathan.js?v=0.6.0"></script>
-<script src="js/events.js?v=0.6.0"></script>
-<script src="js/space.js?v=0.6.0"></script>
-<script src="js/main.js?v=0.6.0"></script>
+<script src="js/core.js?v=0.7.0"></script>
+<script src="docs/i18n/STRINGS.js?v=0.7.0"></script>
+<script src="js/fx.js?v=0.7.0"></script>
+<script src="js/base.js?v=0.7.0"></script>
+<script src="js/sea.js?v=0.7.0"></script>
+<script src="js/leviathan.js?v=0.7.0"></script>
+<script src="js/events.js?v=0.7.0"></script>
+<script src="js/space.js?v=0.7.0"></script>
+<script src="js/main.js?v=0.7.0"></script>
+<script src="js/touch.js?v=0.7.0"></script>
 </body>
 </html>

@@ -37,7 +37,7 @@ function cheatStrike() {
   try { localStorage.setItem('escape-the-sea-cheat', '1'); } catch (e) {}
   sfx('boss');
   setTimeout(() => sfx('win'), 260);
-  toast('YOU CHEATER!!! — 開局後會彈出免費裝備', 'gold');
+  toast(t('cheat.toast'), 'gold');
 }
 
 /* ---------- 鍵盤 ---------- */
@@ -64,7 +64,7 @@ window.addEventListener('keydown', (e) => {
     muted = !muted;
     game.muted = muted;
     applyMute();
-    toast(muted ? '音效已關閉' : '音效已開啟');
+    toast(muted ? t('main.soundOff') : t('main.soundOn'));
     saveGame();
     return;
   }
@@ -231,7 +231,7 @@ function beginGame() {
   setScene('sea');
   refreshHud();
   saveGame();
-  toast('先游回基地 → 按 B 建造（基地在 ' + fmtDist(Math.hypot(game.pos.x, game.pos.y)) + ' 外；HUD 左上會顯示下一步）', 'gold');
+  toast(t('main.goal', { dist: fmtDist(Math.hypot(game.pos.x, game.pos.y)) }), 'gold');
   if (game.cheat) setTimeout(() => { if (game.scene === 'sea' && !game.paused) openCheat(); }, 700);
 }
 
@@ -248,9 +248,9 @@ $('btn-continue').onclick = () => {
       setScene('sea');
       refreshHud();
     });
-    toast('歡迎回來 — 繼續你的工程');
+    toast(t('main.welcome'));
   } else {
-    toast('沒有可用的存檔');
+    toast(t('main.noSave'));
   }
 };
 $('btn-help').onclick = () => { initAudio(); openHelp(); };
@@ -314,11 +314,13 @@ function frame(now) {
 }
 
 /* ---------- 啟動 ---------- */
+restoreBootSettings();
 if (hasSave()) {
   $('btn-continue').hidden = false;
-  $('btn-start').textContent = '重新開始';
+  $('btn-start').textContent = t('main.restart');
 }
 setScene('title');
+refreshStaticUI();
 requestAnimationFrame(frame);
 
 /* ---------- S1a 跨檔適配：space.js 的 backToBaseFromLaunch 先歸零失敗狀態（避免重入重複扣款） ---------- */
@@ -329,6 +331,13 @@ if (typeof backToBaseFromLaunch === 'function') {
     return _backToBaseFromLaunch.apply(this, arguments);
   };
 }
+/* ---------- PWA：根目錄 sw.js（scope=/；完整邏輯在 js/sw.js，D 提供；失敗靜默） ---------- */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
 /* ---------- 分頁隱藏／關閉時強制存檔 ---------- */
 (function () {
   const persist = () => {
@@ -356,6 +365,9 @@ window.__T = {
   ACH, checkAch, openSettings,
   achNew: () => achNewRun,
   SEA_EVENTS: window.SEA_EVENTS,
+  t, setLang, i18nMissing,
+  get tut() { return game.tut; },
+  skipTut() { game.tut.done = true; },
   music: () => MUSIC.status(), MUSIC,
   give(k, n) { addRes(k, n); refreshHud(); },
   mountAll() {

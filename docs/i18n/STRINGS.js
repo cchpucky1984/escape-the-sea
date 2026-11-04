@@ -21,13 +21,13 @@ window.I18N_DATA = {
   "mod.blast.desc":            ["命中炸開 — 周圍敵人吃 55% 傷害","Explodes on hit — nearby enemies take 55% damage"], // core.js:282
   "mod.emp.name":              ["電磁模組","EMP Module"], // core.js:283
   "mod.emp.desc":              ["18% 機率讓目標停擺 1.2 秒","18% chance to stun the target for 1.2 s"], // core.js:283
-  "mod.title":                 ["魚槍模組","Harpoon Mods"], // core.js:406
+  "mod.title":                 ["魚槍模組","Harpoon Modules"], // core.js:406
   "mod.slots":                 ["（{n} / 3 槽）","({n} / 3 slots)"], // core.js:1239
-  "mod.needTable":             ["需要「模組工作台」（基地 B 面板建造：金屬 34 · 合金 5，需火箭研發中心）","Requires a Mod Workbench (build from the base panel: Metal 34 · Alloy 5, needs Rocket R&D Center)"], // core.js:1240
+  "mod.needTable":             ["需要「模組工作台」（基地 B 面板建造：金屬 34 · 合金 5，需火箭研發中心）","Requires a Module Workbench (build from the base panel: Metal 34 · Alloy 5, needs Rocket R&D Center)"], // core.js:1240
   "mod.equipped":              ["已裝備","Equipped"], // core.js:1246
-  "mod.emptySlot":             ["空模組槽 — 模組箱：巨獸／賞金獵首／裂縫核心","Empty mod slot — mod boxes drop from Leviathans, bounty headhunts and Rift cores"], // core.js:1249
-  "mod.full":                  ["模組已滿 — 轉換為外星合金 +3","Mods full — converted to Alien Alloy +3"], // core.js:905
-  "mod.got":                   ["取得模組：{name}（按 C 查看魚槍模組）","Mod acquired: {name} (press C for Harpoon Mods)"], // core.js:909
+  "mod.emptySlot":             ["空模組槽 — 模組箱：巨獸／賞金獵首／裂縫核心","Empty module slot — module boxes drop from Leviathans, bounty headhunts and Rift cores"], // core.js:1249
+  "mod.full":                  ["模組已滿 — 轉換為外星合金 +3","Modules full — converted to Alien Alloy +3"], // core.js:905
+  "mod.got":                   ["取得模組：{name}（按 C 查看魚槍模組）","Module acquired: {name} (press C for Harpoon Modules)"], // core.js:909
   /* ── 裝備 UPG ── */
   "upg.fin.name":              ["推進蛙鞋","Propulsion Fins"], // core.js:289
   "upg.fin.desc":              ["游泳速度 +{n}%","Swim speed +{n}%"], // core.js:289
@@ -60,8 +60,8 @@ window.I18N_DATA = {
   "struct.dock.desc":          ["解鎖太空船組裝與發射","Unlocks spacecraft assembly and launch"], // core.js:341
   "struct.bounty.name":        ["賞金終端","Bounty Terminal"], // core.js:342
   "struct.bounty.desc":        ["解鎖賞金合約 — 擊殺與打撈都能換合金（按 H）","Unlocks bounty contracts — kills and salvage pay in Alloy (H)"], // core.js:343
-  "struct.modtable.name":      ["模組工作台","Mod Workbench"], // core.js:344
-  "struct.modtable.desc":      ["魚槍可插 3 個模組 — 穿透 · 爆裂 · 電磁","Fit up to 3 harpoon mods — Pierce · Blast · EMP"], // core.js:345
+  "struct.modtable.name":      ["模組工作台","Module Workbench"], // core.js:344
+  "struct.modtable.desc":      ["魚槍可插 3 個模組 — 穿透 · 爆裂 · 電磁","Fit up to 3 harpoon modules — Pierce · Blast · EMP"], // core.js:345
   /* ── 建築標籤 ── */
   "tag.prod":                  ["生產","Production"], // core.js:324
   "tag.auto":                  ["自動化","Automation"], // core.js:328
@@ -95,8 +95,8 @@ window.I18N_DATA = {
   "quest.harpoon.sub":         ["按 C 升級裝備（需在基地附近）","Press C to upgrade gear (must be near base)"], // core.js:375
   "quest.rnd.text":            ["建造火箭研發中心","Build a Rocket R&D Center"], // core.js:378
   "quest.rnd.sub":             ["解鎖火箭科技與超級武器","Unlocks rocket tech and superweapons"], // core.js:333
-  "quest.tech.text":           ["擊敗海域四角的守衛，收集 4 塊科技碎片","Defeat the four corner guardians, collect 4 Tech Shards"], // core.js:381
-  "quest.tech.sub":            ["四角各一隻守衛，雷達上是紫色標記","One guardian per corner—purple markers on the radar"], // core.js:381
+  "quest.tech.text":           ["擊敗海域四角的守衛，收集 4 塊科技碎片","Defeat the four corner leviathans, collect 4 Tech Shards"], // core.js:381
+  "quest.tech.sub":            ["四角各一隻守衛，雷達上是紫色標記","One leviathan per corner—purple markers on the radar"], // core.js:381
   "quest.shield.text":         ["在研發中心解鎖火箭護盾科技","Unlock Rocket Shield tech at the R&D Center"], // core.js:384
   "quest.shield.sub":          ["需要 4 塊科技碎片","Requires 4 Tech Shards"], // core.js:384
   "quest.parts.text":          ["組裝 4 個太空船零件","Assemble all 4 spacecraft parts"], // core.js:387
@@ -111,8 +111,8 @@ window.I18N_DATA = {
   "quest.bounty.sub":          ["按 H 打開賞金終端 — 擊殺與打撈都能換合金","Press H for the Bounty Terminal — kills and salvage pay in Alloy"], // core.js:399
   "quest.leviathan.text":      ["擊敗第一隻深海巨獸","Defeat your first Leviathan"], // core.js:402
   "quest.leviathan.sub":       ["海域四角，雷達上是紫色漩渦","In the four corners—purple swirls on the radar"], // core.js:402
-  "quest.mod.text":            ["把第一個模組裝上魚槍","Install your first harpoon mod"], // core.js:406
-  "quest.mod.sub":             ["按 C → 魚槍模組，三個槽","Press C → Harpoon Mods, three slots"], // core.js:406
+  "quest.mod.text":            ["把第一個模組裝上魚槍","Install your first harpoon module"], // core.js:406
+  "quest.mod.sub":             ["按 C → 魚槍模組，三個槽","Press C → Harpoon Modules, three slots"], // core.js:406
   "quest.rift.text":           ["在裂縫關閉前打爆它的核心","Destroy the Rift core before it closes"], // core.js:409
   "quest.rift.sub":            ["每 3 分鐘開一次，紫色漩渦","Opens every 3 minutes—purple swirl"], // core.js:409
   /* ── 海域 ── */
@@ -175,7 +175,7 @@ window.I18N_DATA = {
   "base.per5":                 ["每 5 秒產出","Output every 5 s"], // core.js:1138
   "base.shardRow":             ["科技碎片","Tech Shards"], // core.js:1066
   "base.shardReady":           ["· 已可研發護盾","· shield ready"], // core.js:1139
-  "base.shardHint":            ["· 擊敗四角守衛","· defeat the four guardians"], // core.js:1139
+  "base.shardHint":            ["· 擊敗四角守衛","· defeat the four leviathans"], // core.js:1139
   "base.summaryHint":          ["每次建造都會在平台上多佔一格，基地會一格格長大。敵怪無法進入安全圈。","Every building adds a tile—your base grows tile by tile. Enemies cannot enter the safe zone."], // core.js:1143
   "base.maxed":                ["已達上限","At max"], // core.js:1151
   "base.locked":               ["需要：{name}","Requires: {name}"], // core.js:1152
@@ -189,7 +189,7 @@ window.I18N_DATA = {
   "toast.noRes":               ["資源不足","Not enough resources"], // core.js:1167
   "toast.structBuilt":         ["{name} 建造完成 — 平台擴張中","{name} built — platform expanding"], // core.js:1170
   "toast.questDone":           ["任務完成：{text}{rewards}","Quest complete: {text}{rewards}"], // core.js:1501
-  "toast.gotMod":              ["取得模組：{name}","Mod acquired: {name}"], // DATA-v0.4.md:117
+  "toast.gotMod":              ["取得模組：{name}","Module acquired: {name}"], // DATA-v0.4.md:117
 
   /* ── 裝備／太空船面板 ── */
   "craft.title":               ["裝備 · 火箭科技 · 太空船","Gear · Rocket Tech · Spacecraft"], // core.js:1278
@@ -200,7 +200,7 @@ window.I18N_DATA = {
   "craft.upgradeTo":           ["升級至 Lv {n}","Upgrade to Lv {n}"], // core.js:1208
   "craft.make":                ["製作","Craft"], // core.js:1208
   "craft.rocketTitle":         ["火箭科技","Rocket Tech"], // core.js:1213
-  "craft.inherit":             ["（速度＝蛙鞋　武器＝魚槍　裝甲＝潛水衣）","(Speed = Fins · Weapon = Harpoon · Armor = Suit)"], // core.js:1216
+  "craft.inherit":             ["（速度＝蛙鞋　武器＝魚槍　裝甲＝潛水衣）","(Speed = Fins · Weapon = Harpoon · Armor = Dive Suit)"], // core.js:1216
   "craft.shieldName":          ["火箭護盾科技","Rocket Shield Tech"], // core.js:1218
   "craft.shieldDesc":          ["升空與登艦時，船體額外 +25 裝甲，並減少砲火傷害","+25 hull armor during launch and docking, and reduced gunfire damage"], // core.js:1219
   "craft.needRnd":             ["需要火箭研發中心","Requires Rocket R&D Center"], // core.js:1221
@@ -244,11 +244,11 @@ window.I18N_DATA = {
   "help.sprint":               ["衝刺（消耗體力）","Sprint (uses stamina)"], // core.js:1409
   "help.aim":                  ["瞄準、發射魚槍","Aim and fire the harpoon"], // core.js:1410
   "help.base":                 ["自動化基地：建造新建築（平台會擴張）","Automated base: build structures (the platform expands)"], // core.js:1411
-  "help.craft":                ["裝備升級 / 魚槍模組 / 太空船","Gear upgrades / harpoon mods / spacecraft"], // core.js:1412
+  "help.craft":                ["裝備升級 / 魚槍模組 / 太空船","Gear upgrades / harpoon modules / spacecraft"], // core.js:1412
   "help.bounty":               ["賞金合約（需賞金終端）","Bounty contracts (requires Bounty Terminal)"], // core.js:1413
   "help.quests":               ["任務清單","Quest list"], // core.js:1414
   "help.esc":                  ["關閉面板 / 暫停","Close panel / pause"], // core.js:1415
-  "help.mute":                 ["音效開關","Sound on/off"], // core.js:1416
+  "help.mute":                 ["音效開關","SFX on/off"], // core.js:1416
   "help.note":                 ["基地安全圈內不會被攻擊，敵怪也無法進入。氧氣耗盡會扣血——靠近基地或撿空氣泡補充。","The base safe zone blocks attacks and enemies. Running out of oxygen drains HP—return to base or grab air bubbles."], // core.js:1419
   "help.ok":                   ["知道了","Got it"], // core.js:1420
 
@@ -256,8 +256,8 @@ window.I18N_DATA = {
   "pause.title":               ["已暫停","Paused"], // core.js:1479
   "pause.body":                ["海面暫時靜了下來。你的基地仍在自動生產。","The sea is quiet for a moment. Your base keeps producing."], // core.js:1479
   "pause.resume":              ["繼續遊戲","Resume"], // core.js:1471
-  "pause.soundOn":             ["音效：開啟","Sound: on"], // core.js:1472
-  "pause.soundOff":            ["音效：關閉","Sound: off"], // core.js:1472
+  "pause.soundOn":             ["音效：開啟","SFX: on"], // core.js:1472
+  "pause.soundOff":            ["音效：關閉","SFX: off"], // core.js:1472
   "pause.help":                ["操作說明","Controls"], // core.js:1418
   "pause.cheat":               ["作弊裝備","Cheat Gear"], // core.js:1276
   "pause.restart":             ["重新開始","Restart"], // core.js:1478
@@ -277,8 +277,8 @@ window.I18N_DATA = {
   "end.statGear":              ["裝備等級","Gear levels"], // core.js:1558
 
   /* ── main.js ── */
-  "main.soundOff":             ["音效已關閉","Sound off"], // main.js:65
-  "main.soundOn":              ["音效已開啟","Sound on"], // main.js:65
+  "main.soundOff":             ["音效已關閉","SFX off"], // main.js:65
+  "main.soundOn":              ["音效已開啟","SFX on"], // main.js:65
   "main.goal":                 ["先游回基地 → 按 B 建造（基地在 {dist} 外；HUD 左上會顯示下一步）","Swim back to base → press B to build (base is {dist} away; the HUD shows your next step)"], // main.js:232
   "main.welcome":              ["歡迎回來 — 繼續你的工程","Welcome back — continue the build"], // main.js:249
   "main.noSave":               ["沒有可用的存檔","No save found"], // main.js:251
@@ -301,7 +301,7 @@ window.I18N_DATA = {
   "space.dockFailBody":        ["母船的防禦砲火把太空船撕開。你彈射出去，看著它燒成碎片。","The mothership's guns tear the spacecraft apart. You eject and watch it burn."], // space.js:563
   "space.hangarTitle":         ["外星母船 · 機庫入口","Alien Mothership · Hangar Bay"], // space.js:803
   "space.hangarCtrl":          ["WASD 飛行　·　W 前進（母船引力會把你往後拉）","WASD to fly · W to advance (mothership gravity drags you back)"], // space.js:806
-  "space.moonEnter":           ["艙壓 {hp} · 裝甲 {pct}%　—　目標：核心反應爐","Cabin pressure {hp} · Armor {pct}% — Objective: reactor core"], // space.js:849
+  "space.moonEnter":           ["艙壓 {hp} · 裝甲 {pct}%　—　目標：核心反應爐","Cabin Pressure {hp} · Armor {pct}% — Objective: Reactor Core"], // space.js:849
   "space.moonNoDmg":           ["武器 Lv{n} — 外星人有護盾，攻擊無效","Weapon Lv{n} — aliens have shields; attacks have no effect"], // space.js:850
   "space.moonReduced":         ["武器 Lv{n} — 護盾減傷，傷害 {pct}%","Weapon Lv{n} — shields reduce damage to {pct}%"], // space.js:850
   "space.wave":                ["母船守軍 · 第 {n} 波","Mothership Guard · Wave {n}"], // space.js:872
@@ -348,7 +348,7 @@ window.I18N_DATA = {
   "hint.bounty":               ["按 B 建造「賞金終端」→ 按 H 接合約","Press B to build a Bounty Terminal → press H for contracts"], // core.js:1016
   "hint.refill":               ["等 {n} 秒補新合約（按 H 查看）","New contract in {n} s (press H to view)"], // core.js:1017
   "hint.harpoon2":             ["按 C 把壓縮魚槍升到 Lv2","Press C to upgrade the Compressed Harpoon to Lv2"], // core.js:1018
-  "hint.tech":                 ["打四角守衛（雷達紫色）或接賞金合約","Fight the four guardians (purple on radar) or take bounty contracts"], // core.js:1022
+  "hint.tech":                 ["打四角守衛（雷達紫色）或接賞金合約","Fight four leviathans (purple on radar) or take bounty contracts"], // core.js:1022
   "hint.rnd":                  ["按 B 建造「火箭研發中心」","Press B to build a Rocket R&D Center"], // core.js:1024
   "hint.parts":                ["按 C 建造 4 個太空船零件","Press C to build all 4 spacecraft parts"], // core.js:1025
   "hint.dock":                 ["按 B 建造「火箭工坊」","Press B to build a Rocket Workshop"], // core.js:1026
@@ -378,7 +378,7 @@ window.I18N_DATA = {
   "ach.automated.name":        ["自動化上線","Automation Online"], // CONTENT-v0.5.md:38
   "ach.gunmaster.name":        ["魚槍大師","Harpoon Master"], // CONTENT-v0.5.md:40
   "ach.tech4.name":            ["科技狂人","Tech Addict"], // CONTENT-v0.5.md:42
-  "ach.mods3.name":            ["模組收藏家","Mod Collector"], // CONTENT-v0.5.md:43
+  "ach.mods3.name":            ["模組收藏家","Module Collector"], // CONTENT-v0.5.md:43
   "ach.revenge.name":          ["星際復仇","Interstellar Revenge"], // CONTENT-v0.5.md:44
   "ach.bounty10.name":         ["賞金獵人","Bounty Hunter"], // CONTENT-v0.5.md:45
   "ach.levi4.name":            ["巨獸終結者","Leviathan Slayer"], // CONTENT-v0.5.md:46
@@ -401,7 +401,7 @@ window.I18N_DATA = {
   "ach.gunmaster.desc":        ["壓縮魚槍升到 Lv4。","Upgrade the Compressed Harpoon to Lv4."], // core.js:421
   "ach.full_kit.desc":         ["五條裝備線全部 Lv4。","Max all five gear lines to Lv4."], // core.js:422
   "ach.tech4.desc":            ["集滿 4 塊科技碎片。","Collect all 4 Tech Shards."], // core.js:423
-  "ach.mods3.desc":            ["魚槍插滿 3 個模組。","Fill all 3 harpoon mod slots."], // core.js:424
+  "ach.mods3.desc":            ["魚槍插滿 3 個模組。","Fill all 3 harpoon module slots."], // core.js:424
   "ach.revenge.desc":          ["擊毀母船核心，完成第一輪。","Destroy the mothership core and finish your first run."], // core.js:425
   "ach.bounty10.desc":         ["累計完成 10 張賞金合約。","Complete 10 bounty contracts."], // core.js:426
   "ach.levi4.desc":            ["擊敗 4 隻深海巨獸。","Defeat 4 deep-sea leviathans."], // core.js:427
@@ -409,7 +409,7 @@ window.I18N_DATA = {
   "ach.safe_dive.desc":        ["死亡 5 次內通關。","Finish a run with 5 or fewer deaths."], // core.js:429
   "ach.quick90.desc":          ["90 分鐘內通關。","Finish a run within 90 minutes."], // core.js:430
   "ach.speed60.desc":          ["60 分鐘內通關。","Finish a run within 60 minutes."], // core.js:431
-  "ach.no_mods.desc":          ["不裝任何模組通關。","Finish a run without any mods."], // core.js:432
+  "ach.no_mods.desc":          ["不裝任何模組通關。","Finish a run without any modules."], // core.js:432
   "ach.no_tower.desc":         ["不建造任何防禦炮塔通關。","Finish a run without building any turret."], // core.js:433
   "ach.cheater.desc":          ["在標題畫面輸入 cheat。","Type \"cheat\" on the title screen."], // core.js:434
   "ach.shark50.desc":          ["擊殺 50 隻鯊魚。","Kill 50 sharks."], // core.js:435
@@ -459,7 +459,7 @@ window.I18N_DATA = {
   "challenge.speed.name":      ["限時 45","Time Attack 45"], // CONTENT-v0.5.md:66
   "challenge.speed.rule":      ["45 分鐘倒數","45-minute countdown"], // CONTENT-v0.5.md:66
   "challenge.bare.name":       ["赤手空拳","Bare Hands"], // CONTENT-v0.5.md:67
-  "challenge.bare.rule":       ["不能建砲塔、不能裝模組","No turrets, no mods"], // CONTENT-v0.5.md:67
+  "challenge.bare.rule":       ["不能建砲塔、不能裝模組","No turrets, no modules"], // CONTENT-v0.5.md:67
 
   /* ── NG+（待接線） ── */
   "ng.label":                  ["NG+{n}","NG+{n}"], // CONTENT-v0.5.md:92
@@ -478,13 +478,13 @@ window.I18N_DATA = {
   "rift.appear":               ["深海裂縫出現了 —— 裂縫核心可被魚槍打爆","A deep-sea rift opened — its core can be shot with the harpoon"], // events.js:375
   "rift.broken":               ["裂縫核心崩解 —— 獲得合金 {n}","Rift core collapsed — {n} Alloy earned"], // events.js:399
   "rift.core":                 ["裂縫核心 {hp}/{max}","Rift Core {hp}/{max}"], // events.js:704
-  "rift.modBox":               ["模組箱","Mod box"], // events.js:17
+  "rift.modBox":               ["模組箱","Module box"], // events.js:17
 
   /* ── 設定面板 ── */
   "settings.title":            ["設定 — 音量","Settings — Volume"], // core.js:1440
   "settings.musicVol":         ["音樂音量","Music volume"], // core.js:1429
   "settings.sfxVol":           ["音效音量","SFX volume"], // core.js:1429
-  "settings.masterMute":       ["總靜音","Master mute"], // core.js:1431
+  "settings.masterMute":       ["總靜音","Master Mute"], // core.js:1431
   "settings.reduceMotion":     ["減少動態","Reduce motion"], // core.js:1432
   "settings.on":               ["開","On"], // core.js:1431
   "settings.off":              ["關","Off"], // core.js:1431

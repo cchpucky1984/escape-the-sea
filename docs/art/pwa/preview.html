@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>PWA icon preview — 逃出大海 v0.7</title>
+<style>
+  html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:
+    radial-gradient(ellipse at 50% 0%,rgba(24,82,104,.35),transparent 60%),
+    linear-gradient(180deg,#04101a,#02070d);color:#e8f8ff;
+    font-family:"Microsoft JhengHei","PingFang TC",system-ui,sans-serif}
+  .wrap{padding:56px 72px}
+  h1{font-size:30px;letter-spacing:.08em;margin:0 0 6px;font-weight:700}
+  .sub{color:#9fc0d0;font-size:14px;letter-spacing:.05em;margin-bottom:34px}
+  .row{display:flex;gap:34px;align-items:flex-end;margin-bottom:40px}
+  .card{background:rgba(6,22,33,.82);border:1px solid rgba(111,227,255,.22);
+    border-radius:18px;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .card img{display:block;border-radius:12px;background:#02070d}
+  .cap{font-size:11px;color:#9fc0d0;letter-spacing:.06em;margin-top:10px;text-align:center}
+  .cap b{color:#6fe3ff;font-weight:600}
+  .mask{position:relative;display:inline-block}
+  .mask::after{content:"";position:absolute;inset:0;border-radius:50%;
+    box-shadow:0 0 0 999px rgba(2,7,13,.55) , inset 0 0 0 2px rgba(255,209,102,.65)}
+  .mask::before{content:"maskable 安全圈 80%";position:absolute;left:50%;top:-24px;
+    transform:translateX(-50%);font-size:10px;color:#ffd166;white-space:nowrap}
+  .cols{display:flex;gap:46px}
+  .col{flex:1}
+  .col h2{font-size:13px;letter-spacing:.16em;color:#6fe3ff;font-weight:600;margin:0 0 12px}
+  .mono{font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px;line-height:1.75;
+    color:#bfe6f5;background:rgba(0,0,0,.3);border:1px solid rgba(111,227,255,.14);
+    border-radius:12px;padding:16px 18px;white-space:pre-wrap}
+  .swatches{display:flex;gap:10px;margin-top:14px}
+  .sw{width:120px;height:62px;border-radius:10px;border:1px solid rgba(255,255,255,.12);
+    display:flex;flex-direction:column;justify-content:flex-end;padding:7px 9px;font-size:10px;
+    color:#dff4ff;letter-spacing:.04em}
+  .tag{display:inline-block;margin-right:8px;padding:2px 9px;border-radius:999px;
+    border:1px solid rgba(255,209,102,.4);color:#ffd166;font-size:10px;letter-spacing:.08em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>逃出大海 · PWA icon 預覽</h1>
+  <div class="sub">manifest.webmanifest · theme #02070d · background #02070d · display standalone · 來源 title-1920x1080.webp 中央裁切（PIL）</div>
+
+  <div class="row">
+    <div class="card"><img src="icon-192.png" width="192" height="192" alt="icon 192">
+      <div class="cap"><b>192×192</b> · purpose any</div></div>
+    <div class="card"><img src="icon-512.png" width="320" height="320" alt="icon 512 scaled">
+      <div class="cap"><b>512×512</b> · purpose any（此處縮為 320 顯示）</div></div>
+    <div class="card"><div class="mask"><img src="icon-maskable-512.png" width="320" height="320" alt="maskable 512"></div>
+      <div class="cap"><b>512×512</b> · purpose maskable</div></div>
+    <div class="card"><img src="apple-touch-icon-180.png" width="180" height="180" alt="apple touch icon">
+      <div class="cap"><b>180×180</b> · apple-touch-icon</div></div>
+    <div class="card"><img src="favicon-32.png" width="64" height="64" alt="favicon 32 scaled">
+      <div class="cap"><b>32×32</b> · favicon 備用</div></div>
+  </div>
+
+  <div class="cols">
+    <div class="col">
+      <h2>MANIFEST</h2>
+      <div class="mono">{
+  "name": "逃出大海 Escape the Sea",
+  "short_name": "逃出大海",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#02070d",
+  "theme_color": "#02070d",
+  "icons": [
+    { "src": "docs/art/pwa/icon-192.png", "sizes": "192x192", "purpose": "any" },
+    { "src": "docs/art/pwa/icon-512.png", "sizes": "512x512", "purpose": "any" },
+    { "src": "docs/art/pwa/icon-maskable-192.png", "sizes": "192x192", "purpose": "maskable" },
+    { "src": "docs/art/pwa/icon-maskable-512.png", "sizes": "512x512", "purpose": "maskable" }
+  ]
+}</div>
+      <div class="swatches">
+        <div class="sw" style="background:#02070d">#02070D<br>abyss / theme</div>
+        <div class="sw" style="background:#041827">#041827<br>deep</div>
+        <div class="sw" style="background:#0f5a72">#0F5A72<br>shallow</div>
+        <div class="sw" style="background:#6fe3ff;color:#04222c">#6FE3FF<br>cyan</div>
+        <div class="sw" style="background:#ffd166;color:#2a1a00">#FFD166<br>gold</div>
+      </div>
+    </div>
+    <div class="col">
+      <h2>IOS / 安裝提示</h2>
+      <div class="mono">&lt;meta name="theme-color" content="#02070d"&gt;
+&lt;meta name="apple-mobile-web-app-capable" content="yes"&gt;
+&lt;meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"&gt;
+&lt;meta name="apple-mobile-web-app-title" content="逃出大海"&gt;
+&lt;link rel="manifest" href="manifest.webmanifest"&gt;
+&lt;link rel="apple-touch-icon" href="docs/art/pwa/apple-touch-icon-180.png"&gt;</div>
+      <div style="margin-top:18px" class="mono">驗證：
+<span class="tag">JSON.parse OK</span><span class="tag">icons 192/512/maskable OK</span>
+<span class="tag">theme #02070d</span><span class="tag">standalone</span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

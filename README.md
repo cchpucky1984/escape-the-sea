@@ -3,7 +3,7 @@
 單機 HTML5 網頁遊戲：在海灘被外星飛船巨炮打落海，被暗湧沖到大海中央。
 收集海上垃圾 → 建造會長大的自動化基地 → 派出 BOT 出海 → 升級裝備 → 造太空船飛上月球 → 與外星母船決戰。
 
-目前版本 **v0.6.0-alpha**（v1.0 為發售目標）；**v0.6 收尾中**：新標題畫面、背景音樂、24 個成就、8 個海域事件、設定面板與 i18n 字典，見文末〈v0.6〉。
+目前版本 **v0.6.0-alpha**（v1.0 為發售目標）；**v0.7 開發中**：手機觸控、PWA 離線安裝、英文介面。v0.6 已完成新標題畫面、背景音樂、24 個成就、8 個海域事件與設定面板，見文末〈v0.7〉／〈v0.6〉。
 
 ## 開始玩
 
@@ -110,7 +110,15 @@
 
 死亡：在基地復活，失去 15% 塑膠。升空／登艦失敗：回基地修理（金屬 -8）。母船戰敗：可再次出擊。
 
-## v0.6（本輪）
+## v0.7（本輪）
+
+- **手機觸控**：390×844 直向可玩——左半虛擬搖桿游動、右半瞄準／射擊，面板維持可點（施工中）。
+- **PWA**：manifest＋service worker，可安裝到桌面、離線開啟；快取與 `?v=` 同步，更新會換版（施工中）。
+- **英文介面**：`docs/i18n/STRINGS.js`（425 條＋模板）已備好；英文用語收斂表 `docs/i18n/EN-REVIEW.md`（36 概念唯一譯法＋20 條縮短版）；設定裡的 EN 接完才開。
+- **發佈包**：`docs/marketing/LAUNCH-KIT.md`（itch 上架檢查表、Steam 願望清單待補、X／Reddit／巴哈中英貼文、5 個 press 名單）。
+- 待辦：挑戰模式／NG+／教學、Steam 打包、商店 1920 截圖與預告。
+
+## v0.6（上一輪）
 
 - **標題畫面**：key art 換成原生 1920×1080（`docs/art/title-art/`，CSS 接線、載入失敗回退程序背景）。
 - **背景音樂**：3 場景 × 2 候選（`docs/audio/`，ACE-Step、-18 LUFS、無縫循環）；已接 `MUSIC`（`setScene` 切換、音量可調）。候選仍需人耳驗收。
@@ -148,9 +156,12 @@
 - [docs/marketing/STORE-v0.5.md](docs/marketing/STORE-v0.5.md) — 中文商店頁與素材清單
 - [docs/marketing/TRAILER-v0.6.md](docs/marketing/TRAILER-v0.6.md) — 30 秒預告分鏡與重現指令
 - [docs/marketing/DEVLOG-02.md](docs/marketing/DEVLOG-02.md) — Devlog #2（音樂／成就／事件／標題）
+- [docs/marketing/DEVLOG-03.md](docs/marketing/DEVLOG-03.md) — Devlog #3（觸控／PWA／英文）
+- [docs/marketing/LAUNCH-KIT.md](docs/marketing/LAUNCH-KIT.md) — 上架檢查表、Steam 待補、社群貼文、press 名單
 - [docs/marketing/PRESSKIT.md](docs/marketing/PRESSKIT.md) — 媒體素材包與事實表
 - [docs/marketing/LEGAL.md](docs/marketing/LEGAL.md) — 隱私、AI 揭露、字型／音樂／模型授權清單
 - [docs/i18n/STRINGS.js](docs/i18n/STRINGS.js) — zh-Hant → en 字典（425 條，可直接載入）
+- [docs/i18n/EN-REVIEW.md](docs/i18n/EN-REVIEW.md) — 英文用語一致性（36 條）＋20 條過長字串縮短版
 - [docs/i18n/STRINGS.md](docs/i18n/STRINGS.md) — 翻譯慣例與歷史對照
 - [docs/qa/QA-BASELINE.md](docs/qa/QA-BASELINE.md) — QA 基準線與已知問題
 - [docs/TEAM.md](docs/TEAM.md) — 團隊規範與檔案擁有權
@@ -159,8 +170,9 @@
 
 **Escape the Sea** is a single-player HTML5 survival / base-building game: an alien ship blasts you into the ocean, and you turn floating trash into a growing offshore base, a BOT fleet, and finally a spacecraft to take the fight to the alien mothership.
 
-- **Play**: open `index.html` (or run `start.bat`). No install, no network, no account.
+- **Play on itch.io**: `[itch URL — coming soon]` (free 15-minute demo; full version US$2.99 TBD)
+- **Play locally**: open `index.html` (or run `start.bat`). No install, no network, no account.
 - **Controls**: WASD/Arrows swim · Shift sprint · Mouse aim/fire · B base · C gear · H bounties · J quests · Esc pause/settings · M mute.
 - **Loop**: collect trash → grow the platform base → send out BOTs → upgrade gear → build a spacecraft → storm the mothership.
-- **Status**: v0.6.0-alpha is playable (new title art, music, 24 achievements, 8 sea events); English UI is in progress and ships in v0.8. The string dictionary is `docs/i18n/STRINGS.js` (425 entries).
+- **Status**: v0.6.0-alpha is playable (new title art, music, 24 achievements, 8 sea events, 425-string i18n dictionary). v0.7 adds touch controls, PWA install and the English UI; the EN dictionary and wording review are in `docs/i18n/`.
 - **Privacy**: no accounts, no tracking; progress stays in your browser's `localStorage`. See [LEGAL.md](docs/marketing/LEGAL.md).

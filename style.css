@@ -71,16 +71,17 @@ button:focus:not(:focus-visible){outline:none}
    註：右下雷達是 canvas 畫的（js/sea.js:1065-1133，R=64），不是 DOM，CSS 無法改尺寸。 */
 #hud{position:fixed;left:20px;top:18px;z-index:6;display:none;flex-direction:column;
   width:344px;pointer-events:none;user-select:none}
-.res-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:240px}
+.res-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:264px}
 .chip{display:flex;align-items:center;gap:6px;height:34px;padding:0 10px 0 9px;
   background:var(--glass);border:1px solid var(--line);border-radius:var(--r-pill);
   backdrop-filter:blur(6px);font-size:10.5px;color:var(--c-ink-2);
   box-shadow:inset 0 0 18px rgba(0,0,0,.3),0 2px 10px rgba(0,0,0,.22)}
 .chip .dot{width:10px;height:10px;border-radius:3px}
-.chip b{order:3;margin-left:auto;min-width:0;font-family:var(--font-num);font-size:14.5px;
+.chip b{order:3;margin-left:auto;flex:0 0 auto;min-width:0;font-family:var(--font-num);font-size:14.5px;
   font-weight:600;color:#fff;letter-spacing:.02em;font-variant-numeric:tabular-nums;line-height:1}
 .chip i{order:2;font-style:normal;font-size:10.5px;color:var(--c-ink-2);
-  letter-spacing:.06em;white-space:nowrap;line-height:1}
+  letter-spacing:.06em;white-space:nowrap;line-height:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis}
 .chip.alien{border-color:rgba(184,146,255,.45);
   background:linear-gradient(180deg,rgba(24,14,44,.72),rgba(4,18,28,.7))}
 .chip.alien b{color:#e3d4ff}
@@ -144,11 +145,11 @@ button:focus:not(:focus-visible){outline:none}
   padding:7px 16px;border-radius:var(--r-pill);white-space:nowrap;pointer-events:none;
   letter-spacing:.03em;backdrop-filter:blur(6px)}
 #toasts{position:fixed;right:18px;top:16px;z-index:7;display:flex;flex-direction:column;gap:7px;
-  align-items:flex-end;pointer-events:none;max-width:min(320px,calc(100vw - 32px))}
+  align-items:flex-end;pointer-events:none;max-width:min(320px,calc(100vw - 32px));min-width:0}
 .toast{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--c-cy);
   padding:8px 14px;border-radius:var(--r-sm);font-size:12.5px;color:var(--c-ink);
   box-shadow:0 8px 24px rgba(0,0,0,.45);animation:tin var(--t-slow) var(--ease-out);
-  backdrop-filter:blur(6px);max-width:100%}
+  backdrop-filter:blur(6px);max-width:100%;overflow-wrap:anywhere;word-break:normal}
 .toast.gold{border-left-color:var(--c-gold);color:#ffe9b3;background:rgba(38,28,6,.92)}
 @keyframes tin{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
 /* P2-1：母船右上角是 canvas HUD（「剩餘敵人」y≈34、觀景窗 y 72–178），
@@ -336,7 +337,7 @@ body.shake{animation:shakeAll .5s linear}
 #nextstep.nextstep[hidden]{display:none}
 #nextstep b{flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.18em;
   color:var(--c-gold);padding:2px 6px;border-radius:4px;background:rgba(255,209,102,.10)}
-#nextstep span{color:var(--c-ink);letter-spacing:.01em}
+#nextstep span{color:var(--c-ink);letter-spacing:.01em;min-width:0;overflow-wrap:anywhere}
 
 /* ---------- 賞金合約面板 ---------- */
 .bounty-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px 0;margin:0 0 12px;
@@ -383,6 +384,8 @@ body.shake{animation:shakeAll .5s linear}
 .card.bounty.ready .lv,.card.bounty[data-ready="true"] .lv{background:var(--c-gold);color:#2a1a00}
 .card.bounty.ready .bounty-actions::before{content:"✓ 可領取";font-size:10px;letter-spacing:.14em;
   color:var(--c-gold);margin-right:auto;padding-left:2px;animation:bountyPulse 1.6s ease-in-out infinite}
+/* pseudo content 也要跟著語言；innerText 掃不到，需 html[lang] 覆寫 */
+html[lang="en"] .card.bounty.ready .bounty-actions::before{content:"✓ Ready"}
 @keyframes bountyPulse{0%,100%{opacity:.5}50%{opacity:1}}
 .card.bounty.ready [data-claim],.card.bounty[data-ready="true"] [data-claim]{
   background:linear-gradient(180deg,#ffe08a,#ffb03a);color:#2a1a00;font-weight:700;
@@ -512,8 +515,10 @@ body.shake{animation:shakeAll .5s linear}
 .ach-top{display:flex;align-items:center;gap:12px;margin-bottom:10px}
 .ach-top::before{content:"成就";font-size:13px;font-weight:600;letter-spacing:.08em;
   color:var(--c-ink);margin-right:2px}
-.ach-progress{flex:1;max-width:320px;height:8px;border-radius:5px;overflow:hidden;
-  background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.08)}
+html[lang="en"] .ach-top::before{content:"Achievements"}
+.ach-progress{flex:1;min-width:160px;max-width:360px;height:9px;border-radius:5px;overflow:hidden;
+  background:rgba(255,255,255,.10);border:1px solid rgba(111,227,255,.20);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.55)}
 .ach-progress .ach-bar{height:100%}
 .ach-progress i{display:block;height:100%;width:0;border-radius:5px;
   background:linear-gradient(90deg,#ffd166,#ffe9a8);box-shadow:0 0 8px rgba(255,209,102,.45);
@@ -538,8 +543,9 @@ body.shake{animation:shakeAll .5s linear}
   align-items:center;justify-content:center;font-size:15px;line-height:1;
   font-family:var(--font-num);color:#8fb3c4;background:rgba(0,0,0,.35);
   border:1px solid var(--line-2)}
-.ach-main{flex:1;min-width:0;padding-right:58px}
-.ach-name{font-size:13px;font-weight:600;color:var(--c-ink);letter-spacing:.02em;line-height:1.35}
+.ach-main{flex:1;min-width:0}
+.ach-name{font-size:13px;font-weight:600;color:var(--c-ink);letter-spacing:.02em;line-height:1.35;
+  padding-right:64px}
 .ach-desc{margin-top:3px;font-size:11px;color:var(--c-muted);line-height:1.5}
 .ach-badge{position:absolute;right:10px;top:10px;font-size:9px;letter-spacing:.08em;
   color:var(--c-ink-2);border:1px solid var(--line);border-radius:999px;padding:1px 7px;
@@ -585,6 +591,37 @@ body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{
   *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;
     transition-duration:.001ms !important;scroll-behavior:auto !important}
 }
+
+/* =========================================================
+   v0.7：EN（長字串）版面防護
+   英文比中文長 1.5–2×；以下全是可換行／可縮／可省略的保險。
+   ========================================================= */
+#hud,.quest,.nextstep,.basetag,#zone,#hint,.settings,.ach{min-width:0}
+.quest .q-top{flex-wrap:wrap}
+.quest .q-top .qbar{min-width:60px}
+.quest>div,.quest .q-sub{overflow-wrap:anywhere}
+.card-h{min-width:0;flex-wrap:wrap;row-gap:4px}
+.card-h b{min-width:0;overflow-wrap:anywhere}
+.card-h .tag,.card-h .lv{flex:0 0 auto}
+.card button{white-space:normal;line-height:1.25}
+.bounty-actions button{min-width:0;flex:1 1 120px;white-space:normal;line-height:1.3;
+  height:auto;min-height:34px}
+.bounty-reward{min-width:0;overflow-wrap:anywhere}
+.bounty-note{overflow-wrap:anywhere}
+.ach-top{flex-wrap:wrap;row-gap:6px}
+.ach-progress{min-width:120px}
+.ach-tab{white-space:nowrap}
+.ach-main{min-width:0}
+.ach-name,.ach-desc{overflow-wrap:anywhere;word-break:normal}
+.ach-card{min-width:0}
+.settings-row>label{flex:0 1 150px;min-width:0;overflow-wrap:anywhere}
+.settings-row button.toggle{min-width:72px;height:auto;min-height:32px;white-space:nowrap}
+.settings-row .segmented{min-width:0}
+.segmented button.seg{white-space:nowrap;max-width:100%}
+.settings-note{overflow-wrap:anywhere}
+.modal-head h2{overflow-wrap:anywhere}
+.tbtns button{max-width:100%}
+.launchbar .lbl,.launchbar .sub{overflow-wrap:anywhere}
 
 /* ---------- RWD：≤768px（平板／窄視窗） ---------- */
 @media (max-width:768px){
@@ -675,10 +712,31 @@ body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{
   .ach-grid{grid-template-columns:1fr}
   .ach-card{padding:10px}
   .ach-icon{width:28px;height:28px;font-size:13px}
-  .ach-main{padding-right:48px}
-  .ach-name{font-size:12px}
+  .ach-main{padding-right:0}
+  .ach-name{font-size:12px;padding-right:48px}
   .ach-desc{font-size:10.5px}
   .ach-badge{font-size:8.5px;padding:1px 6px}
   #ending .ending-inner{padding:24px 18px}
   .end-stats div{min-width:0;flex:1 1 30%}
+}
+
+/* =========================================================
+   v0.7：觸控安全區（配合 D 的 js/touch.js）
+   契約：觸控 UI 啟用時，D 在 body 加 `touch-ui`（或 data-touch="on"）。
+   左下虛擬搖桿＋右下射擊／衝刺鈕佔用底部 ~180px；HTML 提示與 toast 讓開。
+   ========================================================= */
+body.touch-ui #hint,body[data-touch="on"] #hint,html[data-touch="on"] #hint{
+  bottom:calc(196px + env(safe-area-inset-bottom,0px));
+  max-width:calc(100vw - 196px)}
+body.touch-ui #toasts,body[data-touch="on"] #toasts,html[data-touch="on"] #toasts{
+  bottom:calc(252px + env(safe-area-inset-bottom,0px))}
+body.touch-ui #hud,body[data-touch="on"] #hud,html[data-touch="on"] #hud{
+  max-height:calc(100vh - 180px - env(safe-area-inset-bottom,0px));overflow:hidden}
+/* 小螢幕觸控：HUD 更緊、提示字更小，安全帶不變 */
+@media (max-width:430px){
+  body.touch-ui #hint,body[data-touch="on"] #hint,html[data-touch="on"] #hint{
+    bottom:calc(188px + env(safe-area-inset-bottom,0px));
+    max-width:calc(100vw - 196px);font-size:10px}
+  body.touch-ui #toasts,body[data-touch="on"] #toasts,html[data-touch="on"] #toasts{
+    bottom:calc(244px + env(safe-area-inset-bottom,0px))}
 }
