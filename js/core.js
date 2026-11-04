@@ -57,13 +57,6 @@ const I18N_EXTRA = {
   'gate.gun': ['魚槍 Lv3（目前 Lv{n}）', 'Harpoon Lv3 (now Lv{n})'],
   'gate.suit': ['潛水衣 Lv2（目前 Lv{n}）', 'Dive Suit Lv2 (now Lv{n})'],
   'gate.rnd': ['火箭研發中心', 'Rocket R&D Center'],
-  'tut.done': ['教學完成 — 接下來自由探索，J 看任務', 'Tutorial complete — explore freely, press J for quests'],
-  'tut.step1': ['先游回基地 — 跟著箭頭，進到綠色安全圈', 'Swim back to base — follow the arrow into the green safe zone'],
-  'tut.step2': ['按 B 建造「自動收集網」— 讓基地自己賺資源', 'Press B to build a Collection Net — your base earns for you'],
-  'tut.step3': ['按 B 建「裝備房」，再按 C 把魚槍升到 Lv1', 'Build the Gear Room with B, then press C to upgrade the Harpoon to Lv1'],
-  'tut.step4': ['按 B 建「賞金終端」（金屬 14·塑膠 8），按 H 接第一張合約', 'Build the Bounty Terminal (Metal 14 · Plastic 8) with B, then press H for your first contract'],
-  'tut.step5': ['升空門檻：魚槍 Lv3、潛水衣 Lv2、火箭研發中心（按 C 看進度）', 'Launch gate: Harpoon Lv3, Suit Lv2, Rocket R&D Center (press C for progress)'],
-  'tut.stuck': ['卡住了嗎？按 Esc 看操作說明；資源不够時 HUD 會顯示差多少', "Stuck? Press Esc for controls; the HUD shows what you're missing"],
   'ui.brand': ['逃出大海', 'Escape the Sea'],
   'dir.北': ['北', 'N'], 'dir.東北': ['東北', 'NE'], 'dir.東': ['東', 'E'], 'dir.東南': ['東南', 'SE'],
   'dir.南': ['南', 'S'], 'dir.西南': ['西南', 'SW'], 'dir.西': ['西', 'W'], 'dir.西北': ['西北', 'NW']
@@ -587,7 +580,10 @@ function tutHudText() {
   if (!game.tut || game.tut.done || game.scene !== 'sea') return '';
   const cur = tutCur();
   if (!cur) return '';
-  return game.tut.t > cur.failT ? t('tut.stuck') : t('tut.step' + cur.step);
+  if (game.tut.t > cur.failT) return t('tut.stuck');
+  const P = (typeof sea !== 'undefined') ? sea.player : null;
+  const dist = P ? fmtDist(Math.hypot(P.x, P.y)) : '';
+  return t('tut.step' + cur.step, { dist });
 }
 function updateTutorial(dt) {
   if (!game.tut || game.tut.done || game.scene !== 'sea') return;

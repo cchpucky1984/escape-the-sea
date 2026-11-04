@@ -1,6 +1,8 @@
 # EN 文案校對包（v0.7 / 給 B 接線與 C 排版用）
 
-> 擁有者：E · 2026-11-04 · 依據 `docs/i18n/STRINGS.js`（425 條，v0.6 快照）
+> 擁有者：E · 2026-11-04 · 最後更新 2026-11-05（v0.8）· 依據 `docs/i18n/STRINGS.js`（**495 條**：425 → 移除 `tut.sharkLeave`＋新增 `tut.done`＋v0.8 新字串 70 條）
+> **2026-11-05 更新（v0.8 難度／最終戰）**：① P0 教學字串已修正——`tut.step1–5`／`tut.stuck`／`tut.done` 全部換成 A 的 `ONBOARD-v0.7.md` §2、與 `core.js` 的 `TUTORIAL`（回基地→建收集網→裝備房＋魚槍→賞金合約→升空 gate）一致。② 新增 70 條 v0.8 字串（4 巨獸名稱／招式、子彈型別躲法、`dockcue.*`、母船波次、最終 BOSS 四招、鏡像 BOSS 獨白與勝敗），註解暫標 `v0.8-pending`，B 落地後補行號。
+> 教學字串**不含 `{dist}`**：`tutHudText()` 呼叫 `t()` 時沒有傳變數，A 的定稿也沒有佔位符；`{dist}` 保留在 `toast.needBase`／`hint.back` 與 `I18N_TEMPLATES.dist.base`／`dist.short`（已確認存在）。
 > **後續更新（2026-11-04）**：§2 紅字的 18 處已直接套用至 `docs/i18n/STRINGS.js`（keys 不變、只改 en 值、行號註解保留）；另補 8 處同概念殘留（共 **26 處 en 值變更**、條數仍 425）。語法已用 `node -e "new Function(require('fs').readFileSync('docs/i18n/STRINGS.js','utf8'))"` 驗證通過。
 > 註：原清單第 18 項誤寫成 `ach.no_tower.desc`；實際要改的是 `ach.no_mods.desc`（「不裝任何模組」），已按正確 key 套用，**沒有改任何 key 名**。
 > 用途：英文版接線前先定「一個概念一種譯法」；接線後用它檢查版面。**本檔不改程式碼**，B 依 §2 改字典值、C 依 §3 調版面。
@@ -12,7 +14,7 @@
 2. **大小寫**：作為「系統名／HUD 標籤」用 Title Case（`Safe Zone`、`Cabin Pressure`、`Tech Shard`）；句子內文用 lowercase（`the safe zone`、`a tech shard`）。同一畫面上不要混用。
 3. **英文長度**：英文平均比中文長 50–90%——本字典 425 條實測 **2.6× 字元數**（平均 11.3 zh / 28.9 en 字元）。按鈕 ≤ 22 字元、toast ≤ 60、HUD 標籤 ≤ 14；超過就要縮短，不是縮字級。
 
-## 2. 用語一致性表（36 條｜Final EN 為唯一合法寫法）
+## 2. 用語一致性表（50 條｜Final EN 為唯一合法寫法）
 
 | # | zh-Hant | Final EN | 目前字典裡的問題（要改的 key） |
 |---|---|---|---|
@@ -52,10 +54,24 @@
 | 34 | BOT | **BOT** | 全大寫、不翻譯；`BOT Dock`、`BOT Fleet`、`BOT {n}/{max}` |
 | 35 | 音效 | **SFX** | ⚠️ 目前混用 `Sound`（`pause.soundOn/Off`、`main.soundOn/Off`、`help.mute`）→ 全部改 SFX；**音樂**才是 Music |
 | 36 | 總靜音 | **Master Mute** | ⚠️ `settings.masterMute` 是 Master mute；按鈕式統一 `Master Mute` |
+| 37 | 弧光巨獸（光束型） | **Arc Leviathan** | v0.8 新增（`leviathan.arc.*`）；型別標籤 `Beam type` |
+| 38 | 蜂巢巨獸（導彈型） | **Hive Leviathan** | v0.8 新增（`leviathan.missile.*`）；型別 `Missile type` |
+| 39 | 鐵顎巨獸（衝撞型） | **Maw Leviathan** | v0.8 新增（`leviathan.ram.*`）；型別 `Charger type` |
+| 40 | 漩渦巨獸（洋流型） | **Maelstrom Leviathan** | v0.8 新增（`leviathan.current.*`）；型別 `Current type` |
+| 41 | 巨獸招式 | **命名法：`<意象> <動作>` Title Case** | `Prism Sweep`／`Focus Gaze`／`Missile Nest`／`Breach Charge`／`Undertow`…；不加句號、不加 the |
+| 42 | 快彈／慢彈／追蹤彈／雷射 | **Fast Shot / Slow Shot / Seeker / Laser** | v0.8 新增（`bullet.*`）；躲法提示 `… — dodge sideways` 句式一致 |
+| 43 | 升空→機庫轉場 | **Hangar cue**（`dockcue.*` 群組名） | 四件元素固定：目標／按住 W／距離／失敗 |
+| 44 | 母船波次提示 | **Wave {n}** | 與既有 `space.wave`「Mothership Guard · Wave {n}」統一；增援用 `reinforcements` |
+| 45 | 最終 BOSS 四招 | **Core Beam / Missile Rain / Charge / Gravity Well** | v0.8 新增（`boss.move.*`）；警告句式 `… — get off the line` |
+| 46 | 鏡像 BOSS | **Mirror Core** | v0.8 新增（`mirror.*`）；不翻成「clone」或「copy」 |
+| 47 | 逃脫階段 | **Escape Phase** | `wave.escape`／`mirror.tag` 一致 |
+| 48 | 技能 +1（鏡像） | **Skill +1** | `mirror.skillPlus`：`Mirror skill +1: your Harpoon Lv{n} → its Lv{n+1}` |
+| 49 | 鏡像敗北文案 | **Shot down by your mirror** | `mirror.loseTitle`；不用 "defeated by yourself"（語意不清） |
+| 50 | 巨獸「階段」 | **Phase** | `boss.phase2/3`、`mirror.phase2`；不要用 Stage／Level |
 
 > 🔴 **B 要改的 key 總表（共 18 處）**：`mod.title`、`mod.needTable`、`mod.emptySlot`、`mod.full`（mods → modules）、`struct.modtable.name/desc`、`craft.inherit`（Suit → Dive Suit）、`hint.tech`（guardians → leviathans）、`quest.tech.text/sub`（守衛 → Leviathan）、`pause.soundOn/Off`、`main.soundOn/Off`、`help.mute`（Sound → SFX）、`settings.masterMute`、`space.moonEnter`（大小寫）、`ach.no_mods.desc`（mods → modules；原表誤植為 `ach.no_tower.desc`）。
 >
-> ✅ **2026-11-04 已套用**：上述 18 處＋同概念殘留 8 處（`quest.mod.text/sub`、`base.shardHint`、`toast.gotMod`、`help.craft`、`ach.mods3.name/desc`、`rift.modBox`）＝**26 處 en 值變更**；全字典再掃 `mods|Mod Workbench|Harpoon Mods|Sound on|Sound off|guardians` 已為 0。keys／條數（425）／行號註解皆未動。
+> ✅ **2026-11-04 已套用**：上述 18 處＋同概念殘留 8 處（`quest.mod.text/sub`、`base.shardHint`、`toast.gotMod`、`help.craft`、`ach.mods3.name/desc`、`rift.modBox`）＝**26 處 en 值變更**；全字典再掃 `mods|Mod Workbench|Harpoon Mods|Sound on|Sound off|guardians` 已為 0。keys／條數／行號註解皆未動（v0.8 後總數 495）。
 > 改完後 `STRINGS.js` 的條數不變；`EN-REVIEW` 這張表就是 review 的 diff 依據。
 
 ## 3. 20 條「英文太長」的 UI 字串與建議縮短版
@@ -100,7 +116,9 @@
 ## 5. 驗收（v0.7 英文版上線前）
 
 - [x] §2 的 18 處 key 已改（＋8 處殘留，共 26 處 en 值）；全字典搜尋 `Mod Workbench`、`Harpoon Mods`、`mod boxes`、`Sound`、`guardians` 已為 0
-- [x] 字串總數不變（425）；`new Function` 驗證通過（2026-11-04）
+- [x] 教學 P0（2026-11-05）：`tut.step1–5`＝回基地→建收集網→裝備房＋魚槍→賞金合約→升空 gate；`tut.stuck`／`tut.done` 與 `core.js` 的 `I18N_EXTRA` 完全一致（重複來源待 B 移除）
+- [x] v0.8 新字串 70 條：zh/en 皆非空、key 無重複（495 條／495 個 key）、`v0.8-pending` 待 B 落地補行號
+- [x] 字串總數 495；`new Function` 語法驗證通過（2026-11-05）
 - [ ] 1280／1920 截圖各 5 張：無文字溢出、無 `…` 截斷、無遮擋
 - [ ] 390×844 手機直向：按鈕與 toast 不換行到破版
 - [ ] 設定切 EN → 重開頁面仍為 EN（`localStorage` 語言欄位）

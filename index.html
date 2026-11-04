@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="逃出大海">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="docs/art/pwa/apple-touch-icon-180.png">
-<link rel="stylesheet" href="style.css?v=0.7.0">
+<link rel="stylesheet" href="style.css?v=0.8.0">
 </head>
 <body data-scene="title">
 <canvas id="cv"></canvas>
@@ -41,6 +41,76 @@
 <div id="hint">WASD 游動　·　Shift 衝刺　·　滑鼠 瞄準／發射　·　B 基地　·　C 裝備　·　J 任務　·　Esc 暫停　·　M 靜音</div>
 <div id="toasts"></div>
 
+<!-- ===== v0.8：升空→機庫轉場提示（D 接線；文字由 B 的 t() 依 data-i18n 填） =====
+     狀態：data-state="approach|ready|failed"；顯示：data-visible="true"＋移除 hidden
+     可變：--cue-angle（箭頭角度 deg）、--dock-progress（0..1） -->
+<div id="dockcue" hidden data-state="approach" data-visible="false" aria-live="polite" aria-atomic="true">
+  <span class="cue-arrow" aria-hidden="true"></span>
+  <div class="cue-card">
+    <div class="cue-kicker"><i class="cue-dot" aria-hidden="true"></i><span class="cue-kicker-text" data-i18n="dockcue.kicker"></span></div>
+    <div class="cue-main">
+      <span class="cue-line cue-line-approach" data-i18n="dockcue.actionApproach"></span>
+      <span class="cue-line cue-line-ready" data-i18n="dockcue.actionReady"></span>
+      <span class="cue-line cue-line-failed" data-i18n="dockcue.actionFailed"></span>
+    </div>
+    <div class="cue-sub">
+      <span class="cue-sub-line cue-sub-approach" data-i18n="dockcue.boost"></span>
+      <span class="cue-sub-line cue-sub-ready" data-i18n="dockcue.boostReady"></span>
+      <span class="cue-sub-line cue-sub-failed" data-i18n="dockcue.retry"></span>
+    </div>
+    <div class="cue-meta">
+      <span class="cue-dist" data-i18n="dockcue.distance">0 m</span>
+      <span class="cue-track" aria-hidden="true"><i></i></span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== v0.8：最終 BOSS／鏡像 BOSS UI（D/B 接線；純展示，pointer-events:none） =====
+     #bossui[data-mode="final|mirror"][data-phase="1|2|3"][data-active="beam|missile|charge|gravity"]
+     --hp / --mirror-hp：0..1；.boss-move.on 或 [data-active] 高亮；
+     .boss-segments i.on 或 data-phase 控制階段格 -->
+<div id="bossui" hidden data-visible="false" data-mode="final" data-phase="1" aria-live="polite" aria-atomic="true">
+  <div class="boss-card boss-final">
+    <div class="boss-top">
+      <span class="boss-eyebrow" data-i18n="bossui.eyebrow"></span>
+      <span class="boss-name" data-i18n="bossui.name"></span>
+      <span class="boss-phase" data-i18n="bossui.phase"></span>
+    </div>
+    <div class="boss-hp">
+      <div class="boss-hp-track"><i class="boss-hp-fill"></i></div>
+      <span class="boss-hp-text">100%</span>
+    </div>
+    <div class="boss-segments" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="boss-moves">
+      <div class="boss-move" data-move="beam"><i class="mv-icon" aria-hidden="true"></i><span class="mv-name" data-i18n="bossui.move.beam"></span></div>
+      <div class="boss-move" data-move="missile"><i class="mv-icon" aria-hidden="true"></i><span class="mv-name" data-i18n="bossui.move.missile"></span></div>
+      <div class="boss-move" data-move="charge"><i class="mv-icon" aria-hidden="true"></i><span class="mv-name" data-i18n="bossui.move.charge"></span></div>
+      <div class="boss-move" data-move="gravity"><i class="mv-icon" aria-hidden="true"></i><span class="mv-name" data-i18n="bossui.move.gravity"></span></div>
+    </div>
+    <div class="boss-warning" hidden><i class="warn-icon" aria-hidden="true"></i><span data-i18n="bossui.warning"></span></div>
+  </div>
+
+  <div class="boss-card boss-mirror">
+    <div class="boss-top">
+      <span class="boss-eyebrow" data-i18n="bossui.mirror.eyebrow"></span>
+      <span class="boss-name" data-i18n="bossui.mirror.name"></span>
+      <span class="boss-skill" data-i18n="bossui.skillPlus"></span>
+    </div>
+    <div class="boss-hp boss-hp-mirror">
+      <div class="boss-hp-track"><i class="boss-hp-fill"></i></div>
+      <span class="boss-hp-text">100%</span>
+    </div>
+    <div class="mirror-compare">
+      <div class="mc-head"><span class="mc-name"></span><span class="mc-player-label" data-i18n="bossui.player"></span><span class="mc-plus" aria-hidden="true"></span><span class="mc-mirror-label" data-i18n="bossui.mirrorLabel"></span></div>
+      <div class="mc-row" data-stat="harpoon"><span class="mc-name" data-i18n="bossui.compare.harpoon"></span><span class="mc-player">Lv1</span><span class="mc-plus">+1</span><span class="mc-mirror">Lv2</span></div>
+      <div class="mc-row" data-stat="speed"><span class="mc-name" data-i18n="bossui.compare.speed"></span><span class="mc-player">Lv1</span><span class="mc-plus">+1</span><span class="mc-mirror">Lv2</span></div>
+      <div class="mc-row" data-stat="armor"><span class="mc-name" data-i18n="bossui.compare.armor"></span><span class="mc-player">Lv1</span><span class="mc-plus">+1</span><span class="mc-mirror">Lv2</span></div>
+      <div class="mc-row" data-stat="rate"><span class="mc-name" data-i18n="bossui.compare.rate"></span><span class="mc-player">Lv1</span><span class="mc-plus">+1</span><span class="mc-mirror">Lv2</span></div>
+    </div>
+    <div class="mirror-note" data-i18n="bossui.mirror.note"></div>
+  </div>
+</div>
+
 <!-- ===== TITLE ===== -->
 <div id="title" class="screen">
   <div class="title-inner">
@@ -57,7 +127,7 @@
       <button id="btn-help" class="ghost">操作說明</button>
     </div>
     <div class="ctrl">WASD 游動 · Shift 衝刺 · 滑鼠瞄準 / 點擊發射 · B 基地 · C 裝備 · J 任務 · M 靜音</div>
-    <div class="ver">v0.7.0-alpha · BUILD 2026-11-04</div>
+    <div class="ver">v0.8.0-alpha · BUILD 2026-11-04</div>
   </div>
 </div>
 
@@ -92,15 +162,15 @@
   </div>
 </div>
 
-<script src="js/core.js?v=0.7.0"></script>
-<script src="docs/i18n/STRINGS.js?v=0.7.0"></script>
-<script src="js/fx.js?v=0.7.0"></script>
-<script src="js/base.js?v=0.7.0"></script>
-<script src="js/sea.js?v=0.7.0"></script>
-<script src="js/leviathan.js?v=0.7.0"></script>
-<script src="js/events.js?v=0.7.0"></script>
-<script src="js/space.js?v=0.7.0"></script>
-<script src="js/main.js?v=0.7.0"></script>
-<script src="js/touch.js?v=0.7.0"></script>
+<script src="js/core.js?v=0.8.0"></script>
+<script src="docs/i18n/STRINGS.js?v=0.8.0"></script>
+<script src="js/fx.js?v=0.8.0"></script>
+<script src="js/base.js?v=0.8.0"></script>
+<script src="js/sea.js?v=0.8.0"></script>
+<script src="js/leviathan.js?v=0.8.0"></script>
+<script src="js/events.js?v=0.8.0"></script>
+<script src="js/space.js?v=0.8.0"></script>
+<script src="js/main.js?v=0.8.0"></script>
+<script src="js/touch.js?v=0.8.0"></script>
 </body>
 </html>

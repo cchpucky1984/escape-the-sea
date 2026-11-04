@@ -445,13 +445,13 @@ window.I18N_DATA = {
   "event.EV09.toast":          ["深海的東西醒了——牠在找你","Something in the deep woke up — it is hunting you"], // events.js:62
 
   /* ── 教學（待接線） ── */
-  "tut.step1":                 ["跟著白色箭頭游——游過垃圾就會自動吸進背包","Follow the white arrow — swim over trash and it gets pulled into your pack"], // CONTENT-v0.5.md:97
-  "tut.step2":                 ["游回綠色安全圈（還有 {dist}）","Swim back to the green safe zone ({dist} to go)"], // CONTENT-v0.5.md:98
-  "tut.step3":                 ["面板高亮「自動收集網」；完成後「再建裝備房，才能升級魚槍」","Build an Auto Collection Net, then an Equipment Room to upgrade your harpoon"], // CONTENT-v0.5.md:99
-  "tut.step4":                 ["按 C 把魚槍升到 Lv1；鯊魚來了！瞄準、按住左鍵","Press C to upgrade the harpoon to Lv1; a shark is coming — aim and hold fire"], // CONTENT-v0.5.md:100
-  "tut.step5":                 ["建賞金終端（金屬 14・塑膠 8），按 H 接一張合約","Build a Bounty Terminal (Metal 14 · Plastic 8), press H for a contract"], // CONTENT-v0.5.md:101
-  "tut.stuck":                 ["先游回綠色安全圈，就能建造","Swim back to the green safe zone to build"], // CONTENT-v0.5.md:98
-  "tut.sharkLeave":            ["鯊魚走了——先回基地補血","The shark left — head back to base and heal up"], // CONTENT-v0.5.md:100
+  "tut.step1": ["先游回基地 — 跟著箭頭，進到綠色安全圈","Swim back to base — follow the arrow into the green safe zone"], // core.js:574
+  "tut.step2": ["按 B 建造「自動收集網」— 讓基地自己賺資源","Press B to build a Collection Net — your base earns for you"], // core.js:576
+  "tut.step3": ["按 B 建「裝備房」，再按 C 把魚槍升到 Lv1","Build the Gear Room with B, then press C to upgrade the Harpoon to Lv1"], // core.js:578
+  "tut.step4": ["按 B 建「賞金終端」（金屬 14·塑膠 8），按 H 接第一張合約","Build the Bounty Terminal (Metal 14 · Plastic 8) with B, then press H for your first contract"], // core.js:580
+  "tut.step5": ["升空門檻：魚槍 Lv3、潛水衣 Lv2、火箭研發中心（按 C 看進度）","Launch gate: Harpoon Lv3, Suit Lv2, Rocket R&D Center (press C for progress)"], // core.js:582
+  "tut.stuck": ["卡住了嗎？按 Esc 看操作說明；資源不够時 HUD 會顯示差多少","Stuck? Press Esc for controls; the HUD shows what you're missing"], // core.js:66
+  "tut.done": ["教學完成 — 接下來自由探索，J 看任務","Tutorial complete — explore freely, press J for quests"], // core.js:60
 
   /* ── 挑戰模式（待接線） ── */
   "challenge.iron.name":       ["一命深海","Iron Depths"], // CONTENT-v0.5.md:65
@@ -492,6 +492,78 @@ window.I18N_DATA = {
   "settings.langZh":           ["繁中","Traditional Chinese"], // core.js:1434
   "settings.langEn":           ["EN（soon）","EN (soon)"], // core.js:1435
   "settings.note":             ["音樂與音效可分開調整；M 可快速總靜音。英文介面與 reduce motion 完整支援會在 v0.8 完成。","Music and SFX can be adjusted separately; M toggles master mute. Full English UI and reduce-motion support arrive in v0.8."], // core.js:1438
+  /* ── v0.8 難度與最終戰（A 施工中；文案先定稿，B 落地後補行號） ── */
+  "leviathan.arc.name": ["弧光巨獸","Arc Leviathan"], // v0.8-pending
+  "leviathan.arc.tag": ["光束型","Beam type"], // v0.8-pending
+  "leviathan.arc.intro": ["牠的光會掃過整片海——看到集氣就先離開直線","Its beam sweeps the whole sea — leave the line when it charges"], // v0.8-pending
+  "leviathan.arc.move1": ["稜鏡掃射","Prism Sweep"], // v0.8-pending
+  "leviathan.arc.move2": ["集束凝視","Focus Gaze"], // v0.8-pending
+  "leviathan.arc.move3": ["過載爆閃","Overload Flash"], // v0.8-pending
+  "leviathan.arc.hint1": ["掃射是橫向的：往上下閃，不要後退","The sweep is horizontal — dodge up or down, not back"], // v0.8-pending
+  "leviathan.arc.hint2": ["被凝視鎖定時躲到巨獸側面","Break line of sight by moving to its flank"], // v0.8-pending
+  "leviathan.missile.name": ["蜂巢巨獸","Hive Leviathan"], // v0.8-pending
+  "leviathan.missile.tag": ["導彈型","Missile type"], // v0.8-pending
+  "leviathan.missile.intro": ["牠的背會打開，一次放出整群追蹤彈","Its back opens and releases a swarm of seekers"], // v0.8-pending
+  "leviathan.missile.move1": ["飛彈巢","Missile Nest"], // v0.8-pending
+  "leviathan.missile.move2": ["追跡齊射","Seeker Volley"], // v0.8-pending
+  "leviathan.missile.move3": ["誘餌分裂","Decoy Split"], // v0.8-pending
+  "leviathan.missile.hint1": ["追蹤彈會轉彎——繞著牠跑，不要直線後退","Seekers turn — circle it instead of backing away"], // v0.8-pending
+  "leviathan.missile.hint2": ["齊射前會有蜂鳴聲，聽到就衝刺","Listen for the buzz before a volley, then sprint"], // v0.8-pending
+  "leviathan.ram.name": ["鐵顎巨獸","Maw Leviathan"], // v0.8-pending
+  "leviathan.ram.tag": ["衝撞型","Charger type"], // v0.8-pending
+  "leviathan.ram.intro": ["牠只看得到直線上的獵物——但那一條線很寬","It only sees prey in a straight line — a very wide one"], // v0.8-pending
+  "leviathan.ram.move1": ["破浪衝撞","Breach Charge"], // v0.8-pending
+  "leviathan.ram.move2": ["尾掃","Tail Sweep"], // v0.8-pending
+  "leviathan.ram.move3": ["蓄勢怒吼","Gathering Roar"], // v0.8-pending
+  "leviathan.ram.hint1": ["衝撞撞到礁石會停——引牠去撞","It stops if it hits rock — bait it into one"], // v0.8-pending
+  "leviathan.ram.hint2": ["尾掃是近身 360°：貼身時先退一步","Tail Sweep is 360° up close — step back before it lands"], // v0.8-pending
+  "leviathan.current.name": ["漩渦巨獸","Maelstrom Leviathan"], // v0.8-pending
+  "leviathan.current.tag": ["洋流型","Current type"], // v0.8-pending
+  "leviathan.current.intro": ["牠不追你，牠讓海追你","It doesn't chase you — it makes the sea do it"], // v0.8-pending
+  "leviathan.current.move1": ["逆流漩渦","Undertow"], // v0.8-pending
+  "leviathan.current.move2": ["離心拉扯","Rip Current"], // v0.8-pending
+  "leviathan.current.move3": ["潮汐重壓","Tidal Crush"], // v0.8-pending
+  "leviathan.current.hint1": ["被拉向漩渦時往外游，不要順著流","Swim outward against the pull — don't ride it"], // v0.8-pending
+  "leviathan.current.hint2": ["重壓前水面會變平——那是最後一秒","The surface flattens before the crush — that's your last second"], // v0.8-pending
+  "bullet.fast.name": ["快彈","Fast Shot"], // v0.8-pending
+  "bullet.fast.hint": ["直線很快，靠橫向位移閃","Straight and fast — dodge sideways"], // v0.8-pending
+  "bullet.slow.name": ["慢彈","Slow Shot"], // v0.8-pending
+  "bullet.slow.hint": ["慢但會留在場上，別走進舊彈幕","Slow but lingers — don't walk into old shots"], // v0.8-pending
+  "bullet.seeker.name": ["追蹤彈","Seeker"], // v0.8-pending
+  "bullet.seeker.hint": ["會轉彎，繞圈或衝刺拉開","It turns — circle or sprint to break it"], // v0.8-pending
+  "bullet.laser.name": ["雷射","Laser"], // v0.8-pending
+  "bullet.laser.hint": ["亮線先出現，看到線就離開","The line shows first — leave it before impact"], // v0.8-pending
+  "dockcue.target": ["目標：機庫入口，按住 W 衝進去","Objective: Hangar entrance — hold W to breach"], // v0.8-pending
+  "dockcue.holdW": ["按住 W 前進；母船引力會把你往後拉","Hold W to advance; the mothership's gravity pulls you back"], // v0.8-pending
+  "dockcue.distance": ["距離機庫 {n} m","{n} m to the hangar"], // v0.8-pending
+  "dockcue.ready": ["對準入口——現在衝","Lined up — breach now"], // v0.8-pending
+  "dockcue.fail": ["被擊落——回基地修理，再試一次","Shot down — return to base, repair, try again"], // v0.8-pending
+  "wave.add": ["第 {n} 波 — 守軍增援","Wave {n} — reinforcements"], // v0.8-pending
+  "wave.elite": ["精英守軍出現","Elite guards incoming"], // v0.8-pending
+  "wave.coreGuard": ["核心守軍：全部擋在核心前","Core guard — everything between you and the core"], // v0.8-pending
+  "wave.escape": ["逃脫階段：核心不穩，快走","Escape phase — core unstable, move"], // v0.8-pending
+  "boss.move.beam": ["核心光束","Core Beam"], // v0.8-pending
+  "boss.move.missile": ["導彈雨","Missile Rain"], // v0.8-pending
+  "boss.move.charge": ["衝撞","Charge"], // v0.8-pending
+  "boss.move.gravity": ["重力井","Gravity Well"], // v0.8-pending
+  "boss.warn.beam": ["光束集氣——離開直線","Beam charging — get off the line"], // v0.8-pending
+  "boss.warn.missile": ["導彈雨——找空隙","Missile rain — find a gap"], // v0.8-pending
+  "boss.warn.charge": ["衝撞——側閃","Charge — sidestep"], // v0.8-pending
+  "boss.warn.gravity": ["重力井——往外游","Gravity well — swim out"], // v0.8-pending
+  "boss.phase2": ["核心外殼破裂——攻擊更快","Core shell cracked — attacks speed up"], // v0.8-pending
+  "boss.phase3": ["核心過載——最後一波","Core overload — final wave"], // v0.8-pending
+  "mirror.name": ["鏡像核心","Mirror Core"], // v0.8-pending
+  "mirror.tag": ["逃脫階段 BOSS","Escape-phase boss"], // v0.8-pending
+  "mirror.intro1": ["「你以為逃得掉？我就是你留下的東西。」","\"You thought you could escape? I am what you left behind.\""], // v0.8-pending
+  "mirror.intro2": ["「你的每一步，我都會做得更好一點。」","\"Every move you make, I make one step better.\""], // v0.8-pending
+  "mirror.skillPlus": ["鏡像技能 +1：你的魚槍 Lv{n} → 它的 Lv{n+1}","Mirror skill +1: your Harpoon Lv{n} → its Lv{n+1}"], // v0.8-pending
+  "mirror.hint": ["它複製你的裝備，但永遠高一級——用走位補差距","It copies your gear, always one level ahead — out-position it"], // v0.8-pending
+  "mirror.phase2": ["鏡像加速——注意殘影","It accelerates — watch the afterimages"], // v0.8-pending
+  "mirror.winTitle": ["帳算清了","The score is settled"], // v0.8-pending
+  "mirror.win": ["你打贏了自己——逃生艙脫離母船","You beat yourself — the pod clears the mothership"], // v0.8-pending
+  "mirror.loseTitle": ["你被自己的鏡像擊落","Shot down by your own mirror"], // v0.8-pending
+  "mirror.lose": ["這次是它先算清你的帳","This time it settled your score first"], // v0.8-pending
+
 };
 
 /* ── 動態模板（含數字／名稱的句子） ─────────────────────────
@@ -511,7 +583,6 @@ window.I18N_TEMPLATES = {
   "ngplus":           ["NG+{n}", "NG+{n}"],
   "score":            ["分數 {n}", "Score {n}"],
   "best":             ["最佳 {n}", "Best {n}"],
-  "ach.unlocked":     ["成就解鎖：{name}", "Achievement unlocked: {name}"],
   "shard.progress":   ["科技碎片 {n}/4", "Tech Shards {n}/4"],
   "wave":             ["第 {n} 波", "Wave {n}"],
   "guardian.alert":   ["最近巨獸：{dir} {dist}", "Nearest Leviathan: {dir} {dist}"],

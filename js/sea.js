@@ -11,15 +11,15 @@ const sea = {
   pickups: [], hazards: [], bullets: [], ebullets: [], floats: [], parts: [], beams: [],
   specks: [], fish: [], bots: [], shieldHits: [], bosses: [],
   t: 0, spawnT: 0, hazT: 6, baseT: 0, tick: 0, shake: 0,
-  dead: false, safeT: 0, wasSafe: false
+  hazSpawned: 0, dead: false, safeT: 0, wasSafe: false
 };
 
-/* 距離基地越遠 → 資源越豐富、怪物越多越兇 */
+/* 距離基地越遠 → 資源越豐富、怪物越多越兇（v0.8 密度見 DIFFICULTY §1） */
 function seaZone(d) {
-  if (d < 800)  return { id: 0, name: '近海', mult: 1,   hazCap: 2, aggr: 1,    color: '#8ee6a4', tip: '資源 ×1 · 威脅低' };
-  if (d < 1600) return { id: 1, name: '外海', mult: 1.3, hazCap: 4, aggr: 1.12, color: '#6fe3ff', tip: '資源 ×1.3 · 威脅中' };
-  if (d < 2600) return { id: 2, name: '深海', mult: 1.6, hazCap: 6, aggr: 1.26, color: '#ffd166', tip: '資源 ×1.6 · 威脅高' };
-  return { id: 3, name: '遠洋', mult: 2.0, hazCap: 8, aggr: 1.42, color: '#ff9aa8', tip: '資源 ×2 · 極度危險' };
+  if (d < 800)  return { id: 0, name: '近海', mult: 1,   hazCap: 3,  aggr: 1,    color: '#8ee6a4', tip: '資源 ×1 · 威脅低', spawnMin: 4.2, spawnMax: 5.8, comp: [0.50, 0.75] };
+  if (d < 1600) return { id: 1, name: '外海', mult: 1.3, hazCap: 6,  aggr: 1.12, color: '#6fe3ff', tip: '資源 ×1.3 · 威脅中', spawnMin: 3.6, spawnMax: 5.0, comp: [0.45, 0.75] };
+  if (d < 2600) return { id: 2, name: '深海', mult: 1.6, hazCap: 10, aggr: 1.26, color: '#ffd166', tip: '資源 ×1.6 · 威脅高', spawnMin: 1.5, spawnMax: 2.1, comp: [0.40, 0.80] };
+  return { id: 3, name: '遠洋', mult: 2.0, hazCap: 12, aggr: 1.42, color: '#ff9aa8', tip: '資源 ×2 · 極度危險', spawnMin: 1.1, spawnMax: 1.6, comp: [0.35, 0.80] };
 }
 
 const BOSS_SPOTS = [
@@ -47,6 +47,7 @@ function initSea(fresh) {
   sea.floats = []; sea.beams = []; sea.shieldHits = [];
   sea.bots = []; sea.fish = [];
   sea.t = 0; sea.spawnT = 0; sea.hazT = 8; sea.baseT = 0; sea.tick = 0;
+  sea.hazSpawned = 0;
   sea.shake = 0; sea.dead = false;
   sea.cam.x = P.x - VW / 2; sea.cam.y = P.y - VH / 2;
   sea.specks = [];
@@ -90,8 +91,10 @@ function spawnPickup(initial) {
 function spawnHazard() {
   const P = sea.player;
   const a = rnd(0, Math.PI * 2), d = rnd(520, 920);
+  const Z = seaZone(Math.hypot(P.x, P.y));
+  const comp = Z.comp || [0.50, 0.85];
   const r = Math.random();
-  const type = r < 0.50 ? 'shark' : r < 0.85 ? 'drone' : 'jelly';
+  const type = r < comp[0] ? 'shark' : r < comp[1] ? 'drone' : 'jelly';
   let x = P.x + Math.cos(a) * d, y = P.y + Math.sin(a) * d;
   /* 不要生在安全圈內 */
   const R = baseRadius();
@@ -99,12 +102,22 @@ function spawnHazard() {
     const b = Math.atan2(y, x);
     x = Math.cos(b) * (R + 120); y = Math.sin(b) * (R + 120);
   }
-  const Z = seaZone(Math.hypot(P.x, P.y));
   const hp = Math.round((type === 'shark' ? 3 : 2) * (1 + Z.id * 0.35));
   sea.hazards.push({
     type, x, y, hp, maxhp: hp, aggr: Z.aggr, dmgMul: 1 + Z.id * 0.14,
+    homing: type === 'shark' && Z.id === 1 && Math.random() < 0.15,
+    shootT: rnd(1.5, 3.5),
     t: rnd(0, 6), cool: rnd(1, 2.4), ang: 0, r: type === 'shark' ? 20 : 17, alive: true, hit: 0, flee: 0, empT: 0
   });
+  sea.hazSpawned = (sea.hazSpawned || 0) + 1;
+}
+
+/* v0.8 海面敵彈：fast／slow／homing 共用一個推入器，同屏上限 120 */
+function pushEBullet(o) {
+  if (sea.ebullets.length >= 120) return false;
+  if (o.homing && sea.ebullets.filter(b => b.homing).length >= 8) return false;
+  sea.ebullets.push(o);
+  return true;
 }
 
 /* ---------- helpers ---------- */
@@ -272,10 +285,22 @@ function shootSea() {
   if (P.cool > 0 || sea.dead) return;
   P.cool = S.fireRate;
   const ang = Math.atan2(sea.aim.y - P.y, sea.aim.x - P.x);
+  /* §4 輕微吸附：1.2° 內最近敵人 */
+  let aim = ang;
+  let best = null, bestD = 1e9;
+  for (const h of sea.hazards) {
+    if (!h.alive) continue;
+    const dx = h.x - P.x, dy = h.y - P.y, dd = Math.hypot(dx, dy);
+    if (dd > 900) continue;
+    let da = Math.atan2(dy, dx) - ang;
+    da = ((da + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    if (Math.abs(da) <= 1.2 * Math.PI / 180 && dd < bestD) { bestD = dd; best = ang + da; }
+  }
+  if (best !== null) aim = best;
   const mods = bulletMods();
   sea.bullets.push({
-    x: P.x + Math.cos(ang) * 18, y: P.y + Math.sin(ang) * 18,
-    vx: Math.cos(ang) * 800, vy: Math.sin(ang) * 800, life: 0.85, dmg: S.dmg, ang, alive: true,
+    x: P.x + Math.cos(aim) * 18, y: P.y + Math.sin(aim) * 18,
+    vx: Math.cos(aim) * 800, vy: Math.sin(aim) * 800, life: 0.85, dmg: S.dmg, ang: aim, alive: true,
     pierce: !!mods.pierce, blast: !!mods.blast, emp: !!mods.emp, hits: 0
   });
   sfx('shoot');
@@ -537,7 +562,7 @@ function updateSea(dt) {
   const hazLimit = nearBoss ? 2 : Z.hazCap;
   if (sea.hazT <= 0 && sea.hazards.length < hazLimit) {
     spawnHazard();
-    sea.hazT = rnd(3.2, 7.5) / Z.aggr;
+    sea.hazT = rnd(Z.spawnMin, Z.spawnMax) / Z.aggr;
   }
 
   for (const h of sea.hazards) {
@@ -581,6 +606,16 @@ function updateSea(dt) {
       h.y += Math.sin(ang) * sp * dt;
       h.ang = lerpAngle(h.ang || ang, ang, 1 - Math.exp(-5 * dt));
       if (d < 30) hurtPlayer(Math.max(1, Math.round(2 * dm)));
+      /* 外海 shark 群偶爾追蹤彈（≤15%） */
+      if (h.homing) {
+        h.shootT -= dt;
+        if (h.shootT <= 0 && d < 700) {
+          h.shootT = rnd(3.0, 5.0) / aggr;
+          const spd = rnd(210, 250);
+          pushEBullet({ x: h.x, y: h.y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 4.5, r: 7, dmg: 4, type: 'homing', speed: spd, homing: true, turn: rnd(1.8, 2.6), alive: true });
+          tone(320, 0.16, 'triangle', 0.07, 180);
+        }
+      }
       if (Math.random() < 0.4) burst(h.x - Math.cos(h.ang) * 16, h.y - Math.sin(h.ang) * 16, 1, '#bfe9ff', 40);
     } else if (h.type === 'drone') {
       const want = 330;
@@ -590,7 +625,8 @@ function updateSea(dt) {
       h.cool -= dt;
       if (h.cool <= 0 && d < 760) {
         h.cool = 2.3 / aggr;
-        sea.ebullets.push({ x: h.x, y: h.y, vx: Math.cos(ang) * 210 * aggr, vy: Math.sin(ang) * 210 * aggr, life: 4, r: 6, dmg: 1, alive: true });
+        const spd = rnd(480, 520);   /* v0.8 fast */
+        pushEBullet({ x: h.x, y: h.y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 3, r: 6, dmg: 4, type: 'fast', speed: spd, alive: true });
         tone(240, 0.12, 'sawtooth', 0.08, 120);
       }
       if (d < 42) hurtPlayer(Math.max(1, Math.round(1 * dm)));
@@ -598,6 +634,13 @@ function updateSea(dt) {
       const c = currentAt(h.x, h.y, sea.t);
       h.x += Math.cos(h.t * 0.7) * 12 * dt + c.x * 0.6 * dt;
       h.y += Math.sin(h.t * 0.95) * 12 * dt + c.y * 0.6 * dt;
+      h.cool -= dt;
+      if (h.cool <= 0 && d < 720) {
+        h.cool = rnd(3.2, 4.6) / aggr;
+        const spd = rnd(140, 180);   /* v0.8 slow */
+        pushEBullet({ x: h.x, y: h.y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 6, r: 9, dmg: 6, type: 'slow', speed: spd, alive: true });
+        tone(120, 0.25, 'sine', 0.06, 60);
+      }
       if (d < 34) hurtPlayer(Math.max(1, Math.round(1 * dm)));
     }
     if (d > 1600) h.alive = false;
@@ -621,7 +664,7 @@ function updateSea(dt) {
         b.cool = 2.5;
         for (let i = 0; i < 8; i++) {
           const a2 = b.t * 0.6 + i / 8 * Math.PI * 2;
-          sea.ebullets.push({ x: b.x, y: b.y, vx: Math.cos(a2) * 165, vy: Math.sin(a2) * 165, life: 4.5, r: 7, dmg: 1, alive: true });
+          pushEBullet({ x: b.x, y: b.y, vx: Math.cos(a2) * 165, vy: Math.sin(a2) * 165, life: 4.5, r: 7, dmg: 1, alive: true });
         }
         tone(110, 0.3, 'sawtooth', 0.12, 50);
       }
@@ -638,7 +681,7 @@ function updateSea(dt) {
     for (const h of sea.hazards) {
       if (!h.alive) continue;
       if (b.hitList && b.hitList.indexOf(h) >= 0) continue;
-      if (Math.hypot(h.x - b.x, h.y - b.y) < h.r + 6) {
+      if (Math.hypot(h.x - b.x, h.y - b.y) < h.r + 11) {
         const hits = b.hits || 0;
         const mul = b.pierce ? [1, 0.85, 0.72][Math.min(2, hits)] : 1;
         damageHazard(h, Math.max(1, Math.round(b.dmg * mul)), false);
@@ -671,6 +714,16 @@ function updateSea(dt) {
   /* enemy bullets — 安全圈會吸收 */
   for (const b of sea.ebullets) {
     if (!b.alive) continue;
+    if (b.homing) {
+      const cur = Math.atan2(b.vy, b.vx);
+      const want = Math.atan2(P.y - b.y, P.x - b.x);
+      let da = ((want - cur + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      const turn = (b.turn || 2.0) * dt;
+      da = clamp(da, -turn, turn);
+      const sp = Math.hypot(b.vx, b.vy);
+      b.vx = Math.cos(cur + da) * sp;
+      b.vy = Math.sin(cur + da) * sp;
+    }
     b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
     if (b.life <= 0) { b.alive = false; continue; }
     const bb = Math.hypot(b.x, b.y);
@@ -854,7 +907,8 @@ function drawSea() {
     ctx.stroke();
   }
   for (const b of sea.ebullets) {
-    ctx.fillStyle = 'rgba(255,120,140,.9)';
+    const col = b.type === 'fast' ? 'rgba(160,240,255,.95)' : b.type === 'slow' ? 'rgba(255,150,80,.95)' : b.type === 'homing' ? 'rgba(255,90,100,.95)' : 'rgba(255,120,140,.9)';
+    ctx.fillStyle = col;
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
     ctx.fillStyle = 'rgba(255,200,210,.3)';
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 2.2, 0, 7); ctx.fill();
