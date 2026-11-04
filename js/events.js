@@ -7,7 +7,7 @@
      window.SEA_EVENTS = { reset(), update(dt), draw(ctx), active: [], rift }
      - active：陣列，最多 1 筆 { id, name, radarColor, t, dur, x, y, data, claimed }
      - rift：getter，沒有裂縫時 null；有裂縫時
-       { x, y, r:260, t, dur:50, spawnMul:3, dropMul:1.5, limitBonus:2, hazAdd:2, aggrMul:1.2,
+       { x, y, r:260, t, dur:50, spawnMul:3, dropMul:1.5, hazAdd:2, aggrMul:1.2,
          radarColor:'#b892ff', core:{ hp:30, maxhp:30, hit, alive }, alive:true }
    B 在 sea.js 掛 3 行（本檔不改 sea.js）：
      initSea 尾端       if (window.SEA_EVENTS) SEA_EVENTS.reset();
@@ -70,7 +70,7 @@
   var RIFT = {
     interval: 180, dur: 50, r: 260, coreHp: 30,
     alloy: 8, modChance: 0.4,
-    spawnMul: 3, dropMul: 1.5, limitBonus: 2, aggrMul: 1.2,
+    spawnMul: 3, dropMul: 1.5, hazAdd: 2, aggrMul: 1.2,
     spawnMin: 1200, spawnMax: 3000, radarColor: '#b892ff'
   };
 
@@ -373,7 +373,7 @@
       x: x, y: y, r: RIFT.r, t: 0, dur: RIFT.dur, alive: true,
       /* 效期參數一併曝露，QA／其他系統可直接讀 SEA_EVENTS.rift.spawnMul 等 */
       spawnMul: RIFT.spawnMul, dropMul: RIFT.dropMul,
-      limitBonus: RIFT.limitBonus, hazAdd: RIFT.limitBonus, aggrMul: RIFT.aggrMul,
+      hazAdd: RIFT.hazAdd, aggrMul: RIFT.aggrMul,
       radarColor: RIFT.radarColor,
       core: { x: x, y: y, hp: RIFT.coreHp, maxhp: RIFT.coreHp, hit: 0, alive: true },
       acc: 0, spawnT: 0
@@ -495,7 +495,7 @@
     if (d < r.r && r.spawnT <= 0 && Array.isArray(sea.hazards)) {
       var mine = 0;
       for (var k = 0; k < sea.hazards.length; k++) if (sea.hazards[k].alive && sea.hazards[k].rift) mine++;
-      if (mine < RIFT.limitBonus) { spawnRiftHazard(r); r.spawnT = 6; }
+      if (mine < RIFT.hazAdd) { spawnRiftHazard(r); r.spawnT = 6; }
     }
     /* 掉落 ×1.5 以 data 形式提供給其他系統讀（B 可選用） */
     if (r.t >= r.dur) closeRift(false);

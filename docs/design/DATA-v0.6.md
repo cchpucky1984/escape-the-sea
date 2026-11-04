@@ -4,6 +4,7 @@
 > 用法：每節都是**可直接貼進程式的資料塊**；[貼到] 標明檔案與位置。本檔不進 `js/`，只定資料。
 > 現況介面（2026-11-04 22:50 實查）：`game.stats` 已有 `collected/kills/time/deaths/launched/won/botCollected/built/bosses/sharkKills/droneKills/jellyKills/plasticCollected/deepSeconds/leviathanKills/rifts`（`core.js:273-283`）；`game.mods`、`game.bounty.done`、`game.tech`、`game.up` 已存在；`game.ach`、`game.ng`、`sea.ev` **尚未存在**（本檔定義）。
 > **實作狀態（2026-11-04 23:10 核對 B/D 的落地）**：§1 ACH 24 已落地（`core.js:444` `checkAch()`；呼叫點 `:1489` scene guard 前、`:1549` 結算前；`game.ach`／`game.ng` 有 default 與 migrate 白名單、`ng` 夾 0–9）。§2 EVENTS／RIFT 由 **D 的 `js/events.js`** 實作（`window.SEA_EVENTS`；`sea.js` 只加 reset/update/draw 掛鉤與雷達讀取），欄位對照見 §2 末。§3 CHALLENGES／§4 NG_MUL **本輪未實作**（B 的 task-19 沒要求），資料留 v0.7。
+> **23:55 複驗（A 獨立跑 headless Chrome 9301）**：`__T.ACH.length=24`；`__T.SEA_EVENTS.defs` 8 筆（EV01/02/03/04/06/07/08/09）、`weight` 總和 **100**；`Object.keys(SEA_EVENTS)` 仍是 5 個正式 key（`defs`／`spawn` 非 enumerable）、`spawn('EV02')` 生效（`active`＝洋流暴衝、`radarColor #6fe3ff`）；裂縫 `spawnMul:3`／`aggrMul:1.2` 已在 `events.js:69` 並套用（`:431`、`:474`）；`pageErrors` none。
 ## 0. 要新增的狀態（三處）
 [貼到 `core.js`，`const game = {...}`（`:286-301`）內]：`ach: []`、`ng: 0`。
 [貼到 `core.js`，`defaultStats()` 之後]：`function defaultAch() { return []; }`（舊檔由 `loadGame` 補 `game.ach = Array.isArray(s.ach) ? s.ach.filter(x => ACH.some(a => a.id === x)) : [];`，不改 `SAVE_VER`）。
@@ -153,9 +154,9 @@ function ngMul(k) { return 1 + (NG_MUL[k] || 0) * (game.ng || 0); }
 2. 逐條注入條件 → 解鎖一次、`toast` 一次、`game.ach` 增加；重載後保留且不重複 toast。
 3. 6 個 `hidden` 成就未解鎖時 J 面板顯示「??? 隱藏成就」；其餘顯示「未達成」。
 4. `game.cheat===true` 時，`type:'challenge'` 的 8 條不得解鎖。
-5. `__T.SEA_EVENTS.active` 是陣列、`__T.SEA_EVENTS.rift` 可讀；8 事件與 `weight` 總和 100 用「`events.js` 的 `EVENTS` 表＋§2.2 對照」人工核對（無對外 API；若 D 之後加 `SEA_EVENTS.defs` 就改用它）。事件注入目前沒有 API，改用自然觸發驗 `interval/cooldown/maxPerRun`（首次 180 秒、之後每 100 秒、冷卻 30 秒、同一事件 ≤3 次、同時 ≤1 個）。
-6. 每個事件都要有可見表現（粒子/光暈/flash 任一），不能只有 toast；HUD 若沒有 `radarColor` 事件列，至少要有「事件名＋倒數」。
-7. 裂縫：`firstAt` 後每 180±5 秒出現（`__T.SEA_EVENTS.rift`）、`dur` 準時關閉、核心打爆 → `stats.rifts+1`、合金 +8；同時最多 1 個；裂縫內生成率 ×3 與 aggr ×1.2 已列 §2.2 缺口。
+5. `__T.SEA_EVENTS.defs` 共 8 筆且 `weight` 總和 100（直接算，不用人工核對）；`__T.SEA_EVENTS.spawn(id)` 逐個注入 → `active` 同時 ≤1、`dur` 到齊自動結束；自然觸發驗 `interval/cooldown/maxPerRun`（首次 180 秒、之後每 100 秒、冷卻 30 秒、同一事件 ≤3 次）。
+6. 每個事件都有可見表現：相機內「事件名＋倒數」膠囊（`radarColor` 上色）＋至少一個粒子/flash；`__T.SEA_EVENTS.active[0].radarColor` 可讀。
+7. 裂縫：`firstAt` 後每 180±5 秒出現（`__T.SEA_EVENTS.rift` 可讀 `spawnMul/dropMul/limitBonus/aggrMul/radarColor`）、`dur` 準時關閉、核心打爆 → `stats.rifts+1`、合金 +8；同時最多 1 個；生成 ×3 與 aggr ×1.2 已於 2026-11-04 23:55 複驗。
 8. NG+：通關 → 可進下一輪、`ng=1`、敵人 HP ×1.25；`game.ach` 保留；`ng` 到 9 不溢出；存讀檔含 `ng`。
 9. `_dev/balance.mjs` 產出 3 份 json，§5 門檻全過或列出差距（Lead 可拿這份當 gate）。
 10. 回歸：`_dev/qa.mjs` 全綠、`pageErrors=0`、`_dev/fixtures` 的 v1/v2 存檔可載入且 `ach/ng` 有 default。
