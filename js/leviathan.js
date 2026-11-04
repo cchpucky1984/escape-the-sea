@@ -105,13 +105,23 @@
   function seaT() { return hasSea() ? sea.t : 0; }
 
   /* ---------------- 2. 建立 / 重置 ---------------- */
+  function ngMulL() {
+    /* v0.9：優先用 B 的 ngMul('leviHp')；否則用 DATA-v0.9 同係數（+30%/ng） */
+    if (typeof window.ngMul === 'function') {
+      try { var v = window.ngMul('leviHp'); if (typeof v === 'number' && v > 0) return v; } catch (e) { }
+      try { var v2 = window.ngMul(); if (typeof v2 === 'number' && v2 > 0) return v2; } catch (e) { }
+    }
+    var ng = (typeof game !== 'undefined' && game && typeof game.ng === 'number') ? game.ng : 0;
+    return 1 + 0.30 * ng;
+  }
   function makeL(spot) {
     var mode = spot.mode || MODE_OF[spot.id] || 'beam';
+    var hp = Math.round(MAX_HP * ngMulL());   /* v0.9 NG+：巨獸 HP ×ngMul */
     return {
       id: spot.id, name: spot.name,
       homeX: spot.x, homeY: spot.y,
       x: spot.x, y: spot.y,
-      hp: MAX_HP, maxhp: MAX_HP, r: 60,
+      hp: hp, maxhp: hp, r: 60,
       alive: true, active: false,
       t: rndf(0, 6.3), ang: rndf(0, 6.3), hit: 0, coreHit: 0,
       phase: 1,

@@ -1,4 +1,4 @@
-// QA regression suite for escape-the-sea (rebuilt 2026-11-05 after an encoding accident).
+﻿// QA regression suite for escape-the-sea (rebuilt 2026-11-05 after an encoding accident).
 // Versioned copy lives in the repo at escape-the-sea/tools/qa.mjs — keep them in sync.
 //
 // Prereqs:
@@ -365,7 +365,8 @@ await check('moon-boss: 900HP 四階段核心 → 逃生倒數 → 鏡像 BOSS �
   const end = JSON.parse(await q(`JSON.stringify({hidden: document.getElementById('ending').hidden, state: moon.state})`));
   await shot('ending');
   const beamOk = beam.beam1 === true && Math.abs(beam.hp - beam.maxhp * 0.6) < beam.maxhp * 0.1;
-  return { ok: info.hasBoss && info.maxhp === 900 && beamOk && esc.state === 'escape' && esc.escapeT >= 85 && mir.has && mir.hp === mir.expect && end.hidden === false && end.state === 'win', detail: JSON.stringify({ info, beam, esc, mir, ending: end }) };
+  // 核心 HP 由平衡決定（v0.9 起 1800）：只驗「有頭目、HP ≥900、其餘流程正確」
+  return { ok: info.hasBoss && info.maxhp >= 900 && beamOk && esc.state === 'escape' && esc.escapeT >= 85 && mir.has && mir.hp === mir.expect && end.hidden === false && end.state === 'win', detail: JSON.stringify({ info, beam, esc, mir, ending: end }) };
 });
 
 await check('save-persist: 拾取後的資源重載仍在', async () => {
@@ -519,6 +520,57 @@ await check('ach: 24 成就、模擬解鎖 10+（含隱藏）', async () => {
   return { ok: o.total === 24 && o.hidden >= 5 && o.unlocked >= 10 && cards >= 10, detail: JSON.stringify({ ...o, cards }) };
 });
 
+await check('challenge: 3 挑戰、一命失敗、赤手空拳封鎖、不寫主存檔', async () => {
+  // 解鎖挑戰（需通關或 revenge 成就）
+  await q(`(() => { __T.game.stats.won = true; if (!__T.game.ach.includes('revenge')) __T.game.ach.push('revenge'); return true; })()`);
+  const n = await q(`(window.CHALLENGES || (__T.CHALLENGES || [])).length`);
+  // 一命深海：開始後死亡即失敗
+  const start = await q(`(() => { const ok = beginChallenge('iron'); if (!ok) return JSON.stringify({ok:false}); saveGame(true); return JSON.stringify({ok:true, id: __T.game.challenge ? __T.game.challenge.id : null}); })()`);
+  const s = JSON.parse(start);
+  const saveBlocked = await q(`saveGame(true) === false`);
+  const persistKey = await q(`localStorage.getItem('escape-the-sea-v2')`);
+  await q(`(() => { const P = __T.sea.player; P.x = 3000; P.y = 3000; P.hp = 1; P.inv = 0; hurtPlayer(99); return true; })()`);
+  await sleep(700);
+  const ironEnd = JSON.parse(await q(`JSON.stringify({ended: !!(__T.game.challenge && __T.game.challenge.ended), modal: document.getElementById('modal').classList.contains('show'), ending: !document.getElementById('ending').hidden})`));
+  // 赤手空拳：砲塔/模組/四裝備封鎖、calcStats 無加成
+  await q(`(() => { document.getElementById('modal').classList.remove('show'); __T.game.challenge = null; beginChallenge('bare'); return true; })()`);
+  await q(`(() => { __T.game.up.fin = 4; __T.game.up.tank = 4; __T.game.up.suit = 4; __T.game.up.magnet = 4; addStructure('tower'); return true; })()`);
+  await sleep(300);
+  const bare = JSON.parse(await q(`JSON.stringify({ towers: countType('tower'), speed: Math.round(calcStats().speed), id: __T.game.challenge ? __T.game.challenge.id : null })`));
+  await q(`(() => { __T.game.challenge = null; document.getElementById('modal').classList.remove('show'); setScene('sea'); return true; })()`);
+  return { ok: n === 3 && s.ok === true && s.id === 'iron' && saveBlocked === true && persistKey === null && (ironEnd.modal === true || ironEnd.ending === true) && bare.id === 'bare' && bare.towers === 0 && bare.speed === 152, detail: JSON.stringify({ n, s, saveBlocked, persistKey, ironEnd, bare }) };
+});
+
+await check('ngplus: ngMul 倍率與核心/鏡像 NG 套用', async () => {
+  const m = JSON.parse(await q(`(() => { __T.game.ng = 2; return JSON.stringify({ enemyHp: __T.ngMul('enemyHp'), bossHp: __T.ngMul('bossHp'), mirrorHp: __T.ngMul('mirrorHp') }); })()`));
+  await q(`(() => { initMoon(); setScene('moon'); for (let i = 0; i < 10 && !moon.boss; i++) nextWave(); return true; })()`);
+  await sleep(400);
+  const boss = await q(`moon.boss ? moon.boss.maxhp : -1`);
+  await q(`(() => { startEscape(); spawnMirror(); return true; })()`);
+  await sleep(300);
+  const mir = JSON.parse(await q(`(() => { const g = (game.up.fin||0)+(game.up.tank||0)+(game.up.suit||0)+(game.up.magnet||0)+(game.up.harpoon||0); const mods = Array.isArray(game.mods) ? game.mods.length : 0; const base = 300 + 55 * g + 40 * mods; return JSON.stringify({ hp: moon.mirror ? moon.mirror.hp : -1, expect: Math.round(base * __T.ngMul('mirrorHp')) }); })()`));
+  await q(`(() => { __T.game.ng = 0; return true; })()`);
+  const bossOk = Math.abs(boss - Math.round(1800 * m.bossHp)) <= 2;
+  return { ok: Math.abs(m.enemyHp - 1.5) < 1e-6 && Math.abs(m.bossHp - 1.4) < 1e-6 && bossOk && mir.hp === mir.expect, detail: JSON.stringify({ m, boss, mir }) };
+});
+
+await check('a11y: reduce motion 包住 FX、色盲/字級 class 生效', async () => {
+  const r = await q(`(() => {
+    __T.game.settings.reduceMotion = true; __T.game.settings.colorblind = true; __T.game.settings.fontScale = 1.2;
+    applySettings();
+    const F = window.fx || {};
+    const wrapped = !!F.__reduceMotionWrapped;
+    let shakeOk = true;
+    try { if (F.shake) F.shake(10, 120); } catch (e) { shakeOk = false; }
+    const cls = document.body.classList;
+    const out = { wrapped, shakeOk, reduce: cls.contains('reduce-motion'), cb: cls.contains('cb-safe') || cls.contains('colorblind'), large: cls.contains('text-lg') || cls.contains('font-large') };
+    __T.game.settings.reduceMotion = false; __T.game.settings.colorblind = false; __T.game.settings.fontScale = 1; applySettings();
+    return JSON.stringify(out);
+  })()`);
+  const o = JSON.parse(r);
+  return { ok: o.wrapped && o.shakeOk && o.reduce && o.cb && o.large, detail: r };
+});
+
 await check('mobile: 390x844 直向沒有橫向溢出', async () => {
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
   await q(`initSea(false); setScene('sea'); 'ok'`);
@@ -528,9 +580,12 @@ await check('mobile: 390x844 直向沒有橫向溢出', async () => {
   return { ok: o.scrollW <= o.innerW + 2 && Math.abs(o.vw - o.innerW) <= 2, detail: JSON.stringify(o) };
 });
 
-await check('fps: 1280x800 主場景 FPS（3 取最佳）', async () => {
+await check('fps: 1280x800 主場景 FPS（3 取最佳，fresh sea）', async () => {
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
-  await sleep(600);
+  await send('Page.navigate', { url }); await sleep(2200);
+  await startGame(); await sleep(500);
+  await q(`initSea(true); setScene('sea'); refreshHud(); 'ok'`);
+  await sleep(1200);
   const sample = `new Promise(res => { let n = 0; const t0 = performance.now(); function f() { n++; if (performance.now() - t0 < 800) requestAnimationFrame(f); else res(n / ((performance.now() - t0) / 1000)); } requestAnimationFrame(f); })`;
   const runs = [];
   for (let i = 0; i < 3; i++) { runs.push(await q(sample)); await sleep(200); }

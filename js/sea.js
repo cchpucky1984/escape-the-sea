@@ -102,9 +102,9 @@ function spawnHazard() {
     const b = Math.atan2(y, x);
     x = Math.cos(b) * (R + 120); y = Math.sin(b) * (R + 120);
   }
-  const hp = Math.round((type === 'shark' ? 3 : 2) * (1 + Z.id * 0.35));
+  const hp = Math.round((type === 'shark' ? 3 : 2) * (1 + Z.id * 0.35) * ngMul('enemyHp'));
   sea.hazards.push({
-    type, x, y, hp, maxhp: hp, aggr: Z.aggr, dmgMul: 1 + Z.id * 0.14,
+    type, x, y, hp, maxhp: hp, aggr: Z.aggr * ngMul('aggr'), dmgMul: (1 + Z.id * 0.14) * ngMul('enemyDmg'),
     homing: type === 'shark' && Z.id === 1 && Math.random() < 0.15,
     shootT: rnd(1.5, 3.5),
     t: rnd(0, 6), cool: rnd(1, 2.4), ang: 0, r: type === 'shark' ? 20 : 17, alive: true, hit: 0, flee: 0, empT: 0
@@ -165,6 +165,7 @@ function fxCol(c) {
 function fxLin(key, fn) { const F = fxAPI(); return (F && F.grad && F.grad.lin) ? F.grad.lin(key, fn) : fn(); }
 function fxRad(key, fn) { const F = fxAPI(); return (F && F.grad && F.grad.rad) ? F.grad.rad(key, fn) : fn(); }
 function shakeSea(px, ms) {
+  if (game.settings.reduceMotion) return;
   const F = fxAPI();
   if (F && typeof F.shake === 'function') { F.shake(px, ms || 160); return; }
   sea.shake = Math.min(22, (sea.shake || 0) + px);
@@ -204,14 +205,15 @@ function seaDeath() {
   if (sea.dead) return;
   sea.dead = true;
   game.stats.deaths++;
+  /* 挑戰「一命深海」：死亡直接結算，不重生 */
+  if (game.challenge && game.challenge.id === 'iron') { challengeEnd(false); return; }
   sfx('lose');
   const lost = Math.floor((game.res.plastic || 0) * 0.15);
   game.res.plastic -= lost;
   saveGame();
-  openModal('失去意識…', `<p class="muted">海水灌進面罩。你最後看見的，是頭頂那道搖晃的光。</p>
-    <p class="muted" style="margin-top:10px">再醒來時，你趴在自己的基地平台上。維生系統把你拖了回來。<br>
-    <span style="color:#ff9a8b">失去 15% 塑膠（${lost} 件）</span></p>`,
-    [{ label: '爬起來', cls: 'primary', onClick: respawnAtBase }]);
+  openModal(t('sea.death.title'), `<p class="muted">${t('sea.death.body')}</p>
+    <p class="muted" style="margin-top:10px">${t('sea.death.lost', { n: lost })}</p>`,
+    [{ label: t('sea.death.btn'), cls: 'primary', onClick: respawnAtBase }]);
 }
 
 function respawnAtBase() {
@@ -236,14 +238,14 @@ function collectPickup(p) {
       addRes(k, Math.max(2, Math.round(rnd(3, 6) * Z.mult)));
     }
     if (Math.random() < 0.6 + Z.id * 0.08) addRes('alloy', Math.max(1, Math.round(Z.id * 0.6)));
-    float(p.x, p.y, '補給箱！', '#ffe28a');
+    float(p.x, p.y, t('sea.crate'), '#ffe28a');
     burst(p.x, p.y, 12, '#ffd166', 150);
     fxRing(p.x, p.y, 54, 'gold', 0.32);
     fxSpark(p.x, p.y, { n: 6, col: 'gold', spd: [120, 300] });
     sfx('build');
   } else if (p.type === 'air') {
     sea.player.ox = Math.min(S.maxox, sea.player.ox + 30);
-    float(p.x, p.y, '+ 氧氣', '#8ff3ff');
+      float(p.x, p.y, t('sea.air'), '#8ff3ff');
     fxRing(p.x, p.y, 30, 'cyan', 0.24);
     sfx('air');
   } else {
@@ -268,13 +270,13 @@ function baseTick() {
   sea.tick++;
   const inc = baseIncomePer5();
   let any = false;
-  for (const k in inc) if (inc[k]) { addRes(k, inc[k]); any = true; }
+  for (const k in inc) if (inc[k]) { addRes(k, Math.max(1, Math.round(inc[k] * ngMul('income')))); any = true; }
   if (sea.tick % 2 === 0) {
     const rev = countType('reverse');
-    if (rev) { addRes('alloy', rev); any = true; }
+    if (rev) { addRes('alloy', Math.max(1, Math.round(rev * ngMul('income')))); any = true; }
   }
   if (any && Math.hypot(sea.player.x, sea.player.y) < baseRadius() + 340) {
-    float(rnd(-40, 40), -baseRadius() * 0.5, '基地生產', '#8ee6a4');
+    float(rnd(-40, 40), -baseRadius() * 0.5, t('sea.baseprod'), '#8ee6a4');
   }
   refreshHud();
 }
@@ -333,7 +335,7 @@ function damageHazard(h, dmg, fromTower) {
     sfx('boom');
     sfx('kill');
     if (h.type === 'drone') {
-      const n = Math.random() < 0.4 ? 2 : 1;
+      const n = Math.max(1, Math.round((Math.random() < 0.4 ? 2 : 1) * ngMul('drop')));
       for (let i = 0; i < n; i++) {
         sea.pickups.push({ x: h.x + rnd(-14, 14), y: h.y + rnd(-14, 14), type: 'alloy', t: 0, r: 17, alive: true });
       }
@@ -362,8 +364,8 @@ function killSeaBoss(b) {
   if (F && typeof F.flash === 'function') F.flash('#ffd166', 180);
   sfx('kill');
   sfx('boom'); sfx('quest');
-  toast('擊敗' + b.name + ' — 取得科技碎片 ' + game.tech + '/4', 'gold');
-  if (game.tech >= 4) setTimeout(() => toast('4 塊碎片齊集！到火箭研發中心研發「火箭護盾科技」', 'gold'), 1400);
+  toast(t('sea.bossKill', { name: t('boss.' + b.id), n: game.tech }), 'gold');
+  if (game.tech >= 4) setTimeout(() => toast(t('sea.techFull'), 'gold'), 1400);
   saveGame();
   refreshHud();
 }
@@ -447,7 +449,7 @@ function drawSeaBoss(b) {
   ctx.textAlign = 'center';
   ctx.font = '700 10px "Microsoft JhengHei",system-ui';
   ctx.fillStyle = 'rgba(220,190,255,.9)';
-  ctx.fillText(b.name, 0, -78);
+  ctx.fillText(t('boss.' + b.id), 0, -78);
   ctx.restore();
 }
 
@@ -500,7 +502,7 @@ function updateSea(dt) {
   /* base refill */
   if (inSafe && !sea.wasSafe) {
     sea.wasSafe = true;
-    float(P.x, P.y - 30, '安全區', '#8ee6a4');
+    float(P.x, P.y - 30, t('sea.safe'), '#8ee6a4');
     sfx('deposit');
   } else if (!inSafe && sea.wasSafe) {
     sea.wasSafe = false;
@@ -512,7 +514,7 @@ function updateSea(dt) {
     if (P.hp < S.maxhp) {
       P.hp = S.maxhp;
       renderHearts(P.hp, S.maxhp);
-      float(P.x, P.y - 26, '維修完成', '#8ee6a4');
+      float(P.x, P.y - 26, t('sea.repaired'), '#8ee6a4');
       sfx('deposit');
     }
     sea.safeT = 0.6;
@@ -875,6 +877,7 @@ function drawSea() {
     if (!h.alive) continue;
     if (h.x < cam.x - 140 || h.x > cam.x + VW + 140 || h.y < cam.y - 140 || h.y > cam.y + VH + 140) continue;
     drawHazard(h);
+    if (game.settings.colorblind && Math.hypot(h.x - sea.player.x, h.y - sea.player.y) < 420) drawHazardTag(h);
   }
 
   for (const bo of sea.bosses) {
@@ -1021,7 +1024,7 @@ function drawCompass() {
   ctx.font = '700 10.5px "Microsoft JhengHei",system-ui';
   ctx.fillStyle = 'rgba(170,240,190,.9)';
   const label = d >= 1000 ? (d / 1000).toFixed(1) + ' km' : Math.round(d) + ' m';
-  ctx.fillText('基地 ' + label, cx, cy + 34);
+  ctx.fillText(t('hud.compass', { dist: label }), cx, cy + 34);
   ctx.restore();
 
   /* 指北針：最近深海巨獸（距基地 >1200 m 才顯示；讀 D 的 LEVIATHANS.list） */
@@ -1048,7 +1051,7 @@ function drawCompass() {
       ctx.textAlign = 'center';
       ctx.font = '700 10.5px "Microsoft JhengHei",system-ui';
       ctx.fillStyle = 'rgba(220,195,255,.92)';
-      ctx.fillText('巨獸 ' + (bd >= 1000 ? (bd / 1000).toFixed(1) + ' km' : Math.round(bd) + ' m'), lx, ly + 34);
+      ctx.fillText(t('radar.giant', { dist: bd >= 1000 ? (bd / 1000).toFixed(1) + ' km' : Math.round(bd) + ' m' }), lx, ly + 34);
       ctx.restore();
     }
   }
@@ -1115,6 +1118,21 @@ function drawPickup(p) {
     ctx.fillStyle = '#ffd166';
     ctx.fillRect(-6, -3, 12, 6);
   }
+  ctx.restore();
+}
+
+function drawHazardTag(h) {
+  const ch = h.type === 'shark' ? 'S' : h.type === 'drone' ? 'D' : 'J';
+  ctx.save();
+  ctx.translate(h.x, h.y - 34);
+  ctx.fillStyle = 'rgba(0,0,0,.68)';
+  ctx.strokeStyle = 'rgba(255,255,255,.9)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(0, 0, 9, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '700 11px "Microsoft JhengHei",system-ui';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(ch, 0, 1);
   ctx.restore();
 }
 
@@ -1392,7 +1410,7 @@ function drawRadar() {
   ctx.font = '11px "Microsoft JhengHei",system-ui';
   ctx.fillStyle = 'rgba(160,210,230,.75)';
   const dd = Math.hypot(P.x, P.y);
-  ctx.fillText('基地 ' + (dd >= 1000 ? (dd / 1000).toFixed(1) + ' km' : Math.round(dd) + ' m'), cx, cy - R - 10);
+  ctx.fillText(t('hud.compass', { dist: dd >= 1000 ? (dd / 1000).toFixed(1) + ' km' : Math.round(dd) + ' m' }), cx, cy - R - 10);
   ctx.restore();
 }
 

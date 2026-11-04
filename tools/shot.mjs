@@ -98,6 +98,11 @@ try { await send('Network.enable'); await send('Network.setCacheDisabled', { cac
 await send('Emulation.setDeviceMetricsOverride', { width: VIEW_W, height: VIEW_H, deviceScaleFactor: VIEW_DPR, mobile: false });
 await send('Page.navigate', { url });
 await sleep(2200);
+// PWA Service Worker 是 cache-first 且會讓截圖／量測拿到舊 build；先清乾淨再 reload
+try {
+  await evalJS(`(async () => { const rs = await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r => r.unregister())); if (window.caches) { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } return true; })()`);
+  await send('Page.reload'); await sleep(2000);
+} catch (e) {}
 
 const startGame = async () => {
   await evalJS(`document.getElementById('btn-start').click()`);

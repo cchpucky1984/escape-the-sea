@@ -583,13 +583,11 @@ html[lang="en"] .ach-top::before{content:"Achievements"}
   100%{box-shadow:inset 0 0 22px rgba(255,209,102,.07),0 0 14px rgba(255,209,102,.08)}}
 .ach-card.unlocked{animation:achUnlock var(--t-pop) var(--ease-out) both}
 
-/* ---------- reduce motion（設定開關＋系統偏好） ---------- */
+/* ---------- reduce motion（設定開關＋系統偏好）：動畫/transition 完全關閉 ---------- */
 body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{
-  animation-duration:.001ms !important;animation-iteration-count:1 !important;
-  transition-duration:.001ms !important;scroll-behavior:auto !important}
+  animation:none !important;transition:none !important;scroll-behavior:auto !important}
 @media (prefers-reduced-motion:reduce){
-  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;
-    transition-duration:.001ms !important;scroll-behavior:auto !important}
+  *,*::before,*::after{animation:none !important;transition:none !important;scroll-behavior:auto !important}
 }
 
 /* =========================================================
@@ -982,4 +980,151 @@ body.reduce-motion .boss-warning{animation:none!important}
   .mc-head,.mc-row{grid-template-columns:1.1fr .65fr .42fr .65fr;gap:4px;font-size:9px}
   .mc-row{padding:2px 4px}
   .mc-plus{font-size:8.5px;padding:0 4px}
+}
+
+/* =========================================================
+   v0.9：挑戰模式／NG+／可及性（文字由 JS/B t() 填，CSS 無中文）
+   ========================================================= */
+
+/* ---------- 挑戰模式：B 的 openChallengeMenu() modal（.grid.challenge-grid > .card.challenge-card） ---------- */
+.challenge-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.card.challenge-card{--ch-color:var(--c-cy);border-left:3px solid var(--ch-color)!important;
+  gap:9px;background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.02))}
+.card.challenge-card:has([data-challenge="iron"]),
+.card.challenge-card[data-diff="hard"]{--ch-color:var(--c-danger)}
+.card.challenge-card:has([data-challenge="speed"]),
+.card.challenge-card[data-diff="normal"]{--ch-color:var(--c-gold)}
+.card.challenge-card:has([data-challenge="bare"]){--ch-color:var(--c-violet)}
+.card.challenge-card[data-diff="easy"]{--ch-color:var(--c-green)}
+.card.challenge-card[data-diff="extreme"]{--ch-color:var(--c-violet)}
+.card.challenge-card .card-h b{font-size:1.05rem;line-height:1.35;overflow-wrap:anywhere;min-width:0}
+.card.challenge-card .ch-diff{margin-left:auto;flex:0 0 auto;align-self:center;font-size:.58rem;
+  line-height:1.5;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;
+  color:var(--ch-color);border:1px solid color-mix(in srgb,var(--ch-color) 45%,transparent);
+  border-radius:999px;padding:1px 7px;background:color-mix(in srgb,var(--ch-color) 8%,transparent)}
+.card.challenge-card .card-h .ico{--c:var(--ch-color);color:#04161f}
+.card.challenge-card p{font-size:.78rem;line-height:1.65;color:var(--c-ink-2)}
+.card.challenge-card .cost span{font-size:.72rem;line-height:1.5;color:#bfe6f5;
+  border-color:color-mix(in srgb,var(--ch-color) 25%,transparent)}
+.card.challenge-card .done{font-size:.72rem;color:#9fc0d0;border-color:rgba(255,255,255,.1)}
+.card.challenge-card button[data-challenge]{margin-top:auto;min-height:36px;font-size:.82rem;
+  color:#04222c;background:linear-gradient(180deg,color-mix(in srgb,var(--ch-color) 85%,#fff),var(--ch-color));
+  box-shadow:0 0 16px color-mix(in srgb,var(--ch-color) 30%,transparent)}
+.card.challenge-card button[data-challenge]:hover{filter:brightness(1.1);
+  box-shadow:0 0 22px color-mix(in srgb,var(--ch-color) 45%,transparent)}
+
+/* 挑戰 HUD：B 目前用既有 #nextstep（label=挑戰模式）；若之後加 class/data 也可直接吃 */
+#nextstep.challenge,#nextstep[data-challenge]{border-left-color:var(--c-danger)}
+#nextstep.challenge b,#nextstep[data-challenge] b{color:var(--c-danger)}
+#nextstep.challenge[data-challenge="speed"],#nextstep[data-challenge="speed"]{border-left-color:var(--c-gold)}
+#nextstep.challenge[data-challenge="speed"] b,#nextstep[data-challenge="speed"] b{color:var(--c-gold)}
+#nextstep.challenge[data-challenge="bare"],#nextstep[data-challenge="bare"]{border-left-color:var(--c-violet)}
+#nextstep.challenge[data-challenge="bare"] b,#nextstep[data-challenge="bare"] b{color:var(--c-violet)}
+
+/* ---------- NG+ 徽章（HUD／結局共用；B 填文字） ---------- */
+.ng-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-num);
+  font-size:.72rem;font-weight:700;letter-spacing:.06em;line-height:1.4;white-space:nowrap;
+  color:#2a1a00;background:linear-gradient(180deg,#ffe08a,#ffb03a);
+  border:1px solid rgba(255,209,102,.72);border-radius:999px;padding:2px 9px;
+  box-shadow:0 0 14px rgba(255,209,102,.35)}
+.ng-badge[hidden]{display:none}
+.hud-ng{margin-top:8px;align-self:flex-start;font-size:.62rem;padding:1px 8px}
+.end-ng{margin:0 auto 10px;font-size:.8rem;padding:3px 13px}
+.ng-plus{background:linear-gradient(180deg,#ffe08a,#ffb03a);color:#2a1a00;font-weight:800;
+  padding:12px 26px;border-radius:var(--r-sm);font-size:1rem;letter-spacing:.04em;
+  box-shadow:0 0 22px rgba(255,209,102,.35),inset 0 -2px 0 rgba(0,0,0,.18);
+  transition:transform var(--t-fast),box-shadow var(--t-fast)}
+.ng-plus:hover{transform:translateY(-2px);box-shadow:0 0 30px rgba(255,209,102,.55)}
+.ng-plus:active{transform:translateY(0) scale(.985)}
+.ng-plus[hidden]{display:none}
+#ending #end-ng{background:linear-gradient(180deg,#ffe08a,#ffb03a);color:#2a1a00;font-weight:800;
+  padding:12px 26px;border-radius:var(--r-sm);font-size:1rem;letter-spacing:.04em;
+  box-shadow:0 0 22px rgba(255,209,102,.35),inset 0 -2px 0 rgba(0,0,0,.18);
+  transition:transform var(--t-fast),box-shadow var(--t-fast);margin-right:10px}
+#ending #end-ng:hover{transform:translateY(-2px);box-shadow:0 0 30px rgba(255,209,102,.55)}
+#ending[data-mode="challenge"] #btn-ngplus,#ending[data-mode="challenge"] #end-ng{display:none!important}
+
+/* ---------- 挑戰結算卡（沿用結局樣式，不同 kicker/結果色） ---------- */
+#ending[data-mode="challenge"] .ending-inner{border-color:rgba(255,209,102,.4);
+  background:linear-gradient(180deg,rgba(6,22,33,.94),rgba(3,10,17,.9))}
+#ending[data-mode="challenge"] .kicker{color:var(--c-gold);letter-spacing:.28em}
+#ending[data-mode="challenge"]:is([data-result="fail"],[data-result="lose"]) .ending-inner{border-color:rgba(255,93,115,.5)}
+#ending[data-mode="challenge"]:is([data-result="fail"],[data-result="lose"]) .kicker{color:var(--c-danger)}
+#ending[data-mode="challenge"]:is([data-result="fail"],[data-result="lose"]) #end-title{color:#ffd9e0}
+.challenge-result{width:100%;max-width:440px;margin:0 auto 18px;padding:12px 16px;border-radius:12px;
+  display:flex;flex-direction:column;gap:8px;background:rgba(255,209,102,.07);
+  border:1px solid rgba(255,209,102,.25);box-shadow:inset 0 0 24px rgba(255,209,102,.05)}
+.challenge-result[hidden]{display:none}
+#ending:is([data-result="fail"],[data-result="lose"]) .challenge-result{background:rgba(255,93,115,.07);
+  border-color:rgba(255,93,115,.3)}
+.chr-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.chr-badge{font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--c-gold);
+  border:1px solid rgba(255,209,102,.4);border-radius:999px;padding:1px 8px}
+#ending:is([data-result="fail"],[data-result="lose"]) .chr-badge{color:var(--c-danger);border-color:rgba(255,93,115,.45)}
+.chr-time{font-family:var(--font-num);font-size:.76rem;color:var(--c-ink-2)}
+.chr-score{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  font-size:.72rem;letter-spacing:.06em;color:var(--c-muted)}
+.chr-score-num{font-family:var(--font-num);font-size:1.7rem;line-height:1.1;color:var(--c-gold);
+  font-variant-numeric:tabular-nums}
+.chr-best{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  padding-top:7px;border-top:1px dashed rgba(255,209,102,.22);font-size:.66rem;color:var(--c-muted)}
+.chr-best-num{font-family:var(--font-num);font-size:.9rem;color:#ffe9b3;font-variant-numeric:tabular-nums}
+
+/* ---------- 可及性：色盲輔助（不靠顏色也能辨識狀態） ---------- */
+body:is(.cb-safe,.colorblind) .toast::before{content:"● ";font-weight:700}
+body:is(.cb-safe,.colorblind) .toast.gold::before{content:"★ "}
+body:is(.cb-safe,.colorblind) .toast.danger::before{content:"! "}
+body:is(.cb-safe,.colorblind) .toast.green::before{content:"+ "}
+body:is(.cb-safe,.colorblind) .boss-move.on::after{content:"▶";margin-left:auto;font-size:.6em;color:var(--boss-accent)}
+body:is(.cb-safe,.colorblind) .ach-tab.on::after{content:" ✓"}
+body:is(.cb-safe,.colorblind) .card.challenge-card[data-diff="hard"] .ch-diff::after{content:" ●"}
+body:is(.cb-safe,.colorblind) .card.challenge-card[data-diff="normal"] .ch-diff::after{content:" ◆"}
+body:is(.cb-safe,.colorblind) .card.challenge-card[data-diff="easy"] .ch-diff::after{content:" ○"}
+body:is(.cb-safe,.colorblind) .card.challenge-card[data-diff="extreme"] .ch-diff::after{content:" ▲"}
+body:is(.cb-safe,.colorblind) .card.challenge-card:not([data-diff]):has([data-challenge="iron"]) .card-h b::after{content:" ●"}
+body:is(.cb-safe,.colorblind) .card.challenge-card:not([data-diff]):has([data-challenge="speed"]) .card-h b::after{content:" ◆"}
+body:is(.cb-safe,.colorblind) .card.challenge-card:not([data-diff]):has([data-challenge="bare"]) .card-h b::after{content:" ▲"}
+body:is(.cb-safe,.colorblind) .state-ready::after{content:" ✓"}
+body:is(.cb-safe,.colorblind) .state-danger::after{content:" ⚠"}
+body:is(.cb-safe,.colorblind) .state-warn::after{content:" !"}
+body:is(.cb-safe,.colorblind) #nextstep.challenge{border-left-style:double;border-left-width:4px}
+
+/* ---------- 可及性：字級 120%（設定 toggle：body:is(.text-lg,.font-large)） ---------- */
+html:has(body:is(.text-lg,.font-large)){font-size:120%}
+body:is(.text-lg,.font-large){font-size:1.2rem}
+body:is(.text-lg,.font-large) .chip i{font-size:.78rem}
+body:is(.text-lg,.font-large) .chip b{font-size:1.08rem}
+body:is(.text-lg,.font-large) .quest>div:not(.q-top):not(.q-sub){font-size:1rem}
+body:is(.text-lg,.font-large) .quest .q-sub{font-size:.82rem}
+body:is(.text-lg,.font-large) .basetag,body:is(.text-lg,.font-large) #zone{font-size:.82rem}
+body:is(.text-lg,.font-large) .settings-row>label{font-size:.98rem}
+body:is(.text-lg,.font-large) .settings-note{font-size:.82rem}
+body:is(.text-lg,.font-large) .ach-name{font-size:.98rem}
+body:is(.text-lg,.font-large) .ach-desc{font-size:.82rem}
+body:is(.text-lg,.font-large) .card-h b{font-size:.9rem}
+body:is(.text-lg,.font-large) .bounty-reward,body:is(.text-lg,.font-large) .bounty-note{font-size:.78rem}
+body:is(.text-lg,.font-large) .title-inner .blurb{font-size:.95rem}
+body:is(.text-lg,.font-large) #title .title-inner{max-height:calc(100vh - 28px);overflow-y:auto}
+body:is(.text-lg,.font-large) .modal-head h2{font-size:1.1rem}
+body:is(.text-lg,.font-large) .modal-body{font-size:.92rem}
+body:is(.text-lg,.font-large) .nextstep span{font-size:.95rem}
+
+/* 設定面板新 toggle 的顏色回饋（B 的 DOM：button.toggle[data-setting=...]） */
+.settings-row button.toggle[data-setting="cbSafe"],[data-setting="colorblind"][aria-checked="true"]::before{
+  background:var(--c-gold);box-shadow:0 0 8px rgba(255,209,102,.85)}
+.settings-row button.toggle[data-setting="textLarge"],[data-setting="fontScale"][aria-checked="true"]::before{
+  background:var(--c-green);box-shadow:0 0 8px rgba(142,230,164,.8)}
+
+/* ---------- v0.9 RWD ---------- */
+@media (max-width:768px){
+  .challenge-grid{grid-template-columns:1fr;gap:10px}
+  .card.challenge-card{padding:12px 12px 10px 15px}
+  body:is(.text-lg,.font-large) #title .title-inner{overflow-y:auto}
+}
+@media (max-width:430px){
+  .card.challenge-card{padding:11px 11px 9px 14px;gap:7px}
+  .card.challenge-card .card-h b{font-size:1rem}
+  .card.challenge-card p{font-size:.75rem;line-height:1.55}
+  .card.challenge-card .cost span{font-size:.68rem}
+  .card.challenge-card button[data-challenge]{min-height:34px;font-size:.78rem}
 }

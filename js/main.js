@@ -231,8 +231,41 @@ function beginGame() {
   setScene('sea');
   refreshHud();
   saveGame();
-  toast(t('main.goal', { dist: fmtDist(Math.hypot(game.pos.x, game.pos.y)) }), 'gold');
+  if (!game.challenge) toast(t('main.goal', { dist: fmtDist(Math.hypot(game.pos.x, game.pos.y)) }), 'gold');
   if (game.cheat) setTimeout(() => { if (game.scene === 'sea' && !game.paused) openCheat(); }, 700);
+}
+function beginChallenge(id) {
+  const c = challengeDef(id);
+  if (!c || challengeLocked()) return false;
+  initAudio();
+  resetGame({ keepMeta: true });
+  game.ng = 0;
+  game.cheat = false;
+  game.challenge = { id, tLeft: c.rules.timeLimit || 0, ended: false, startAt: 0 };
+  game.tut.done = true;
+  beginGame();
+  toast(t('chal.start'), 'gold');
+  return true;
+}
+function startNGPlus() {
+  if (game.challenge) return false;
+  if (game.ng >= NG_MAX) { toast(t('ng.max')); return false; }
+  const n = Math.min(NG_MAX, game.ng + 1);
+  resetGame({ keepMeta: true });
+  game.ng = n;
+  beginGame();
+  toast(t('ng.count', { n }), 'gold');
+  return true;
+}
+function ensureChallengeBtn() {
+  if ($('btn-challenge')) return;
+  const help = $('btn-help');
+  if (!help || !help.parentNode) return;
+  const b = document.createElement('button');
+  b.id = 'btn-challenge'; b.className = 'ghost';
+  b.textContent = t('chal.title');
+  b.onclick = () => { initAudio(); openChallengeMenu(); };
+  help.parentNode.appendChild(b);
 }
 
 $('btn-start').onclick = () => {
@@ -321,6 +354,9 @@ if (hasSave()) {
 }
 setScene('title');
 refreshStaticUI();
+ensureChallengeBtn();
+refreshStaticUI();
+installFxAccessibility();
 requestAnimationFrame(frame);
 
 /* ---------- S1a 跨檔適配：space.js 的 backToBaseFromLaunch 先歸零失敗狀態（避免重入重複扣款） ---------- */
@@ -363,6 +399,9 @@ window.__T = {
   openBounty, claimBounty, rerollBounty, bountyOn, grantRandomMod, bulletMods,
   BOUNTY, nextStepText,
   ACH, checkAch, openSettings,
+  CHALLENGES, NG_MUL, NG_MAX, ngMul,
+  get challenge() { return game.challenge; },
+  beginChallenge, startNGPlus, openChallengeMenu, challengeEnd,
   achNew: () => achNewRun,
   SEA_EVENTS: window.SEA_EVENTS,
   t, setLang, i18nMissing,

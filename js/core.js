@@ -58,6 +58,14 @@ const I18N_EXTRA = {
   'gate.suit': ['潛水衣 Lv2（目前 Lv{n}）', 'Dive Suit Lv2 (now Lv{n})'],
   'gate.rnd': ['火箭研發中心', 'Rocket R&D Center'],
   'ui.brand': ['逃出大海', 'Escape the Sea'],
+  'chal.start': ['開始挑戰', 'Start Challenge'],
+  'chal.bestOnly': ['最佳分 {score}', 'Best {score}'],
+  'chal.bestEmpty': ['尚無紀錄', 'No record yet'],
+  'chal.diffHard': ['困難', 'Hard'],
+  'chal.diffNormal': ['一般', 'Normal'],
+  'settings.colorblind': ['色盲友善', 'Colorblind friendly'],
+  'settings.fontScale': ['字級', 'Text size'],
+  'radar.giant': ['巨獸 {dist}', 'Leviathan {dist}'],
   'dir.北': ['北', 'N'], 'dir.東北': ['東北', 'NE'], 'dir.東': ['東', 'E'], 'dir.東南': ['東南', 'SE'],
   'dir.南': ['南', 'S'], 'dir.西南': ['西南', 'SW'], 'dir.西': ['西', 'W'], 'dir.西北': ['西北', 'NW']
 };
@@ -81,6 +89,11 @@ const ZONE_KEYS = ['near', 'mid', 'deep', 'far'];
 function zoneKey(z) { return ZONE_KEYS[z && z.id >= 0 && z.id < 4 ? z.id : 0]; }
 function zoneName(z) { return t('zone.' + zoneKey(z) + '.name'); }
 function zoneTip(z) { return t('zone.' + zoneKey(z) + '.tip'); }
+function zoneShort(z) {
+  const key = 'zone.' + zoneKey(z) + '.short';
+  const v = t(key);
+  return (v && v !== key) ? v : zoneName(z);
+}
 function resName(k) { return t('res.' + k); }
 function structName(k) { return t('struct.' + k + '.name'); }
 function structDesc(k) { return t('struct.' + k + '.desc'); }
@@ -162,10 +175,30 @@ function applyMute() {
 function applySettings() {
   if (typeof document !== 'undefined' && game.settings) {
     document.body.classList.toggle('reduce-motion', !!game.settings.reduceMotion);
+    document.body.classList.toggle('colorblind', !!game.settings.colorblind);
+    document.body.classList.toggle('cb-safe', !!game.settings.colorblind);
+    document.body.classList.toggle('font-large', game.settings.fontScale === 1.2);
+    document.body.classList.toggle('text-lg', game.settings.fontScale === 1.2);
     document.documentElement.lang = game.settings.lang === 'en' ? 'en' : 'zh-Hant';
   }
   applyMute();
   if (typeof MUSIC !== 'undefined') MUSIC.updateVolume();
+  installFxAccessibility();
+  if (game.settings.reduceMotion && window.fx && typeof window.fx.clear === 'function') window.fx.clear();
+}
+/* reduce motion：統一包住 fx 的 shake/flash/hitstop（fx.js 由 D 管；這裡不改檔只包裝） */
+function installFxAccessibility() {
+  const F = window.fx;
+  if (!F || F.__reduceMotionWrapped) return;
+  for (const name of ['shake', 'flash', 'hitstop', 'slowmo']) {
+    if (typeof F[name] !== 'function') continue;
+    const orig = F[name];
+    F[name] = function (...args) {
+      if (game.settings.reduceMotion) return;
+      return orig.apply(F, args);
+    };
+  }
+  F.__reduceMotionWrapped = true;
 }
 /* 標題畫面在 loadGame 前也套用存檔的語言／音量（重整後不先閃回 zh） */
 function restoreBootSettings() {
@@ -562,6 +595,60 @@ function checkAch() {
   }
 }
 
+/* ---------- v0.9 挑戰模式（DATA-v0.9 §2） ---------- */
+const CHALLENGES = [
+  { id: 'iron', name: '一命深海', nameEn: 'Iron Dive', storageKey: 'escape-the-sea-chal-iron',
+    desc: '不能死。死一次就結束。', descEn: 'No deaths. One death ends the run.',
+    rules: { noRespawn: true, noCheat: true, noSave: true },
+    score: (s) => Math.max(0, 10800 - s.time) + s.kills * 5 + s.tech * 200 + s.leviathanKills * 150 },
+  { id: 'speed', name: '限時 45', nameEn: 'Speed Dive', storageKey: 'escape-the-sea-chal-speed',
+    desc: '45 分鐘內攻入母船核心。', descEn: 'Reach the mothership core within 45 minutes.',
+    rules: { timeLimit: 2700, noCheat: true, noSave: true },
+    score: (s) => Math.max(0, 2700 - s.time) * 2 + Math.floor((game.res.metal + game.res.plastic + game.res.wood) / 10) },
+  { id: 'bare', name: '赤手空拳', nameEn: 'Bare Hands', storageKey: 'escape-the-sea-chal-bare',
+    desc: '不能建砲塔、不能裝模組，四件裝備不可升級。', descEn: 'No turrets, no mods, four gear lines locked.',
+    rules: { noTower: true, noMods: true, lockUpgrades: ['fin', 'tank', 'suit', 'magnet'], noCheat: true, noSave: true },
+    score: (s) => s.kills * 10 + s.leviathanKills * 300 + Math.max(0, 7200 - s.time) }
+];
+function challengeDef(id) { return CHALLENGES.find(c => c.id === id) || null; }
+function challengeLocked() { return !(game.stats.won || (game.ach || []).includes('revenge')); }
+function challengeBareBlocks(type) { return !!(game.challenge && game.challenge.id === 'bare' && type === 'tower'); }
+function challengeBest(id) {
+  try { const raw = localStorage.getItem((challengeDef(id) || {}).storageKey || ''); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+}
+function challengeHudText() {
+  if (!game.challenge) return '';
+  const c = challengeDef(game.challenge.id);
+  if (!c) return '';
+  if (c.rules.timeLimit) return t('chal.timeLeft', { time: fmtTime(Math.max(0, game.challenge.tLeft)) });
+  if (c.id === 'iron') return t('challenge.iron.rule');
+  return t('challenge.bare.rule');
+}
+function challengeEnd(win) {
+  const ch = game.challenge;
+  if (!ch || ch.ended) return false;
+  ch.ended = true;
+  const c = challengeDef(ch.id);
+  let score = 0;
+  try { score = c.score(game.stats) || 0; } catch (e) { score = 0; }
+  score = Math.max(0, Math.round(score));
+  const prev = challengeBest(ch.id);
+  const isNew = !prev || score > (prev.score || 0);
+  const best = isNew ? score : (prev.score || 0);
+  try {
+    if (isNew) localStorage.setItem(c.storageKey, JSON.stringify({ score, time: game.stats.time, kills: game.stats.kills, date: new Date().toISOString() }));
+  } catch (e) {}
+  ch.result = { win, score, best, isNew };
+  if (win) game.stats.won = true;
+  showEnding(win);
+  return true;
+}
+
+/* ---------- v0.9 NG+（DATA-v0.9 §3） ---------- */
+const NG_MUL = { enemyHp: 0.25, enemyDmg: 0.10, aggr: 0.05, income: 0.15, leviHp: 0.30, bossHp: 0.20, mirrorHp: 0.20, drop: 0.15 };
+const NG_MAX = 9;
+function ngMul(k) { return 1 + (NG_MUL[k] || 0) * (game.ng || 0); }
+
 /* ---------- v0.7 教學（A 的 ONBOARD-v0.7 §1；本輪先接欄位、HUD 與基本前進） ---------- */
 const TUTORIAL = [
   { step: 1, id: 'goHome', press: 'WASD / Shift', failT: 30,
@@ -602,6 +689,16 @@ function updateTutorial(dt) {
     saveGame();
   }
 }
+function updateChallenge(dt) {
+  const ch = game.challenge;
+  if (!ch || ch.ended || game.scene !== 'sea') return;
+  const c = challengeDef(ch.id);
+  if (!c) return;
+  if (c.rules.timeLimit) {
+    ch.tLeft = c.rules.timeLimit - game.stats.time;
+    if (ch.tLeft <= 0) { ch.tLeft = 0; challengeEnd(false); }
+  }
+}
 
 /* ---------- 遊戲狀態 ---------- */
 const SAVE_KEY = 'escape-the-sea-v2';
@@ -637,8 +734,10 @@ const game = {
   mods: [],
   ach: [],
   ng: 0,
+  seed: (Math.floor(Math.random() * 1000000000) || 1),
+  challenge: null,
   tut: { step: 1, t: 0, done: false, doneIds: [] },
-  settings: { musicVol: 55, sfxVol: 80, reduceMotion: false, lang: 'zh' }
+  settings: { musicVol: 55, sfxVol: 80, reduceMotion: false, colorblind: false, fontScale: 1, lang: 'zh' }
 };
 window.game = game;
 
@@ -653,7 +752,9 @@ Object.defineProperty(game, 'mod', {
 
 function calcStats() {
   const u = game.up, c = game.cheatUp || {};
-  const lv = (k) => (u[k] || 0) + (c[k] || 0);
+  const bare = game.challenge && game.challenge.id === 'bare';
+  const lock = bare ? ['fin', 'tank', 'suit', 'magnet'] : [];
+  const lv = (k) => (lock.includes(k) ? 0 : (u[k] || 0) + (c[k] || 0));
   const gl = lv('harpoon');
   return {
     speed: 152 * (1 + 0.18 * lv('fin')),
@@ -695,6 +796,7 @@ function baseIncomePer5() {
   return inc;
 }
 function addStructure(type) {
+  if (challengeBareBlocks(type)) { toast(t('challenge.bare.rule')); sfx('deny'); return false; }
   const def = STRUCTS[type];
   if (!def || countType(type) >= def.max) return false;
   const tile = freeTileFor();
@@ -715,12 +817,13 @@ function saveSnapshot() {
     res: game.res, up: game.up, base: game.base, parts: game.parts,
     stats: game.stats, quest: game.quest, pos: game.pos, muted: muted,
     tech: game.tech, bossesKilled: game.bossesKilled, cheat: game.cheat, cheatUp: game.cheatUp,
-    bounty: game.bounty, mods: game.mods, ach: game.ach, ng: game.ng, tut: game.tut, settings: game.settings
+    bounty: game.bounty, mods: game.mods, ach: game.ach, ng: game.ng, seed: game.seed, tut: game.tut, settings: game.settings
   };
 }
 /* 立即存檔；同內容 250ms 內只寫一次（debounce）。force 忽略 debounce。
    非 force 會偵測「本地存檔被外部改寫」（例如 QA 塞 fixture）而不覆蓋。 */
 function saveGame(force) {
+  if (game.challenge) return false;   /* 挑戰模式不寫主存檔 */
   try {
     const str = JSON.stringify(saveSnapshot());
     const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
@@ -768,10 +871,13 @@ function migrateSave(s) {
   s.mods = Array.isArray(s.mods) ? s.mods.filter(id => MODS.some(m => m.id === id)).slice(0, 3) : [];
   s.ach = Array.isArray(s.ach) ? s.ach.filter(id => ACH.some(a => a.id === id)) : [];
   if (typeof s.ng !== 'number') s.ng = 0;
+  if (typeof s.seed !== 'number' || !isFinite(s.seed)) s.seed = (Math.floor(Math.random() * 1000000000) || 1);
   s.settings = (s.settings && typeof s.settings === 'object') ? s.settings : {};
   if (typeof s.settings.musicVol !== 'number') s.settings.musicVol = 55;
   if (typeof s.settings.sfxVol !== 'number') s.settings.sfxVol = 80;
   if (typeof s.settings.reduceMotion !== 'boolean') s.settings.reduceMotion = false;
+  if (typeof s.settings.colorblind !== 'boolean') s.settings.colorblind = false;
+  if (s.settings.fontScale !== 1.2) s.settings.fontScale = 1;
   if (s.settings.lang !== 'en') s.settings.lang = 'zh';
   /* 舊檔／既有玩家跳過教學（A 的 ONBOARD §3） */
   if (!s.tut || typeof s.tut !== 'object') {
@@ -828,9 +934,12 @@ function validateSave(s) {
   s.quest.claimed = [...new Set(s.quest.claimed.filter(x => typeof x === 'string'))];
   s.ach = Array.isArray(s.ach) ? [...new Set(s.ach.filter(id => ACH.some(a => a.id === id)))] : [];
   s.ng = int(s.ng, 0, 9, 0);
+  s.seed = (typeof s.seed === 'number' && isFinite(s.seed)) ? Math.floor(s.seed) : (Math.floor(Math.random() * 1000000000) || 1);
   s.settings.musicVol = int(s.settings.musicVol, 0, 100, 55);
   s.settings.sfxVol = int(s.settings.sfxVol, 0, 100, 80);
   s.settings.reduceMotion = !!s.settings.reduceMotion;
+  s.settings.colorblind = !!s.settings.colorblind;
+  s.settings.fontScale = s.settings.fontScale === 1.2 ? 1.2 : 1;
   s.settings.lang = s.settings.lang === 'en' ? 'en' : 'zh';
   if (!s.tut || typeof s.tut !== 'object') s.tut = { step: 1, t: 0, done: false, doneIds: [] };
   s.tut.step = int(s.tut.step, 1, 5, 1);
@@ -869,6 +978,8 @@ function loadGame() {
     game.mods = s.mods;
     game.ach = s.ach;
     game.ng = s.ng;
+    game.seed = s.seed;
+    game.challenge = null;
     game.tut = s.tut;
     game.settings = s.settings;
     achNewRun = 0;
@@ -898,8 +1009,11 @@ function migrateV1(old) {
   }
   return out;
 }
-function resetGame() {
-  const keepCheat = !!game.cheat;
+function resetGame(opts) {
+  const keepMeta = !!(opts === true || (opts && opts.keepMeta));
+  const keepCheat = keepMeta ? false : !!game.cheat;
+  const keepAch = keepMeta ? (game.ach || []).slice() : [];
+  const keepNg = keepMeta ? (game.ng || 0) : 0;
   try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(OLD_KEY); } catch (e) {}
   if (typeof baseRT !== 'undefined') baseRT.clear();
   game.res = { plastic: 0, wood: 0, metal: 0, alloy: 0 };
@@ -915,11 +1029,15 @@ function resetGame() {
   game.cheatUp = { fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0 };
   game.bounty = defaultBounty();
   game.mods = [];
-  game.ach = [];
-  game.ng = 0;
-  game.tut = { step: 1, t: 0, done: false, doneIds: [] };
+  game.ach = keepAch;
+  game.ng = keepNg;
+  game.seed = (Math.floor(Math.random() * 1000000000) || 1);
+  game.challenge = null;
+  game.tut = keepMeta
+    ? { step: 5, t: 0, done: true, doneIds: ['goHome', 'buildNet', 'equipRoom', 'bounty', 'launchGate'] }
+    : { step: 1, t: 0, done: false, doneIds: [] };
   achNewRun = 0;
-  achBaseline = 0;
+  achBaseline = keepAch.length;
   bountyRefillT = 0;
   game.dirty = true;
   saveLastStr = ''; saveLastAt = -1e9; saveLastWritten = '';
@@ -1058,6 +1176,11 @@ function openBounty() {
 
 /* ---------- 魚槍模組（DATA-v0.4 §6） ---------- */
 function grantRandomMod() {
+  if (game.challenge && game.challenge.id === 'bare') {
+    addRes('alloy', 3);
+    toast(t('challenge.bare.rule') + ' +3');
+    return null;
+  }
   const left = MODS.filter(m => !hasMod(m.id));
   if (!left.length) { addRes('alloy', 3); toast(t('mod.full')); return null; }
   const m = pick(left);
@@ -1137,19 +1260,38 @@ function refreshHud() {
   setHudHtml('basetag', baseTagHtml(), 'basetag');
   const zp = (typeof sea !== 'undefined' && sea.player) ? seaZone(Math.hypot(sea.player.x, sea.player.y)) : null;
   if (zp) {
-    setHudHtml('zone', `<span style="color:${zp.color}">● ${zoneName(zp)}</span>
+    setHudHtml('zone', `<span style="color:${zp.color}">● ${zoneShort(zp)}</span>
       <span>${zoneTip(zp)}</span>
       <span>${t('hud.zoneCap', { n: zp.hazCap })}</span>`, 'zone');
   }
   /* v0.5 上手引導／v0.7 教學：HUD「下一步」chip（沿用 #nextstep，不新增 DOM） */
   const nsEl = ensureNextStepEl();
   const curTut = game.tut && !game.tut.done ? tutCur() : null;
+  const chalTxt = challengeHudText();
   const tutTxt = tutHudText();
-  const ns = tutTxt || nextStepText();
+  const ns = chalTxt || tutTxt || nextStepText();
   if (nsEl) {
     nsEl.hidden = !ns;
     nsEl.style.display = ns ? '' : 'none';
-    setHudHtml('nextstep', ns ? `<b>${t('hint.title')}${tutTxt && curTut ? ' · ' + curTut.press : ''}</b><span>${ns}</span>` : '', 'nextstep');
+    nsEl.classList.toggle('challenge', !!game.challenge);
+    if (game.challenge) nsEl.dataset.challenge = game.challenge.id;
+    else delete nsEl.dataset.challenge;
+    const label = chalTxt ? t('chal.title') : t('hint.title') + (tutTxt && curTut ? ' · ' + curTut.press : '');
+    setHudHtml('nextstep', ns ? `<b>${label}</b><span>${ns}</span>` : '', 'nextstep');
+  }
+  /* NG+ HUD badge（index 由 C 管；動態建立） */
+  let ngBadge = document.getElementById('hud-ng');
+  if (!ngBadge) {
+    const hud = $('hud');
+    if (hud) {
+      ngBadge = document.createElement('div');
+      ngBadge.id = 'hud-ng'; ngBadge.className = 'ng-badge hud-ng';
+      hud.appendChild(ngBadge);
+    }
+  }
+  if (ngBadge) {
+    ngBadge.hidden = !(game.ng > 0);
+    ngBadge.textContent = game.ng > 0 ? t('ng.label', { n: game.ng }) : '';
   }
 }
 function ensureNextStepEl() {
@@ -1198,6 +1340,7 @@ function refreshStaticUI() {
     if (ctrl) ctrl.textContent = t('ui.ctrl');
   }
   const setTxt = (id, key) => { const el = $(id); if (el) el.textContent = t(key); };
+  setTxt('btn-challenge', 'chal.title');
   setTxt('end-kicker', 'ui.endKicker');
   setTxt('end-title', 'ui.endTitle');
   setTxt('btn-help', 'ui.help');
@@ -1212,6 +1355,11 @@ function refreshStaticUI() {
     const labels = chip.querySelectorAll('i');
     if (labels.length) labels[labels.length - 1].textContent = resName(k);
   });
+  const ver = document.querySelector('#title .ver');
+  if (ver) {
+    if (!ver.dataset.base) ver.dataset.base = ver.textContent;
+    ver.textContent = ver.dataset.base + (game.ng > 0 ? ' · ' + t('ng.label', { n: game.ng }) : '');
+  }
   document.documentElement.lang = game.settings.lang === 'en' ? 'en' : 'zh-Hant';
 }
 /* 最近巨獸方位（讀 D 的 LEVIATHANS.list；沒有檔案時回 null） */
@@ -1346,6 +1494,7 @@ function openBase() {
   modalBody.querySelectorAll('[data-build]').forEach(btn => {
     btn.onclick = () => {
       const type = btn.dataset.build;
+      if (challengeBareBlocks(type)) { toast(t('challenge.bare.rule')); sfx('deny'); return; }
       if (countType(type) >= STRUCTS[type].max) return;
       if (STRUCTS[type].req && !countType(STRUCTS[type].req)) { toast(t('toast.needStruct', { name: structName(STRUCTS[type].req) })); return; }
       const cost = structureCost(type);
@@ -1396,10 +1545,12 @@ function openCraft() {
     const lv = game.up[u.id] || 0;
     const maxed = lv >= u.max;
     const cost = u.costs[lv];
+    const bareLock = game.challenge && game.challenge.id === 'bare' && ['fin', 'tank', 'suit', 'magnet'].includes(u.id);
     h += `<div class="card${maxed ? ' maxed' : ''}${hasEquip ? '' : ' locked'}">
       <div class="card-h"><span class="ico" style="--c:${u.c}">${icoOf(u, u.id)}</span><b>${upgName(u.id)}</b><span class="lv">Lv ${lv}/${u.max}</span></div>
       <p>${upgDesc(u, lv)}</p>
       ${maxed ? '<div class="done">' + t('craft.maxed') + '</div>'
+        : bareLock ? '<div class="done" style="color:#ffb3a0">' + t('challenge.bare.rule') + '</div>'
         : !hasEquip ? '<div class="done" style="color:#ffb3a0">' + t('craft.needEquip') + '</div>'
         : `<div class="cost">${costHtml(cost)}</div>
            <button data-buy-up="${u.id}">${lv ? t('craft.upgradeTo', { n: lv + 1 }) : t('craft.make')}</button>`}
@@ -1478,6 +1629,7 @@ function openCraft() {
     btn.onclick = () => {
       if (!hasEquip) { toast(t('craft.needEquip')); return; }
       const u = UPG.find(x => x.id === btn.dataset.buyUp);
+      if (game.challenge && game.challenge.id === 'bare' && ['fin', 'tank', 'suit', 'magnet'].includes(u.id)) { toast(t('challenge.bare.rule')); sfx('deny'); return; }
       const lv = game.up[u.id] || 0;
       if (lv >= u.max) return;
       if (!pay(u.costs[lv])) { toast(t('toast.noRes')); return; }
@@ -1617,16 +1769,45 @@ function openHelp() {
     [{ label: t('help.ok'), cls: 'primary' }]);
 }
 
+function openChallengeMenu() {
+  const unlocked = !challengeLocked();
+  let h = '<div class="grid challenge-grid">';
+  for (const c of CHALLENGES) {
+    const best = challengeBest(c.id);
+    h += `<div class="card challenge-card" data-diff="${c.id === 'speed' ? 'normal' : 'hard'}">
+      <div class="card-h"><span class="ico" style="--c:#ffd166">◆</span><b>${t('chal.' + c.id + '.name')}</b><span class="ch-diff">${t(c.id === 'speed' ? 'chal.diffNormal' : 'chal.diffHard')}</span></div>
+      <p>${t('chal.' + c.id + '.desc')}</p>
+      <div class="cost"><span>${t('chal.rules')}：${t('challenge.' + c.id + '.rule')}</span></div>
+      <div class="done">${best ? t('chal.bestOnly', { score: best.score }) : t('chal.bestEmpty')}</div>
+      ${unlocked ? `<button data-challenge="${c.id}">${t('chal.start')}</button>`
+        : `<div class="done" style="color:#ffb3a0">${t('chal.locked')}</div>`}
+    </div>`;
+  }
+  h += '</div>';
+  openModal(t('chal.title'), h, [{ label: t('base.close') }]);
+  modalBody.querySelectorAll('[data-challenge]').forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.dataset.challenge;
+      closeModal();
+      if (typeof beginChallenge === 'function') beginChallenge(id);
+    };
+  });
+}
+
 function openSettings() {
   const s = game.settings;
   const row = (label, key, val) => `<div class="settings-row"><label>${label}</label>
     <input class="slider" type="range" min="0" max="100" step="1" value="${val}" data-setting="${key}">
     <output class="settings-value" data-value="${key}">${val}</output></div>`;
   const h = `<div class="settings">
-    <div class="settings-group">${row(t('settings.musicVol'), 'music', s.musicVol)}${row(t('settings.sfxVol'), 'sfx', s.sfxVol)}</div>
     <div class="settings-group">
       <div class="settings-row"><label>${t('settings.masterMute')}</label><button class="toggle" data-setting="mute" aria-checked="${muted}">${muted ? t('settings.on') : t('settings.off')}</button></div>
+      ${row(t('settings.musicVol'), 'music', s.musicVol)}${row(t('settings.sfxVol'), 'sfx', s.sfxVol)}
+    </div>
+    <div class="settings-group">
       <div class="settings-row"><label>${t('settings.reduceMotion')}</label><button class="toggle" data-setting="reduceMotion" aria-checked="${!!s.reduceMotion}">${s.reduceMotion ? t('settings.on') : t('settings.off')}</button></div>
+      <div class="settings-row"><label>${t('settings.colorblind')}</label><button class="toggle" data-setting="colorblind" aria-checked="${!!s.colorblind}">${s.colorblind ? t('settings.on') : t('settings.off')}</button></div>
+      <div class="settings-row"><label>${t('settings.fontScale')}</label><button class="toggle" data-setting="fontScale" aria-checked="${s.fontScale === 1.2}">${s.fontScale === 1.2 ? '1.2×' : '1.0×'}</button></div>
       <div class="settings-row"><label>${t('settings.language')}</label><div class="segmented">
         <button class="seg" data-lang="zh-Hant" aria-pressed="${s.lang !== 'en'}">${t('settings.langZh')}</button>
         <button class="seg" data-lang="en" aria-pressed="${s.lang === 'en'}">EN</button>
@@ -1667,6 +1848,20 @@ function openSettings() {
       setLang(lang);
     };
   });
+  const cbBtn = modalBody.querySelector('[data-setting="colorblind"]');
+  if (cbBtn) cbBtn.onclick = () => {
+    game.settings.colorblind = !game.settings.colorblind;
+    applySettings(); saveGame(true);
+    cbBtn.setAttribute('aria-checked', String(!!game.settings.colorblind));
+    cbBtn.textContent = game.settings.colorblind ? t('settings.on') : t('settings.off');
+  };
+  const fsBtn = modalBody.querySelector('[data-setting="fontScale"]');
+  if (fsBtn) fsBtn.onclick = () => {
+    game.settings.fontScale = game.settings.fontScale === 1.2 ? 1 : 1.2;
+    applySettings(); saveGame(true);
+    fsBtn.setAttribute('aria-checked', String(game.settings.fontScale === 1.2));
+    fsBtn.textContent = game.settings.fontScale === 1.2 ? '1.2×' : '1.0×';
+  };
 }
 
 function openPause() {
@@ -1688,6 +1883,7 @@ let questT = 0;
 function updateQuests(dt) {
   checkAch();   /* A 指定：放在 scene guard 之前，ending 才會結算通關成就 */
   updateTutorial(dt);
+  updateChallenge(dt);
   if (game.scene !== 'sea' && game.scene !== 'moon' && game.scene !== 'launch') return;
   if (game.paused) return;   /* AUDIT P2-3：暫停中不結算任務 */
   questT += dt;
@@ -1746,21 +1942,66 @@ function nextIntro() {
 
 /* ---------- 結局 ---------- */
 function showEnding(win) {
+  if (game.challenge && !game.challenge.ended) { challengeEnd(win); return; }
+  const ch = game.challenge;
   if (win) game.stats.won = true;
   checkAch();   /* 「星際復仇」等通關成就在結算前解鎖，結算頁才數得到 */
-  if (win) saveGame();
+  if (win && !ch) saveGame();
   if (typeof MUSIC !== 'undefined') MUSIC.setScene('ending');
-  $('end-kicker').textContent = win ? t('end.winKicker') : t('end.loseKicker');
-  $('end-title').textContent = win ? t('end.winTitle') : t('end.loseTitle');
-  $('end-text').innerHTML = win ? t('end.winText') : t('end.loseText');
-  $('end-stats').innerHTML = `
-    <div>${t('end.statTime')}<b>${fmtTime(game.stats.time)}</b></div>
-    <div>${t('end.statTrash')}<b>${game.stats.collected}</b></div>
-    <div>${t('end.statBuild')}<b>${game.base.structures.length}</b></div>
-    <div>${t('end.statKills')}<b>${game.stats.kills}</b></div>
-    <div>${t('end.statGear')}<b>${Object.values(game.up).reduce((a, b) => a + b, 0)}</b></div>
-    <div>${t('end.statAch', { n: game.ach.length, total: ACH.length, add: Math.max(0, game.ach.length - achBaseline) })}</div>`;
-  $('ending').hidden = false;
+  const oldNg = $('end-ng'); if (oldNg) oldNg.remove();
+  const oldHome = $('end-home'); if (oldHome) oldHome.remove();
+  const oldBadge = document.querySelector('#ending .ng-badge'); if (oldBadge) oldBadge.remove();
+  const endEl = $('ending');
+  endEl.dataset.mode = ch ? 'challenge' : '';
+  endEl.dataset.result = ch ? ((ch.result && ch.result.win) ? 'win' : 'lose') : '';
+  endEl.hidden = false;
+  if (ch) {
+    const c = challengeDef(ch.id) || { name: ch.id };
+    const r = ch.result || { win: !!win, score: 0, best: 0, isNew: false };
+    $('end-kicker').textContent = r.win ? t('chal.winTitle') : t('chal.failTitle', { name: t('chal.' + ch.id + '.name') });
+    $('end-title').textContent = t('chal.' + ch.id + '.name');
+    $('end-text').innerHTML = `${t('chal.' + ch.id + '.desc')}<br>${r.isNew ? t('chal.newRecord', { score: r.score }) : t('chal.best', { best: r.best, score: r.score })}`;
+    $('end-stats').innerHTML = `
+      <div>${t('end.statTime')}<b>${fmtTime(game.stats.time)}</b></div>
+      <div>${t('end.statKills')}<b>${game.stats.kills}</b></div>
+      <div>${t('end.statGear')}<b>${Object.values(game.up).reduce((a, b) => a + b, 0)}</b></div>
+      <div>${t('chal.score', { score: r.score })}<b>${t('chal.bestOnly', { score: r.best })}</b></div>`;
+    $('end-again').textContent = t('chal.retry');
+    $('end-again').onclick = () => { $('ending').hidden = true; if (typeof beginChallenge === 'function') beginChallenge(ch.id); };
+    const home = document.createElement('button');
+    home.id = 'end-home'; home.className = 'ghost';
+    home.textContent = t('chal.back');
+    home.onclick = () => { game.challenge = null; resetGame(); location.reload(); };
+    $('ending').querySelector('.ending-inner').insertBefore(home, $('end-again'));
+  } else {
+    $('end-kicker').textContent = win ? t('end.winKicker') : t('end.loseKicker');
+    $('end-title').textContent = win ? t('end.winTitle') : t('end.loseTitle');
+    if (game.ng > 0) {
+      const badge = document.createElement('div');
+      badge.className = 'ng-badge end-ng';
+      badge.textContent = t('ng.label', { n: game.ng });
+      $('ending').querySelector('.ending-inner').insertBefore(badge, $('end-title'));
+    }
+    $('end-text').innerHTML = win ? t('end.winText') : t('end.loseText');
+    const ngLine = game.ng > 0 ? `<div>${t('ng.enemyBuff', { hp: 25 * game.ng, dmg: 10 * game.ng })}</div>` : '';
+    $('end-stats').innerHTML = `
+      <div>${t('end.statTime')}<b>${fmtTime(game.stats.time)}</b></div>
+      <div>${t('end.statTrash')}<b>${game.stats.collected}</b></div>
+      <div>${t('end.statBuild')}<b>${game.base.structures.length}</b></div>
+      <div>${t('end.statKills')}<b>${game.stats.kills}</b></div>
+      <div>${t('end.statGear')}<b>${Object.values(game.up).reduce((a, b) => a + b, 0)}</b></div>
+      <div>${t('end.statAch', { n: game.ach.length, total: ACH.length, add: Math.max(0, game.ach.length - achBaseline) })}</div>
+      ${ngLine}`;
+    $('end-again').textContent = t('ui.endAgain');
+    $('end-again').onclick = () => { resetGame(); location.reload(); };
+    if (win && game.ng < NG_MAX) {
+      const b = document.createElement('button');
+      b.id = 'end-ng'; b.className = 'primary';
+      b.textContent = t('ng.start', { n: game.ng + 1 });
+      b.onclick = () => { if (typeof startNGPlus === 'function') startNGPlus(); };
+      $('ending').querySelector('.ending-inner').insertBefore(b, $('end-again'));
+    }
+  }
   game.paused = true;
   game.scene = 'ending';
   $('hud').style.display = 'none';

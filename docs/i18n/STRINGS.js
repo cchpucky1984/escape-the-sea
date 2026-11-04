@@ -454,12 +454,12 @@ window.I18N_DATA = {
   "tut.done": ["教學完成 — 接下來自由探索，J 看任務","Tutorial complete — explore freely, press J for quests"], // core.js:60
 
   /* ── 挑戰模式（待接線） ── */
-  "challenge.iron.name":       ["一命深海","Iron Depths"], // CONTENT-v0.5.md:65
-  "challenge.iron.rule":       ["死亡即結束","Death ends the run"], // CONTENT-v0.5.md:65
-  "challenge.speed.name":      ["限時 45","Time Attack 45"], // CONTENT-v0.5.md:66
-  "challenge.speed.rule":      ["45 分鐘倒數","45-minute countdown"], // CONTENT-v0.5.md:66
-  "challenge.bare.name":       ["赤手空拳","Bare Hands"], // CONTENT-v0.5.md:67
-  "challenge.bare.rule":       ["不能建砲塔、不能裝模組","No turrets, no modules"], // CONTENT-v0.5.md:67
+  "challenge.iron.name": ["一命深海","Iron Dive"], // DATA-v0.9.md:25
+  "challenge.iron.rule": ["不能死。死一次就結束。","No deaths. One death ends the run."], // DATA-v0.9.md:26
+  "challenge.speed.name": ["限時 45","Speed Dive"], // DATA-v0.9.md:29
+  "challenge.speed.rule": ["45 分鐘內攻入母船核心。","Reach the mothership core within 45 minutes."], // DATA-v0.9.md:30
+  "challenge.bare.name": ["赤手空拳","Bare Hands"], // DATA-v0.9.md:33
+  "challenge.bare.rule": ["不能建砲塔、不能裝模組，四件裝備不可升級。","No turrets, no modules, four gear lines locked."], // DATA-v0.9.md:34
 
   /* ── NG+（待接線） ── */
   "ng.label":                  ["NG+{n}","NG+{n}"], // CONTENT-v0.5.md:92
@@ -563,6 +563,56 @@ window.I18N_DATA = {
   "mirror.win": ["你打贏了自己——逃生艙脫離母船","You beat yourself — the pod clears the mothership"], // v0.8-pending
   "mirror.loseTitle": ["你被自己的鏡像擊落","Shot down by your own mirror"], // v0.8-pending
   "mirror.lose": ["這次是它先算清你的帳","This time it settled your score first"], // v0.8-pending
+
+  /* ── v0.9 挑戰／NG+／可及性／canvas 海域名短版（v0.9-pending；B 落地後補行號） ── */
+  "ng.title": ["下一輪","Next Run"], // DATA-v0.6.md:131
+  "ng.name": ["新一輪（NG+）","New Run (NG+)"], // DATA-v0.6.md:131
+  "ng.count": ["第 {n} 輪","Run {n}"], // DATA-v0.6.md:140
+  "ng.start": ["開始 NG+{n}","Start NG+{n}"], // DATA-v0.6.md:139
+  "ng.desc": ["重置資源、裝備、基地與零件；保留成就、巨獸擊殺與 NG+ 次數","Resets resources, gear, base and parts; keeps achievements, leviathan kills and NG+ count"], // DATA-v0.6.md:139
+  "ng.enemyBuff": ["敵人 HP +{hp}% · 傷害 +{dmg}%","Enemy HP +{hp}% · Damage +{dmg}%"], // DATA-v0.6.md:140
+  "ng.resBuff": ["資源產出 +{n}%","Resource output +{n}%"], // DATA-v0.6.md:135
+  "ng.ending": ["你在 NG+{n} 又贏了一次","You won again on NG+{n}"], // DATA-v0.6.md:140
+  "ng.max": ["已達最高 NG+9","Max NG+9 reached"], // DATA-v0.6.md:132
+  "ng.confirm": ["進入 NG+{n}？","Start NG+{n}?"], // DATA-v0.6.md:139
+  "ng.keep": ["保留","Kept"], // DATA-v0.6.md:139
+  "a11y.title": ["可及性","Accessibility"], // PRODUCT-v1.0.md:18
+  "a11y.reduceMotion": ["減少動態","Reduce Motion"], // PRODUCT-v1.0.md:18
+  "a11y.reduceMotionDesc": ["關閉鏡頭震動、閃光與粒子","Turns off camera shake, flashes and particles"], // PRODUCT-v1.0.md:18
+  "a11y.colorblind": ["色盲輔助","Colorblind Assist"], // PRODUCT-v1.0.md:18
+  "a11y.colorblindDesc": ["為顏色標記加上形狀與文字","Adds shapes and labels to color-coded markers"], // PRODUCT-v1.0.md:18
+  "a11y.textSize": ["字級","Text Size"], // PRODUCT-v1.0.md:18
+  "a11y.textSizeDesc": ["介面字級 100%／115%／130%","UI text size 100% / 115% / 130%"], // PRODUCT-v1.0.md:18
+  "a11y.reset": ["恢復預設","Reset to defaults"], // v0.9-pending
+  "a11y.note": ["可及性選項只影響呈現，不影響難度","Accessibility options change presentation only, not difficulty"], // PRODUCT-v1.0.md:18
+  "zone.near.short": ["近海","NEAR"], // HANDOFF.md:42
+  "zone.mid.short": ["外海","OPEN"], // HANDOFF.md:42
+  "zone.deep.short": ["深海","DEEP"], // HANDOFF.md:42
+  "zone.far.short": ["遠洋","FAR"], // HANDOFF.md:42
+
+  /* ── v0.9（A DATA-v0.9 定案：挑戰／NG+／可及性；行號 pending 者待 B 落地） ── */
+  "chal.title": ["挑戰模式","Challenge Mode"], // DATA-v0.9.md:22
+  "chal.locked": ["先通關一次","Finish a run first"], // DATA-v0.9.md:48
+  "chal.retry": ["再試一次","Try again"], // DATA-v0.9.md:45
+  "chal.back": ["回標題","Back to title"], // DATA-v0.9.md:45
+  "chal.failTitle": ["挑戰失敗：{name}","Challenge failed: {name}"], // DATA-v0.9.md:45
+  "chal.winTitle": ["挑戰完成","Challenge complete"], // DATA-v0.9.md:45
+  "chal.best": ["最佳分 {best} · 本次 {score}","Best {best} · This run {score}"], // DATA-v0.9.md:46
+  "chal.newRecord": ["新紀錄！{score}","New record! {score}"], // DATA-v0.9.md:47
+  "chal.iron.name": ["一命深海","Iron Dive"], // DATA-v0.9.md:25
+  "chal.iron.desc": ["不能死。死一次就結束。","No deaths. One death ends the run."], // DATA-v0.9.md:26
+  "chal.speed.name": ["限時 45","Speed Dive"], // DATA-v0.9.md:29
+  "chal.speed.desc": ["45 分鐘內攻入母船核心。","Reach the mothership core within 45 minutes."], // DATA-v0.9.md:30
+  "chal.bare.name": ["赤手空拳","Bare Hands"], // DATA-v0.9.md:33
+  "chal.bare.desc": ["不能建砲塔、不能裝模組，四件裝備不可升級。","No turrets, no modules, four gear lines locked."], // DATA-v0.9.md:34
+  "chal.score": ["分數 {score}","Score {score}"], // v0.9-pending
+  "chal.rules": ["規則","Rules"], // v0.9-pending
+  "chal.timeLeft": ["剩餘 {time}","{time} left"], // v0.9-pending
+  "ng.ngDiff": ["本輪難度：敵人 HP +{n}%","This run's difficulty: enemy HP +{n}%"], // DATA-v0.9.md:68
+  "ng.bossBuff": ["BOSS HP +{n}%","BOSS HP +{n}%"], // DATA-v0.9.md:65
+  "a11y.colorblindTag": ["色盲友善標記","Colorblind-friendly markers"], // DATA-v0.9.md:78
+  "a11y.fontScale120": ["字級 120%","Text size 120%"], // DATA-v0.9.md:85
+  "a11y.textSizeDesc": ["介面字級 100%／120%","UI text size 100% / 120%"], // DATA-v0.9.md:85
 
 };
 

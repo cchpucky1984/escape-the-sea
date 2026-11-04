@@ -1,8 +1,15 @@
 # 發佈包（LAUNCH KIT）— itch.io 上架／Steam 願望清單／社群／Press
 
-> 擁有者：E · 2026-11-04 v0.7 · 依據 `PRODUCT-v1.0.md` 支柱 F、`LEGAL.md` §4、`STORE-v0.6-EN.md`
+> 擁有者：E · 2026-11-05 v0.9 · 依據 `PRODUCT-v1.0.md` 支柱 F、`LEGAL.md` §4、`STORE-v0.6-EN.md`
 > `[待填]` = 需要 Lead／使用者提供（帳號、網址、價格、信箱）。**本文件不執行任何上架動作**，只列步驟與文案。
-> 素材現況：capsule 全尺寸、原生 1920 key art、logo wordmark 已存在 `docs/art/store/`；還缺 5 張 1920×1080 截圖與 30 秒預告（腳本 `TRAILER-v0.6.md`）。
+> 素材現況：capsule 全尺寸、原生 1920 key art、logo wordmark 已存在 `docs/art/store/`；**還缺 5 張 1920×1080 截圖、30 秒預告、beta findings**（腳本 `TRAILER-v0.6.md`）。
+
+## 0. v0.9 進度快照（2026-11-05）
+
+- **已上線的內容**：v0.6 音樂／成就／事件／標題 → v0.7 觸控／PWA／英文 → v0.8 難度＋最終戰重做（海域密度、四巨獸四模式、子彈型別、母船波次 10→24、核心 900HP 四階段、90s 逃生倒數＋鏡像 BOSS）。`v0.8.0-alpha` commit、QA 43/43 PASS、pageErrors 0。
+- **v0.9 施工中**：挑戰模式 3（一命深海／限時 45／赤手空拳）＋NG+、可及性（reduce motion／色盲輔助／字級）、平衡（核心 900 → 1800，TTK 目標 150–210 秒）。
+- **上架 gate（缺一不可）**：① 商店素材（1920 截圖 ×5、預告、logo 疊字）② 實機測試（iOS/Android 觸控、PWA 安裝、實機 60fps）③ 音樂人耳驗收 ④ beta 8 人 findings ⑤ `LICENSE`／`THIRD-PARTY-NOTICES`。
+- **目前仍只在本機**：未 push、GitHub Pages 還是舊版；`[待填]` 的帳號／網址未提供前不能真的上架。
 
 ## 1. itch.io 上架檢查表（照順序做）
 
@@ -14,7 +21,7 @@
 ### 1.2 專案頁欄位
 - [ ] Title：`Escape the Sea`；URL slug：`escape-the-sea`
 - [ ] Tagline：`Scavenge the sea. Grow a base. Take the fight to the moon.`
-- [ ] Short description（**153 字元**，直接貼）：`Blasted into the sea by an alien ship, you turn floating trash into a growing base, a BOT fleet and a rocket — then fly to the moon and settle the score.`
+- [ ] Short description（**157 字元**，直接貼）：`Blasted into the sea by an alien ship, turn trash into a base, a BOT fleet and a rocket — then fly to the moon and settle the score. 3 challenge modes + NG+.`
 - [ ] Long description：貼 `STORE-v0.6-EN.md` §3（英文）＋中文版 `STORE-v0.5.md` §2（同頁雙語，英文放前）
 - [ ] Classification：`Game` → `Action`（次要 `Adventure`、`Indie`）
 - [ ] Made with：`HTML5`
@@ -137,20 +144,28 @@
 - 建議節奏：上線前 7 天寄 1–4；上線當天寄 5 與備選；一週後 follow-up 一次即可，不要連發。
 - 台灣本地：可另寄 `巴哈姆特 GNN` 新聞信箱（`[待填]`，需自行查官網）與 `4Gamers`／`電腦王阿達` 等；本輪先列 5 個國際名單。
 
-## 5. 上線時程（T 為上線日）
+## 5. 上線時程（T 為上線日；以 v0.9 現況回推）
 
-- **T−14**：itch 頁建好（草稿）、capsule／截圖定稿、press 名單確認、demo 打包
-- **T−7**：寄 press（1–4）、Steam 願望清單頁開、X 預告貼
-- **T−3**：itch 頁預覽給 3 位朋友試玩；修最後的英文破版
-- **T−1**：排程 devlog #1、社群貼文排程、檢查 AI 揭露與 LEGAL 同步
+> v0.9 收尾（挑戰／NG+／可及性／平衡）與 beta 封測完成後，才能啟動 T−14；目前 `T` 仍未定。
+
+- **T−14**：itch 頁建好（草稿）、capsule／截圖定稿、press 名單確認、demo 打包、`LAUNCH-KIT` §1 全勾
+- **T−7**：寄 press（1–4）、Steam 願望清單頁開、X 預告貼、beta findings 收斂完成
+- **T−3**：itch 頁預覽給 3 位朋友試玩；修最後的英文破版；實機（iOS/Android）通過
+- **T−1**：排程 devlog #1、社群貼文排程、檢查 AI 揭露與 LEGAL 同步、`LICENSE` 就位
 - **T**：解除 itch 草稿、發 3 篇社群、寄 press 5＋備選、監看留言
-- **T+3**：發 devlog #2／#3、整理回饋、決定首個 patch
+- **T+3**：發 devlog #5、整理回饋、決定首個 patch
 
 ## 6. 缺件清單（上架前必須補）
 
-- [ ] 5 張 1920×1080 實機截圖（`TRAILER-v0.6.md` §3 有指令）
-- [ ] 30 秒預告成片（腳本同上）
+- [ ] 5 張 1920×1080 實機截圖（`TRAILER-v0.6.md` §3 有指令；v0.8 新場景：四巨獸／四階段核心／鏡像 BOSS 要入鏡）
+- [ ] 30 秒預告成片（腳本同上；建議重寫 v0.9 分鏡納入挑戰／NG+）
 - [ ] itch／Steam／GitHub Pages 三個網址
 - [ ] support email 與退款政策文字（平台預設可，但要有一個信箱）
 - [ ] demo 版的實作方式（`?demo=1` 或獨立包）與 15 分鐘截斷點
 - [ ] `LICENSE` 與 `THIRD-PARTY-NOTICES.md`（LEGAL §6 建議，Lead 決定）
+- [ ] **v0.9 驗收**：挑戰 3 模式可從標題進入、最佳分寫在獨立 key、NG+ 到 9 不溢出、可及性（reduce motion／色盲／字級）重開保留
+- [ ] **實機測試**：iOS Safari／Android Chrome 觸控、PWA 安裝、實機 60fps（headless 數值不算）
+- [ ] **平衡**：核心 1800 後核心 TTK 70–100 秒、整場決戰 5–7 分鐘、首輪 90–150 分鐘（`balance.mjs` 長跑）
+- [ ] **beta**：`docs/design/BETA-PLAN.md` 8 人回收 findings，P0/P1 收斂
+- [ ] **音樂**：6 段候選人耳驗收，選定後更新 `AUDIO-SPEC.md` 與版權紀錄
+- [ ] **i18n**：`STRINGS.js` 補完 v0.9 字串行號（目前 20 條 `v0.9-pending`、70 條 `v0.8-pending`）

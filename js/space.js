@@ -20,9 +20,21 @@ const LC = {
   bulletSpeed: 900, hitR: 27
 };
 
-/* ---------- v0.8 §6 四合一核心 / §7 鏡像 ---------- */
+/* ---------- v0.9 NG+ 倍率：優先用 B 的 ngMul(k)，否則用 DATA-v0.9 同公式 ---------- */
+const NG_MUL_FALLBACK = { enemyHp: 0.25, enemyDmg: 0.10, aggr: 0.05, income: 0.15, leviHp: 0.30, bossHp: 0.20, mirrorHp: 0.20 };
+function ngMulLocal(key) {
+  if (typeof window.ngMul === 'function') {
+    try {
+      const v = window.ngMul(key);
+      if (typeof v === 'number' && v > 0) return v;
+    } catch (e) { }
+    try { const v2 = window.ngMul(); if (typeof v2 === 'number' && v2 > 0) return v2; } catch (e) { }
+  }
+  const ng = (typeof game !== 'undefined' && game && typeof game.ng === 'number') ? game.ng : 0;
+  return 1 + (NG_MUL_FALLBACK[key] || 0) * ng;
+}
 const BOSS_CFG = {
-  hp: 900, r: 64, switchInv: 1.5,
+  hp: 1800, r: 64, switchInv: 1.5,
   ring: { n: 12, spd: 165, dmg: 4, gap: 2.2 },
   beam: { charge: 1.4, dur: 3.0, sweep: 0.5, half: 70, tick: 0.25, dmg: 4, len: 900, width: 26 },
   missile: { n: 2, spd: 220, turn: 2.2, dmg: 6, life: 4.5, every: 4 },
@@ -398,6 +410,7 @@ function launchFail() {
   launch.state = 'fail';
   sfx('lose');
   cueHide(0);
+  if (typeof challengeEnd === 'function') { try { challengeEnd(false); } catch (e) { } }
   const h = launch.hits || { rock: 0, fighter: 0, plasma: 0, interceptor: 0 };
   const src = [];
   if (h.rock) src.push('隕石 ' + h.rock);
@@ -782,6 +795,7 @@ function updateDock(dt) {
 function dockFail() {
   dock.state = 'fail';
   sfx('lose');
+  if (typeof challengeEnd === 'function') { try { challengeEnd(false); } catch (e) { } }
   cueShow('failed', 0, 0, 0);
   setTimeout(() => cueHide(0), 1200);
   openModal('太空船被擊落', `<p class="muted">母船的防禦砲火把太空船撕開。你彈射出去，看著它燒成碎片。</p>
@@ -1082,8 +1096,12 @@ function addAlien(type, x, y) {
   const spec = type === 'elite' ? { hp: 12, r: 22, speed: 60, cool: 1.6 }
     : type === 'grunt' ? { hp: 4, r: 15, speed: 100, cool: rnd(1, 2.4) }
       : { hp: 6, r: 18, speed: 74, cool: rnd(1, 2.4) };
+  /* v0.9 NG+：波次敵人 HP × ngMul('enemyHp') */
+  const ng = (typeof game !== 'undefined' && game && typeof game.ng === 'number') ? game.ng : 0;
+  const hpMul = ngMulLocal('enemyHp');
+  const hp = Math.max(1, Math.round(spec.hp * hpMul));
   moon.aliens.push({
-    type, x, y, hp: spec.hp, maxhp: spec.hp, r: spec.r, speed: spec.speed,
+    type, x, y, hp, maxhp: hp, r: spec.r, speed: spec.speed,
     cool: spec.cool, t: rnd(0, 6), hit: 0, ang: 0
   });
 }
@@ -1092,9 +1110,12 @@ function nextWave() {
   moon.wave++;
   moon.aliens = [];
   if (moon.wave <= 2) {
-    /* §5 v0.8：第 1 波 8 grunt＋2 shooter；第 2 波 14 grunt＋8 shooter＋2 菁英 */
+    /* §5 v0.8：第 1 波 8 grunt＋2 shooter；第 2 波 14 grunt＋8 shooter＋2 菁英
+       v0.9 NG+：每 ng 追加 2 隻 grunt（上限 12） */
+    const ng = (typeof game !== 'undefined' && game && typeof game.ng === 'number') ? game.ng : 0;
+    const extra = Math.min(12, 2 * ng);
     const w1 = moon.wave === 1;
-    const grunts = w1 ? 8 : 14;
+    const grunts = (w1 ? 8 : 14) + extra;
     for (let i = 0; i < grunts; i++) addAlien('grunt', rnd(90, ARENA.w - 90), rnd(-140, -30));
     const shooters = w1 ? 2 : 8;
     for (let i = 0; i < shooters; i++) addAlien('shooter', rnd(60, ARENA.w - 60), rnd(-180, -60));
@@ -1116,8 +1137,9 @@ function nextWave() {
 
 /* ---------- §6 四合一核心 BOSS ---------- */
 function makeBoss() {
+  const hp = Math.round(BOSS_CFG.hp * ngMulLocal('bossHp'));   /* v0.9 NG+：核心 HP ×ngMul('bossHp') */
   return {
-    x: ARENA.w / 2, y: 175, r: BOSS_CFG.r, hp: BOSS_CFG.hp, maxhp: BOSS_CFG.hp,
+    x: ARENA.w / 2, y: 175, r: BOSS_CFG.r, hp: hp, maxhp: hp,
     t: 0, hit: 0, ang: 0, vy: 0, inv: 1.2, phase: 1, active: '',
     moveT: 1.8, cycleIdx: 0, beam: null, charge: null, gravityT: 0,
     sumT: BOSS_CFG.sumEvery
@@ -1158,7 +1180,7 @@ function spawnMirror() {
   const M = moon, S = calcStats();
   const gearSum = (game.up.fin || 0) + (game.up.tank || 0) + (game.up.suit || 0) + (game.up.magnet || 0) + (game.up.harpoon || 0);
   const mods = Array.isArray(game.mods) ? game.mods.length : 0;
-  const hp = MIRROR_CFG.hpBase + MIRROR_CFG.hpGear * gearSum + MIRROR_CFG.hpMod * mods;
+  const hp = Math.round((MIRROR_CFG.hpBase + MIRROR_CFG.hpGear * gearSum + MIRROR_CFG.hpMod * mods) * ngMulLocal('mirrorHp'));   /* v0.9 NG+ */
   const P = M.p;
   M.mirror = {
     x: clamp(P.x + 260, 120, ARENA.w - 120), y: clamp(P.y - 220, 120, ARENA.h - 120),
@@ -1493,6 +1515,7 @@ function hurtMoon(n) {
 
 function moonLose() {
   if (moon.state !== 'fight' && moon.state !== 'escape') return;
+  if (typeof challengeEnd === 'function') { try { challengeEnd(false); } catch (e) { } }
   moon.state = 'lose';
   moon.endT = 0;
   sfx('lose');

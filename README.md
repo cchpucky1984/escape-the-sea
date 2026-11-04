@@ -3,7 +3,7 @@
 單機 HTML5 網頁遊戲：在海灘被外星飛船巨炮打落海，被暗湧沖到大海中央。
 收集海上垃圾 → 建造會長大的自動化基地 → 派出 BOT 出海 → 升級裝備 → 造太空船飛上月球 → 與外星母船決戰。
 
-目前版本 **v0.6.0-alpha**（v1.0 為發售目標）；**v0.7 開發中**：手機觸控、PWA 離線安裝、英文介面。v0.6 已完成新標題畫面、背景音樂、24 個成就、8 個海域事件與設定面板，見文末〈v0.7〉／〈v0.6〉。
+目前版本 **v0.8.0-alpha**（v1.0 為發售目標）；**v0.9 開發中**：挑戰模式 3、NG+、可及性（減少動態／色盲輔助／字級）與平衡（核心 1800）。v0.8 已完成難度提升與最終戰重做，見文末〈v0.9〉／〈v0.8〉。
 
 ## 開始玩
 
@@ -32,6 +32,7 @@
 | J | 任務清單與成就 |
 | Esc | 關閉面板 / 暫停選單（含音量設定） |
 | M | 總靜音（音效＋音樂） |
+| 標題畫面 | 挑戰模式／NG+（通關後解鎖；Esc → 可及性設定） |
 
 ## 生存規則（2026 平衡版）
 
@@ -110,7 +111,20 @@
 
 死亡：在基地復活，失去 15% 塑膠。升空／登艦失敗：回基地修理（金屬 -8）。母船戰敗：可再次出擊。
 
-## v0.7（本輪）
+## v0.9（本輪）
+
+- **挑戰模式 3**：通關一次後從標題進入——一命深海（死亡即結束）、限時 45（45 分鐘內攻入核心）、赤手空拳（不建砲塔／不裝模組／四裝備不可升級）。不能存檔，最佳分寫在獨立 key。
+- **NG+**：通關後進下一輪（上限 NG+9）；重置資源／裝備／基地／零件，保留成就、挑戰最佳分、巨獸擊殺。敵人 HP +25%·ng、傷害 +10%·ng、產出 +15%·ng。
+- **可及性**：減少動態（震動／閃光／粒子）、色盲輔助（形狀＋文字）、字級 100%／120%，重開保留。
+- **平衡**：最終核心 HP 900 → 1800，核心 TTK 目標 70–100 秒、含波次＋逃生＋鏡像的整場決戰 5–7 分鐘；首輪 90–150 分鐘用 `balance.mjs` 長跑驗。
+- **i18n**：`docs/i18n/STRINGS.js` 增至 541 條（挑戰／NG+／可及性／canvas 海域名短版）。
+
+## v0.8（上一輪）
+
+- **難度提升**：海域密度（深海同屏上限 6→10、遠洋 8→12）；四巨獸四模式（光束／追蹤／衝撞／洋流）；子彈四型（快／慢／追蹤／雷射）各附前搖與躲法。
+- **最終戰重做**：升空可手動瞄準；母船第 2 波 10→24；核心 900HP 四階段（重力→光束→導彈→衝撞）；核心死後 90 秒逃生倒數＋鏡像 BOSS（同型態、技能 +1，擊敗才通關）；`#dockcue` 轉場提示與雙血條。
+
+## v0.7（更早）
 
 - **手機觸控**：390×844 直向可玩——左半虛擬搖桿游動、右半瞄準／射擊，面板維持可點（施工中）。
 - **PWA**：manifest＋service worker，可安裝到桌面、離線開啟；快取與 `?v=` 同步，更新會換版（施工中）。
@@ -146,6 +160,7 @@
 - [docs/HANDOFF.md](docs/HANDOFF.md) — 交接文件（暫停點、已知問題、下次開工順序）
 - [docs/design/GDD-v0.4.md](docs/design/GDD-v0.4.md) — v0.4 企劃定案：賞金海域、數值、驗收
 - [docs/design/CONTENT-v0.5.md](docs/design/CONTENT-v0.5.md) — 內容深度：成就 24／挑戰 3／事件 8／教學／NG+ 規格
+- [docs/design/DIFFICULTY-v0.8.md](docs/design/DIFFICULTY-v0.8.md) — 難度與最終戰施工規格（四巨獸／彈幕／核心四階段／鏡像）
 - [docs/tech/AUDIT-v0.4.md](docs/tech/AUDIT-v0.4.md) — 架構與技術債審查
 - [docs/art/STYLE-v0.4.md](docs/art/STYLE-v0.4.md) — 視覺風格與 HUD／面板規格
 - [docs/art/TITLE-ART.md](docs/art/TITLE-ART.md) — 標題 key art 接線規格；素材見 [AI-ASSETS-v0.5.md](docs/art/AI-ASSETS-v0.5.md)
@@ -157,11 +172,12 @@
 - [docs/marketing/TRAILER-v0.6.md](docs/marketing/TRAILER-v0.6.md) — 30 秒預告分鏡與重現指令
 - [docs/marketing/DEVLOG-02.md](docs/marketing/DEVLOG-02.md) — Devlog #2（音樂／成就／事件／標題）
 - [docs/marketing/DEVLOG-03.md](docs/marketing/DEVLOG-03.md) — Devlog #3（觸控／PWA／英文）
+- [docs/marketing/DEVLOG-04.md](docs/marketing/DEVLOG-04.md) — Devlog #4（挑戰／NG+／可及性／核心 1800）
 - [docs/marketing/LAUNCH-KIT.md](docs/marketing/LAUNCH-KIT.md) — 上架檢查表、Steam 待補、社群貼文、press 名單
 - [docs/marketing/PRESSKIT.md](docs/marketing/PRESSKIT.md) — 媒體素材包與事實表
 - [docs/marketing/LEGAL.md](docs/marketing/LEGAL.md) — 隱私、AI 揭露、字型／音樂／模型授權清單
-- [docs/i18n/STRINGS.js](docs/i18n/STRINGS.js) — zh-Hant → en 字典（425 條，可直接載入）
-- [docs/i18n/EN-REVIEW.md](docs/i18n/EN-REVIEW.md) — 英文用語一致性（36 條）＋20 條過長字串縮短版
+- [docs/i18n/STRINGS.js](docs/i18n/STRINGS.js) — zh-Hant → en 字典（541 條，可直接載入）
+- [docs/i18n/EN-REVIEW.md](docs/i18n/EN-REVIEW.md) — 英文用語一致性（50 條）＋20 條過長字串縮短版
 - [docs/i18n/STRINGS.md](docs/i18n/STRINGS.md) — 翻譯慣例與歷史對照
 - [docs/qa/QA-BASELINE.md](docs/qa/QA-BASELINE.md) — QA 基準線與已知問題
 - [docs/TEAM.md](docs/TEAM.md) — 團隊規範與檔案擁有權
@@ -174,5 +190,5 @@
 - **Play locally**: open `index.html` (or run `start.bat`). No install, no network, no account.
 - **Controls**: WASD/Arrows swim · Shift sprint · Mouse aim/fire · B base · C gear · H bounties · J quests · Esc pause/settings · M mute.
 - **Loop**: collect trash → grow the platform base → send out BOTs → upgrade gear → build a spacecraft → storm the mothership.
-- **Status**: v0.6.0-alpha is playable (new title art, music, 24 achievements, 8 sea events, 425-string i18n dictionary). v0.7 adds touch controls, PWA install and the English UI; the EN dictionary and wording review are in `docs/i18n/`.
+- **Status**: v0.8.0-alpha is playable (difficulty rework + final battle: 4 leviathan modes, bullet types, 24-enemy wave 2, 900 HP four-phase core, 90 s escape countdown + Mirror Core). v0.9 adds 3 challenge modes, NG+ (up to 9) and accessibility (reduce motion / colorblind assist / text size), with the core raised to 1800 HP.
 - **Privacy**: no accounts, no tracking; progress stays in your browser's `localStorage`. See [LEGAL.md](docs/marketing/LEGAL.md).

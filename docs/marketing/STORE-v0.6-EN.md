@@ -27,8 +27,8 @@
 **Project title:** Escape the Sea
 **Tagline:** Scavenge the sea. Grow a base. Take the fight to the moon.
 
-**Short description (≤160 characters — 153 chars)**
-> Blasted into the sea by an alien ship, you turn floating trash into a growing base, a BOT fleet and a rocket — then fly to the moon and settle the score.
+**Short description (≤160 characters — 157 chars)**
+> Blasted into the sea by an alien ship, turn trash into a base, a BOT fleet and a rocket — then fly to the moon and settle the score. 3 challenge modes + NG+.
 
 **Long description (paste as-is; itch supports basic HTML)**
 
@@ -73,8 +73,8 @@
 
 ## 4. Steam wishlist page (English)
 
-**Short description (≤300 characters — 263 chars)**
-> Blasted into the ocean by an alien ship, you turn floating trash into a growing base, a BOT fleet and a rocket, then fly to the moon to fight the mothership. A single-player HTML5 survival/base-building run of 90–150 minutes, with English and Traditional Chinese.
+**Short description (≤300 characters — 272 chars)**
+> Blasted into the ocean by an alien ship, you turn floating trash into a growing base, a BOT fleet and a rocket, then fly to the moon to fight the mothership. A single-player HTML5 run of 90–150 minutes, with English and Traditional Chinese, plus 3 challenge modes and NG+.
 
 **Long description (BBCode, paste into Steamworks)**
 > [b]Scavenge the sea. Grow a base. Settle the score.[/b]
@@ -99,7 +99,7 @@
 
 **Steam tags:** `Singleplayer` `Action` `Survival` `Base Building` `Space` `Underwater` `Sci-fi` `Shoot 'em up` `Crafting` `Short`
 **Genres:** Action, Adventure, Indie
-**Languages:** English (full), Traditional Chinese (full) `[EN localization ships in v0.8]`
+**Languages:** English (full, live since v0.7), Traditional Chinese (full)
 **Content:** mild fantasy violence; AI-generated content disclosed per Steam policy (see §2). No blood/gore/strong language.
 **Price:** US$3.99 `[TBD]`; wishlist page first, desktop packaging after v0.7.
 
@@ -118,9 +118,9 @@
 
 ## 5. Localization / copy QA notes
 
-- The English dictionary is `docs/i18n/STRINGS.js` (`window.I18N_DATA`, 408 strings). Store copy should use the same fixed terms: Base, Safe Zone, Tech Shard, Alien Alloy, Mothership, Cabin Pressure, Bounty Contract, Leviathan, Rift, Harpoon, Fins, Dive Suit, Oxygen Tank.
-- Avoid claims the build cannot back up: no "fully localized English" until v0.8; write "English localization ships in v0.8" anywhere the store page could imply it is live.
-- Character counts above were counted with the exact strings in this file (itch short 153 chars, Steam short 263 chars); recount if the wording changes.
+- The English dictionary is `docs/i18n/STRINGS.js` (`window.I18N_DATA`, **541 strings**). Store copy should use the same fixed terms: Base, Safe Zone, Tech Shard, Alien Alloy, Mothership, Cabin Pressure, Bounty Contract, Leviathan, Rift, Harpoon, Fins, Dive Suit, Oxygen Tank.
+- English is **live since v0.7**; do not write "English localization ships in v0.8" anywhere. The wording review is in `docs/i18n/EN-REVIEW.md`.
+- Character counts above were counted with the exact strings in this file (itch short 157 chars, Steam short 272 chars); recount if the wording changes.
 - AI disclosure must be identical on itch, Steam and `PRESSKIT.md`; if `LEGAL.md` §4 changes, update §2 here in the same commit.
 
 ## 6. Pre-launch checklist (Lead)
