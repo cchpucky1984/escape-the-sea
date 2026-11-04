@@ -31,7 +31,20 @@
 
 ## 3. 驗收方式
 
-1. `node _dev/qa.mjs` 全綠（目前 37/37、pageErrors 0）
+1. `node _dev/qa.mjs` 全綠（v0.6 目前 43/43、pageErrors 0）
 2. 三尺寸標題截圖：390／1280／1920，`bodyScroll <= innerWidth`、標題與簡介可讀
 3. 商店縮圖測試：把 main capsule 縮到 231×132 仍能讀出中文標題（目前可，logo 字重夠）
 4. 對比：正文 ≥4.5:1（`STYLE-v0.4.md` §2 已列）
+
+## 4. v0.6 已修（C，2026-11-04）
+
+| 原項 | 修法 | 驗證 |
+|---|---|---|
+| P3 按鈕缺 hover/active/focus-visible | `button.primary/ghost/danger` 加 `:active` 位移回饋；全域 `:focus-visible` 2px cyan ring（滑鼠不顯示） | `_shots/C7/07-settings-focus-390.png` |
+| P3 `.blurb` 中文斷行 | `text-wrap:pretty;line-break:strict;word-break:normal`（390 既有 `overflow-wrap:anywhere` 保留） | 標題／結局 390 截圖 |
+| P1 結局畫面沒有視覺 | `#ending` 套 title key art（壓暗＋金色榮耀光）＋玻璃金框統計卡 | `_shots/C7/12-ending-game-1920.png`、`-390.png` |
+| P1 標題首次載入閃 | `index.html` 加 `<link rel="preload" as="image" href="docs/art/title-art/title-1920x1080.webp">` | 首帧不再等 CSS | 
+| 新：設定面板 | `.settings` 660px、`.settings-row`、28px thumb、`button.toggle`（aria-checked）、`.segmented` 語言（EN disabled＋soon） | `08-settings-game-1920/390.png` |
+| 新：成就面板 | `.ach` 進度條＋`.ach-tabs` 篩選＋24 張 `.ach-card`（已解鎖金框／未解鎖／`???` 隱藏）＋`achUnlock` 動畫 | `10-ach-game-1920/390.png` |
+| 390 無溢出 | 設定 modal 374px、slider 274px、成就 1 欄 348px、結局 390px；`docScrollWidth=390` | `*−390.png`＋CDP 量測 |
+| 滑桿 Arrow 鍵被 `main.js` 全域 `preventDefault()` 吃掉 | B 已修（keydown 對 `input[type="range"]` 放行）；驗證 focus 音樂滑桿 ArrowRight ×5 → value 55→60、`output.settings-value` 60、`game.settings.musicVol` 60、`defaultPrevented=false` | `_shots/C7/09-settings-keyboard-390.png`（value 60） |

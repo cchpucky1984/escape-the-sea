@@ -47,12 +47,23 @@ button.primary{background:linear-gradient(180deg,#7fe9ff,#25a9cc);color:#02222c;
   box-shadow:0 0 22px rgba(111,227,255,.35),inset 0 -2px 0 rgba(0,0,0,.25);
   transition:transform var(--t-fast) var(--ease-out),box-shadow var(--t-fast)}
 button.primary:hover{transform:translateY(-2px);box-shadow:0 0 30px rgba(111,227,255,.6)}
+button.primary:active{transform:translateY(0) scale(.985);box-shadow:0 0 18px rgba(111,227,255,.45)}
 button.ghost{background:transparent;color:var(--c-cy);border:1px solid var(--line);
-  padding:11px 22px;border-radius:var(--r-sm);font-size:15px}
+  padding:11px 22px;border-radius:var(--r-sm);font-size:15px;
+  transition:background var(--t-fast),color var(--t-fast),transform var(--t-fast)}
 button.ghost:hover{background:rgba(111,227,255,.1)}
+button.ghost:active{background:rgba(111,227,255,.18);transform:translateY(1px)}
 button.danger{background:linear-gradient(180deg,#ff9a8b,#d94b3a);color:#2a0603;font-weight:700;
-  padding:11px 22px;border-radius:var(--r-sm);font-size:15px}
+  padding:11px 22px;border-radius:var(--r-sm);font-size:15px;
+  transition:filter var(--t-fast),transform var(--t-fast)}
+button.danger:hover{filter:brightness(1.08)}
+button.danger:active{transform:translateY(1px)}
 button:disabled{opacity:.35;cursor:not-allowed;filter:grayscale(.4)}
+/* P3：鍵盤焦點（商業級無障礙；滑鼠點擊不顯示） */
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,
+[role="switch"]:focus-visible,[role="tab"]:focus-visible,[tabindex]:focus-visible{
+  outline:2px solid var(--c-cy);outline-offset:3px}
+button:focus:not(:focus-visible){outline:none}
 
 /* ---------- HUD（1280×800 基準） ----------
    左上：資源 2×2（240）、生命/氧氣/體力（240）、任務卡（340）、
@@ -172,7 +183,8 @@ body.shake{animation:shakeAll .5s linear}
   25%{transform:translate(7px,-5px) rotate(.3deg)}38%{transform:translate(-5px,-3px)}
   50%{transform:translate(6px,4px)}63%{transform:translate(-4px,2px)}
   75%{transform:translate(3px,-2px)}100%{transform:translate(0,0)}}
-.blurb{font-size:14.5px;line-height:2;color:#a9c8d6;margin:0 0 28px}
+.blurb{font-size:14.5px;line-height:2;color:#a9c8d6;margin:0 0 28px;
+  text-wrap:pretty;line-break:strict;word-break:normal}
 .tbtns{display:flex;gap:12px;justify-content:center;margin-bottom:22px;flex-wrap:wrap}
 .ctrl{font-size:11.5px;color:var(--c-ink-2);letter-spacing:.05em}
 .intro-inner{max-width:640px;padding:40px;text-align:left}
@@ -190,16 +202,29 @@ body.shake{animation:shakeAll .5s linear}
   background:linear-gradient(180deg,#ffe6a8,#ffb03a);-webkit-background-clip:text;
   background-clip:text;color:transparent}
 .end-stats{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:22px auto 28px;max-width:660px}
-.end-stats div{background:rgba(8,30,42,.8);border:1px solid var(--line);border-radius:var(--r-sm);
-  padding:9px 14px;font-size:12.5px;color:var(--c-ink-2);min-width:96px}
-.end-stats b{display:block;font-size:20px;color:#fff;margin-top:4px}
+.end-stats div{background:rgba(0,0,0,.32);border:1px solid rgba(255,209,102,.18);
+  border-radius:var(--r-sm);padding:9px 14px;font-size:12.5px;color:var(--c-ink-2);
+  min-width:96px;backdrop-filter:blur(4px)}
+.end-stats b{display:block;font-size:20px;color:#ffe9b3;margin-top:4px;
+  font-family:var(--font-num);font-variant-numeric:tabular-nums}
+/* P1：結局畫面也吃 key art（同標題主視覺，壓暗 + 金色榮耀光） */
+#ending{background:
+  radial-gradient(ellipse 70% 55% at 50% 30%,rgba(255,176,58,.14),rgba(255,176,58,0) 68%),
+  linear-gradient(180deg,rgba(2,7,13,.70),rgba(2,7,13,.90) 62%,rgba(2,7,13,.97)),
+  url("docs/art/title-art/title-1920x1080.webp") center 26%/cover no-repeat,
+  var(--c-abyss)}
+#ending .ending-inner{width:100%;min-width:0;max-width:640px;padding:34px 40px;border-radius:var(--r-lg);
+  background:linear-gradient(180deg,rgba(6,22,33,.76),rgba(4,14,22,.86));
+  border:1px solid rgba(255,209,102,.28);backdrop-filter:blur(8px);
+  box-shadow:0 30px 80px rgba(0,0,0,.62),inset 0 1px 0 rgba(255,255,255,.05),
+    inset 0 0 60px rgba(255,176,58,.04)}
 
 /* ---------- modal ---------- */
 #modal{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;
   background:rgba(1,8,14,.72);backdrop-filter:blur(5px);padding:24px}
 #modal.show{display:flex;animation:fadeIn var(--t-fast) ease}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.modal-box{width:min(980px,100%);max-height:88vh;display:flex;flex-direction:column;
+.modal-box{width:min(980px,100%);min-width:0;max-height:88vh;display:flex;flex-direction:column;
   background:linear-gradient(180deg,rgba(9,30,44,.97),rgba(5,16,25,.98));
   border:1px solid rgba(111,227,255,.28);border-radius:var(--r-lg);overflow:hidden;
   box-shadow:0 30px 90px rgba(0,0,0,.7),0 0 60px rgba(30,140,190,.12)}
@@ -208,7 +233,7 @@ body.shake{animation:shakeAll .5s linear}
 .modal-head h2{margin:0;font-size:18px;letter-spacing:.12em;color:#cdefff}
 #modal-x{background:transparent;color:#7fa3b4;font-size:16px;padding:4px 8px;border-radius:6px}
 #modal-x:hover{background:rgba(255,255,255,.07);color:#fff}
-.modal-body{padding:18px 20px;overflow:auto;flex:1}
+.modal-body{padding:18px 20px;overflow:auto;flex:1;min-width:0}
 .modal-foot{display:flex;gap:10px;justify-content:flex-end;padding:14px 20px;
   border-top:1px solid rgba(111,227,255,.14);background:rgba(0,0,0,.18);flex-wrap:wrap}
 .muted{color:var(--c-ink-2);font-size:12.5px;line-height:1.7}
@@ -396,6 +421,171 @@ body.shake{animation:shakeAll .5s linear}
 .card.mod.slot-empty .done{margin:0;padding:0;background:transparent;border:none;
   color:rgba(201,166,255,.55);font-size:10.5px;line-height:1.5;letter-spacing:.02em}
 
+/* =========================================================
+   v0.6：設定面板／成就面板／reduce motion
+   DOM（B 的 core.js openSettings()／achHtml()）：
+   .settings-group > .settings-row > label + input.slider + output.settings-value；
+   button.toggle[data-setting][aria-checked]；.segmented > button.seg[data-lang]；
+   .ach-top > .ach-progress > .ach-bar > i + .ach-count；.ach-tabs > button.ach-tab[data-ach-cat]；
+   .ach-grid > .ach-card[data-cat][data-unlocked][data-hidden] > .ach-icon/.ach-main/.ach-badge
+   ========================================================= */
+
+/* ---------- 設定面板（openSettings()；#modal:has(.settings) 收窄） ----------
+   DOM（B）：.settings > .settings-group > .settings-row > label + input.slider
+   + output.settings-value；button.toggle[data-setting][aria-checked]；.segmented > button.seg */
+#modal:has(.settings) .modal-box{width:min(660px,100%)}
+.settings{display:flex;flex-direction:column;gap:12px;padding:2px 0}
+.settings-group{display:flex;flex-direction:column;gap:8px}
+.settings-group+.settings-group{margin-top:2px;padding-top:10px;
+  border-top:1px dashed rgba(255,255,255,.08)}
+.settings-row{display:flex;align-items:center;gap:14px;min-height:52px;padding:10px 14px;
+  background:rgba(255,255,255,.03);border:1px solid var(--line-2);
+  border-radius:var(--r-sm);transition:border-color var(--t-fast),background var(--t-fast)}
+.settings-row:hover{border-color:rgba(111,227,255,.22);background:rgba(111,227,255,.03)}
+.settings-row>label{flex:0 0 128px;font-size:13px;color:var(--c-ink);
+  letter-spacing:.02em;line-height:1.35;cursor:pointer}
+.settings-row input.slider,.settings-row input.settings-range{flex:1;min-width:0}
+.settings-value,.settings-val{flex:0 0 46px;text-align:right;font-family:var(--font-num);
+  font-size:14px;font-weight:600;color:var(--c-cy);font-variant-numeric:tabular-nums}
+.settings-note{margin:2px 2px 0;font-size:11px;color:var(--c-muted);line-height:1.6}
+.settings-note b{color:var(--c-ink-2);font-weight:600}
+
+/* 滑桿：thumb 28px（觸控友善）＋鍵盤 focus ring */
+.settings input[type="range"]{-webkit-appearance:none;appearance:none;width:100%;
+  height:30px;margin:0;background:transparent;cursor:pointer;touch-action:pan-y}
+.settings input[type="range"]::-webkit-slider-runnable-track{
+  height:8px;border-radius:5px;background:linear-gradient(90deg,#0f5a72,#1f7f9a);
+  border:1px solid rgba(111,227,255,.22);box-shadow:inset 0 1px 3px rgba(0,0,0,.55)}
+.settings input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;
+  width:28px;height:28px;margin-top:-11px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#eafcff,#6fe3ff 55%,#1f8fb0);
+  border:2px solid #06222e;box-shadow:0 0 12px rgba(111,227,255,.55),0 2px 6px rgba(0,0,0,.5);
+  transition:transform var(--t-fast) var(--ease-out),box-shadow var(--t-fast)}
+.settings input[type="range"]:hover::-webkit-slider-thumb{transform:scale(1.08)}
+.settings input[type="range"]:active::-webkit-slider-thumb{transform:scale(.96)}
+.settings input[type="range"]:focus-visible{outline:none}
+.settings input[type="range"]:focus-visible::-webkit-slider-thumb{
+  box-shadow:0 0 0 3px rgba(2,7,13,.95),0 0 0 5px var(--c-cy),0 0 16px rgba(111,227,255,.6)}
+.settings input[type="range"]::-moz-range-track{height:8px;border-radius:5px;
+  background:linear-gradient(90deg,#0f5a72,#1f7f9a);border:1px solid rgba(111,227,255,.22)}
+.settings input[type="range"]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#eafcff,#6fe3ff 55%,#1f8fb0);
+  border:2px solid #06222e;box-shadow:0 0 12px rgba(111,227,255,.55)}
+.settings input[type="range"]:focus-visible::-moz-range-thumb{
+  box-shadow:0 0 0 5px var(--c-cy),0 0 16px rgba(111,227,255,.6)}
+
+/* 開關（總靜音／減少動態）：button.toggle + aria-checked，文字是 開/關 */
+.settings-row button.toggle{flex:0 0 auto;min-width:66px;height:32px;padding:0 12px;
+  border-radius:999px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  background:rgba(0,0,0,.45);border:1px solid var(--line);color:var(--c-ink-2);
+  font-size:12px;letter-spacing:.08em;
+  transition:background var(--t-base),border-color var(--t-base),color var(--t-base),box-shadow var(--t-base)}
+.settings-row button.toggle::before{content:"";width:8px;height:8px;border-radius:50%;
+  background:rgba(143,179,196,.55);transition:background var(--t-base),box-shadow var(--t-base)}
+.settings-row button.toggle:hover{border-color:rgba(111,227,255,.4);color:var(--c-ink)}
+.settings-row button.toggle[aria-checked="true"]{color:#eafcff;font-weight:700;
+  background:linear-gradient(90deg,rgba(42,184,221,.55),rgba(111,227,255,.26));
+  border-color:rgba(111,227,255,.6);box-shadow:0 0 14px rgba(111,227,255,.22)}
+.settings-row button.toggle[aria-checked="true"]::before{background:var(--c-cy);
+  box-shadow:0 0 8px rgba(111,227,255,.9)}
+.settings-row button.toggle:focus-visible{outline:2px solid var(--c-cy);outline-offset:3px}
+
+/* 語言切換（English 先 disabled＋即將推出） */
+.settings-row .segmented{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.segmented button.seg,.seg{min-height:36px;padding:0 14px;border-radius:8px;font-size:12px;
+  background:rgba(255,255,255,.04);border:1px solid var(--line-2);color:var(--c-ink-2);
+  transition:background var(--t-fast),color var(--t-fast),border-color var(--t-fast)}
+.segmented button.seg:hover:not(:disabled){background:rgba(111,227,255,.08);color:var(--c-ink)}
+.segmented button.seg[aria-pressed="true"],.segmented button.seg.on,.seg.on{
+  background:linear-gradient(180deg,#7fe9ff,#25a9cc);color:#04222c;font-weight:700;
+  border-color:transparent;box-shadow:0 0 14px rgba(111,227,255,.3)}
+.segmented button.seg:disabled{opacity:.5;cursor:not-allowed;filter:none}
+.seg .soon{display:inline-block;margin-left:6px;font-size:9px;letter-spacing:.06em;
+  color:var(--c-gold);border:1px solid rgba(255,209,102,.35);border-radius:999px;
+  padding:1px 6px;white-space:nowrap}
+
+/* ---------- 成就面板（openQuests() 下半：achHtml()） ----------
+   DOM（B）：.ach > .ach-top(.ach-progress>.ach-bar>i + .ach-count)
+   + .ach-tabs > button.ach-tab[data-ach-cat] + .ach-grid > .ach-card[data-cat][data-unlocked][data-hidden]
+   > .ach-icon + .ach-main(.ach-name/.ach-desc) + .ach-badge */
+.ach{margin-top:20px;padding-top:16px;border-top:1px solid rgba(111,227,255,.14)}
+.ach-top{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.ach-top::before{content:"成就";font-size:13px;font-weight:600;letter-spacing:.08em;
+  color:var(--c-ink);margin-right:2px}
+.ach-progress{flex:1;max-width:320px;height:8px;border-radius:5px;overflow:hidden;
+  background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.08)}
+.ach-progress .ach-bar{height:100%}
+.ach-progress i{display:block;height:100%;width:0;border-radius:5px;
+  background:linear-gradient(90deg,#ffd166,#ffe9a8);box-shadow:0 0 8px rgba(255,209,102,.45);
+  transition:width .4s var(--ease-out)}
+.ach-count{margin-left:auto;font-family:var(--font-num);font-size:11.5px;color:var(--c-gold);
+  background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.25);
+  border-radius:999px;padding:2px 9px;font-variant-numeric:tabular-nums}
+.ach-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+.ach-tab{height:28px;padding:0 11px;border-radius:999px;font-size:11px;
+  background:transparent;border:1px solid var(--line-2);color:var(--c-ink-2);
+  transition:background var(--t-fast),color var(--t-fast),border-color var(--t-fast)}
+.ach-tab:hover{background:rgba(111,227,255,.06);color:var(--c-ink)}
+.ach-tab.on,.ach-tab[aria-pressed="true"]{border-color:rgba(255,209,102,.5);
+  color:var(--c-gold);background:rgba(255,209,102,.08)}
+.ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(216px,1fr));gap:10px}
+.ach-card{position:relative;display:flex;gap:10px;align-items:flex-start;padding:11px 12px;
+  border-radius:var(--r-md);background:rgba(255,255,255,.03);
+  border:1px solid rgba(111,227,255,.14);
+  transition:border-color var(--t-fast),background var(--t-fast),transform var(--t-fast)}
+.ach-card:hover{border-color:rgba(111,227,255,.3);background:rgba(111,227,255,.04)}
+.ach-icon{flex:0 0 auto;width:32px;height:32px;border-radius:9px;display:flex;
+  align-items:center;justify-content:center;font-size:15px;line-height:1;
+  font-family:var(--font-num);color:#8fb3c4;background:rgba(0,0,0,.35);
+  border:1px solid var(--line-2)}
+.ach-main{flex:1;min-width:0;padding-right:58px}
+.ach-name{font-size:13px;font-weight:600;color:var(--c-ink);letter-spacing:.02em;line-height:1.35}
+.ach-desc{margin-top:3px;font-size:11px;color:var(--c-muted);line-height:1.5}
+.ach-badge{position:absolute;right:10px;top:10px;font-size:9px;letter-spacing:.08em;
+  color:var(--c-ink-2);border:1px solid var(--line);border-radius:999px;padding:1px 7px;
+  white-space:nowrap}
+/* 分類色（進度／挑戰／彩蛋） */
+.ach-card[data-cat="progress"] .ach-icon{color:#7fd4ea;border-color:rgba(111,227,255,.3);
+  background:rgba(111,227,255,.08)}
+.ach-card[data-cat="progress"] .ach-badge{color:#7fd4ea;border-color:rgba(111,227,255,.35)}
+.ach-card[data-cat="challenge"] .ach-icon{color:#ffd166;border-color:rgba(255,209,102,.35);
+  background:rgba(255,209,102,.08)}
+.ach-card[data-cat="challenge"] .ach-badge{color:#ffd166;border-color:rgba(255,209,102,.4)}
+.ach-card[data-cat="secret"] .ach-icon{color:#c9a6ff;border-color:rgba(201,166,255,.35);
+  background:rgba(201,166,255,.08)}
+.ach-card[data-cat="secret"] .ach-badge{color:#c9a6ff;border-color:rgba(201,166,255,.4)}
+/* 未解鎖 */
+.ach-card[data-unlocked="false"]{opacity:.82}
+/* 隱藏 ??? */
+.ach-card[data-hidden="true"]{opacity:.62;border-style:dashed}
+.ach-card[data-hidden="true"] .ach-icon{color:rgba(143,179,196,.75);font-size:16px}
+.ach-card[data-hidden="true"] .ach-name{color:var(--c-muted);letter-spacing:.22em}
+.ach-card[data-hidden="true"] .ach-desc{color:rgba(143,179,196,.55)}
+/* 已解鎖：金框＋金星＋解鎖動畫 */
+.ach-card[data-unlocked="true"],.ach-card.unlocked{border-color:rgba(255,209,102,.48);
+  background:linear-gradient(180deg,rgba(255,209,102,.08),rgba(255,255,255,.02));
+  box-shadow:inset 0 0 22px rgba(255,209,102,.07),0 0 14px rgba(255,209,102,.08)}
+.ach-card[data-unlocked="true"] .ach-icon{color:#2a1a00;font-weight:700;
+  background:linear-gradient(180deg,#ffe08a,#ffb03a);border-color:rgba(255,209,102,.7);
+  box-shadow:0 0 14px rgba(255,209,102,.45)}
+.ach-card[data-unlocked="true"] .ach-name{color:#ffe9b3}
+.ach-card[data-unlocked="true"] .ach-desc{color:#c9b37a}
+.ach-card[data-unlocked="true"] .ach-badge{color:#2a1a00;background:var(--c-gold);
+  border-color:transparent;font-weight:700}
+@keyframes achUnlock{0%{box-shadow:0 0 0 0 rgba(255,209,102,.55),inset 0 0 0 rgba(255,209,102,0)}
+  55%{box-shadow:0 0 0 4px rgba(255,209,102,.28),inset 0 0 30px rgba(255,209,102,.16)}
+  100%{box-shadow:inset 0 0 22px rgba(255,209,102,.07),0 0 14px rgba(255,209,102,.08)}}
+.ach-card.unlocked{animation:achUnlock var(--t-pop) var(--ease-out) both}
+
+/* ---------- reduce motion（設定開關＋系統偏好） ---------- */
+body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{
+  animation-duration:.001ms !important;animation-iteration-count:1 !important;
+  transition-duration:.001ms !important;scroll-behavior:auto !important}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;scroll-behavior:auto !important}
+}
+
 /* ---------- RWD：≤768px（平板／窄視窗） ---------- */
 @media (max-width:768px){
   #hud{left:12px;top:12px;width:calc(100vw - 24px);max-width:344px}
@@ -418,6 +608,14 @@ body.shake{animation:shakeAll .5s linear}
   .bounty-grid,.mod-grid{grid-template-columns:1fr}
   .bounty-top{font-size:11px;padding:8px 10px}
   .bounty-top b{font-size:14px}
+  #modal:has(.settings) .modal-box{width:100%}
+  .settings-row{flex-wrap:wrap;gap:8px 12px}
+  .settings-row>label{flex:1 1 100%}
+  .settings-row input.slider,.settings-row input.settings-range{flex:1 1 0;width:auto;min-width:0}
+  .settings-value,.settings-val{flex:0 0 42px}
+  .settings-row button.toggle{margin-left:auto}
+  .ach-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ach-progress{max-width:none}
 }
 
 /* ---------- RWD：≤430px（390 手機直向；本輪不做觸控） ---------- */
@@ -466,4 +664,21 @@ body.shake{animation:shakeAll .5s linear}
   .bounty-actions button{min-width:92px;font-size:11.5px}
   .card.bounty.slot-empty,.card.mod.slot-empty{min-height:104px}
   .bounty-note{font-size:10px}
+  #modal:has(.settings) .modal-box{width:100%}
+  .settings-row{padding:9px 10px;gap:8px 10px}
+  .settings-row>label{flex:1 1 100%;font-size:12px}
+  .settings-value,.settings-val{font-size:13px}
+  .settings-note{font-size:10px}
+  .settings-row .segmented{margin-left:0}
+  .segmented button.seg{min-height:34px;padding:0 11px;font-size:11px}
+  .settings-row input.slider,.settings-row input.settings-range{flex:1 1 0;width:auto;min-width:0}
+  .ach-grid{grid-template-columns:1fr}
+  .ach-card{padding:10px}
+  .ach-icon{width:28px;height:28px;font-size:13px}
+  .ach-main{padding-right:48px}
+  .ach-name{font-size:12px}
+  .ach-desc{font-size:10.5px}
+  .ach-badge{font-size:8.5px;padding:1px 6px}
+  #ending .ending-inner{padding:24px 18px}
+  .end-stats div{min-width:0;flex:1 1 30%}
 }

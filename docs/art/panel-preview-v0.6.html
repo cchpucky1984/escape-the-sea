@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>v0.6 面板預覽（設定／成就／結局）</title>
+<!--
+  靜態預覽：直接吃 ../../style.css（真實樣式），DOM 照 B 的 core.js（openSettings / achHtml）。
+  開法：panel-preview-v0.6.html（設定，預設）｜#ach（成就）｜#ending（結局）
+-->
+<link rel="stylesheet" href="../../style.css">
+<style>
+  html,body{width:100%;height:100%;background:
+    radial-gradient(ellipse at 62% 22%,rgba(24,82,104,.45),transparent 60%),
+    linear-gradient(180deg,#04101a,#02070d)}
+  .preview-tag{position:fixed;left:16px;bottom:14px;z-index:99;font-size:10px;
+    letter-spacing:.14em;color:rgba(143,179,196,.55);pointer-events:none}
+</style>
+</head>
+<body data-view="settings">
+
+<div id="modal" class="show">
+  <div class="modal-box">
+    <div class="modal-head"><h2 id="pv-title">音量設定</h2>
+      <button id="modal-x" aria-label="關閉">✕</button></div>
+    <div class="modal-body" id="pv-body"></div>
+    <div class="modal-foot"><button class="ghost">關閉 (Esc)</button></div>
+  </div>
+</div>
+
+<div id="ending" class="screen" hidden>
+  <div class="ending-inner">
+    <div class="kicker">任務完成 · 母船決戰</div>
+    <h1>你把帳算清了</h1>
+    <p class="blurb">母船核心在你眼前炸開，整艘巨艦從內部亮成一顆白色的星。<br>
+    同盟軍的戰機從火球兩側穿出來，護著你的逃生艙往外飛。<br>
+    「任務完成，歡迎回家。」——遠處那顆藍色星球上，有一片海在等你。</p>
+    <div class="end-stats">
+      <div>遊戲時間<b>01:47:23</b></div>
+      <div>收集垃圾<b>1,284</b></div>
+      <div>基地建築<b>19</b></div>
+      <div>擊殺敵人<b>96</b></div>
+      <div>裝備等級<b>14</b></div>
+      <div>成就<b>18 / 24</b></div>
+    </div>
+    <button class="primary">重新開始</button>
+  </div>
+</div>
+
+<div class="preview-tag">v0.6 PREVIEW · settings｜#ach｜#ending</div>
+
+<script>
+const row = (label, key, val) => `<div class="settings-row"><label>${label}</label>
+  <input class="slider" type="range" min="0" max="100" step="1" value="${val}" data-setting="${key}">
+  <output class="settings-value" data-value="${key}">${val}</output></div>`;
+
+const SETTINGS_HTML = `
+  <div class="settings">
+    <div class="settings-group">
+      ${row('音樂音量', 'music', 55)}
+      ${row('音效音量', 'sfx', 80)}
+    </div>
+    <div class="settings-group">
+      <div class="settings-row"><label>總靜音</label>
+        <button class="toggle" data-setting="mute" aria-checked="false">關</button></div>
+      <div class="settings-row"><label>減少動態</label>
+        <button class="toggle" data-setting="reduceMotion" aria-checked="false">關</button></div>
+      <div class="settings-row"><label>語言</label>
+        <div class="segmented">
+          <button class="seg" data-lang="zh-Hant" aria-pressed="true">繁中</button>
+          <button class="seg" data-lang="en" aria-pressed="false" disabled>EN <span class="soon">soon</span></button>
+        </div></div>
+    </div>
+    <p class="settings-note">音樂與音效可分開調整；M 可快速總靜音。英文介面與 reduce motion 完整支援會在 v0.8 完成。</p>
+  </div>`;
+
+const card = (c) => {
+  const hidden = c.hidden && !c.unlocked;
+  const name = hidden ? '???' : c.name;
+  const desc = c.unlocked ? c.desc : (hidden ? '隱藏成就 — 解鎖後揭曉' : '未達成：' + c.desc);
+  const icon = c.unlocked ? '✓' : hidden ? '?' : c.type === 'progress' ? '◆' : c.type === 'challenge' ? '★' : '✦';
+  const cat = c.type === 'egg' ? 'secret' : c.type;
+  const badge = c.unlocked ? '已解鎖' : c.type === 'progress' ? '進度' : c.type === 'challenge' ? '挑戰' : '彩蛋';
+  return `<div class="ach-card${c.unlocked ? ' unlocked' : ''}" data-ach="${c.id}" data-cat="${cat}"
+    data-unlocked="${c.unlocked}" data-hidden="${hidden}">
+    <span class="ach-icon">${icon}</span>
+    <div class="ach-main"><div class="ach-name">${name}</div><div class="ach-desc">${desc}</div></div>
+    <span class="ach-badge">${badge}</span></div>`;
+};
+
+const ACH = [
+  { id:'first_dive', name:'第一次下潛', type:'progress', unlocked:true, desc:'收集第一件海上垃圾。' },
+  { id:'cleaner', name:'海上清道夫', type:'progress', unlocked:false, desc:'累計收集 1000 件物資。' },
+  { id:'builder', name:'平台一號', type:'progress', unlocked:true, desc:'建造第一座建築。' },
+  { id:'automated', name:'自動化上線', type:'progress', unlocked:true, desc:'基地建築達 5 座。' },
+  { id:'iron_isles', name:'鋼鐵群島', type:'progress', unlocked:false, desc:'基地建築達 19 座。' },
+  { id:'gunmaster', name:'魚槍大師', type:'progress', unlocked:true, desc:'壓縮魚槍升到 Lv4。' },
+  { id:'tech4', name:'科技狂人', type:'progress', unlocked:false, desc:'集滿 4 塊科技碎片。' },
+  { id:'mods3', name:'模組收藏家', type:'progress', unlocked:false, desc:'魚槍插滿 3 個模組。' },
+  { id:'revenge', name:'星際復仇', type:'progress', unlocked:true, desc:'擊毀母船核心，完成第一輪。' },
+  { id:'bounty10', name:'賞金獵人', type:'challenge', unlocked:false, desc:'累計完成 10 張賞金合約。' },
+  { id:'levi4', name:'巨獸終結者', type:'challenge', unlocked:false, desc:'擊敗 4 隻深海巨獸。' },
+  { id:'iron_dive', name:'鐵人潛水', type:'challenge', unlocked:true, desc:'零死亡通關。' },
+  { id:'speed60', name:'極速復仇', type:'challenge', unlocked:false, desc:'60 分鐘內通關。' },
+  { id:'cheater', name:'作弊者', type:'egg', hidden:true, unlocked:false, desc:'在標題畫面輸入 cheat。' },
+  { id:'shark50', name:'鯊魚剋星', type:'egg', hidden:true, unlocked:false, desc:'擊殺 50 隻鯊魚。' },
+  { id:'bot300', name:'BOT 工頭', type:'egg', hidden:true, unlocked:false, desc:'BOT 累計帶回 300 件物資。' },
+  { id:'deaths10', name:'十次重生', type:'egg', hidden:true, unlocked:false, desc:'死亡 10 次。' }
+];
+
+const ACH_HTML = `
+  <div class="ach">
+    <div class="ach-top">
+      <div class="ach-progress"><div class="ach-bar"><i style="width:41%"></i></div></div>
+      <span class="ach-count">10 / 24</span>
+    </div>
+    <div class="ach-tabs">
+      <button class="ach-tab on" data-ach-cat="all" aria-pressed="true">全部</button>
+      <button class="ach-tab" data-ach-cat="progress" aria-pressed="false">進度</button>
+      <button class="ach-tab" data-ach-cat="challenge" aria-pressed="false">挑戰</button>
+      <button class="ach-tab" data-ach-cat="secret" aria-pressed="false">彩蛋</button>
+    </div>
+    <div class="ach-grid">${ACH.map(card).join('')}</div>
+  </div>`;
+
+const modal = document.getElementById('modal');
+const title = document.getElementById('pv-title');
+const body = document.getElementById('pv-body');
+const ending = document.getElementById('ending');
+
+function apply() {
+  const v = (location.hash || '#settings').slice(1);
+  const view = ['settings', 'ach', 'ending'].includes(v) ? v : 'settings';
+  document.body.dataset.view = view;
+  const showModal = view !== 'ending';
+  modal.classList.toggle('show', showModal);
+  ending.hidden = view !== 'ending';
+  if (view === 'settings') { title.textContent = '設定 — 音量'; body.innerHTML = SETTINGS_HTML; wireSettings(); }
+  if (view === 'ach') {
+    title.textContent = '任務與成就';
+    body.innerHTML = '<div class="qlist"><div class="qrow"><div class="st">○</div><div><div class="txt">收集 15 件海上垃圾</div><div class="sub">0 / 15　·　游過漂流垃圾就會自動吸進背包</div></div></div></div>' + ACH_HTML;
+    wireAch();
+  }
+}
+function wireSettings() {
+  body.querySelectorAll('input.slider').forEach(inp => {
+    const out = body.querySelector(`output[data-value="${inp.dataset.setting}"]`);
+    inp.addEventListener('input', () => { if (out) out.textContent = inp.value; });
+  });
+  body.querySelectorAll('button.toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const on = btn.getAttribute('aria-checked') === 'true';
+      btn.setAttribute('aria-checked', String(!on));
+      btn.textContent = on ? '關' : '開';
+    });
+  });
+}
+function wireAch() {
+  body.querySelectorAll('.ach-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      body.querySelectorAll('.ach-tab').forEach(b => { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); });
+      btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true');
+      const cat = btn.dataset.achCat;
+      body.querySelectorAll('.ach-card').forEach(c => {
+        c.style.display = (cat === 'all' || c.dataset.cat === cat) ? '' : 'none';
+      });
+    });
+  });
+}
+apply();
+addEventListener('hashchange', apply);
+</script>
+</body>
+</html>

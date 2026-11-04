@@ -23,6 +23,7 @@ function setScene(s) {
     $('ending').hidden = true;
   }
   if (s === 'sea') refreshHud();
+  if (typeof MUSIC !== 'undefined') MUSIC.setScene(s);
 }
 
 /* ---------- 作弊碼：標題畫面輸入 cheat ---------- */
@@ -42,7 +43,9 @@ function cheatStrike() {
 /* ---------- 鍵盤 ---------- */
 window.addEventListener('keydown', (e) => {
   const k = (e.key || '').toLowerCase();
-  if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
+  /* 設定面板的 range slider 需要原生方向鍵操作，不能被遊戲快捷鍵吃掉 */
+  const isRange = !!(e.target && e.target.matches && e.target.matches('input[type="range"]'));
+  if (!isRange && [' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
   if (e.repeat) { KEYS[k] = true; return; }
   KEYS[k] = true;
   initAudio();
@@ -350,6 +353,10 @@ window.__T = {
   calcStats, saveGame, loadGame, migrateSave, validateSave, MODS,
   openBounty, claimBounty, rerollBounty, bountyOn, grantRandomMod, bulletMods,
   BOUNTY, nextStepText,
+  ACH, checkAch, openSettings,
+  achNew: () => achNewRun,
+  SEA_EVENTS: window.SEA_EVENTS,
+  music: () => MUSIC.status(), MUSIC,
   give(k, n) { addRes(k, n); refreshHud(); },
   mountAll() {
     for (const k of STRUCT_KEYS) {

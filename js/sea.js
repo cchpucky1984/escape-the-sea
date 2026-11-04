@@ -62,6 +62,8 @@ function initSea(fresh) {
   syncBots();
   /* D 的巨獸檔（js/leviathan.js）：不存在時跳過 */
   if (window.LEVIATHANS && typeof LEVIATHANS.reset === 'function') LEVIATHANS.reset();
+  /* D 的海域事件／裂縫（js/events.js）：不存在時跳過 */
+  if (window.SEA_EVENTS && typeof SEA_EVENTS.reset === 'function') SEA_EVENTS.reset();
 }
 
 function newFish(initial) {
@@ -430,6 +432,7 @@ function updateSea(dt) {
   sea.t += dt;
   game.stats.time += dt;
   if (window.LEVIATHANS && typeof LEVIATHANS.update === 'function') LEVIATHANS.update(dt);
+  if (window.SEA_EVENTS && typeof SEA_EVENTS.update === 'function') SEA_EVENTS.update(dt);
   const P = sea.player, S = calcStats(), keys = window.KEYS || {};
   const R = baseRadius();
   const dBase = Math.hypot(P.x, P.y);
@@ -806,6 +809,8 @@ function drawSea() {
   if (FX && typeof FX.drawWorld === 'function') FX.drawWorld(ctx);
   /* D 的深海巨獸（js/leviathan.js；不存在時跳過） */
   if (window.LEVIATHANS && typeof LEVIATHANS.draw === 'function') LEVIATHANS.draw(ctx);
+  /* D 的海域事件（js/events.js；世界座標，與巨獸同層） */
+  if (window.SEA_EVENTS && typeof SEA_EVENTS.draw === 'function') SEA_EVENTS.draw(ctx);
 
   for (const p of sea.pickups) {
     if (!p.alive) continue;
@@ -1287,6 +1292,37 @@ function drawRadar() {
       ctx.strokeStyle = 'rgba(201,166,255,.85)';
       ctx.lineWidth = 1.4;
       ctx.beginPath(); ctx.arc(dx * k2, dy * k2, 7 + Math.sin(sea.t * 3) * 1.8, 0, 7); ctx.stroke();
+    }
+  }
+
+  /* 海域事件（D 的 SEA_EVENTS.active 陣列；x/y 為 null 的廣域事件不畫點） */
+  if (window.SEA_EVENTS) {
+    const EV_COL = { EV01: '#8ee6a4', EV02: '#6fe3ff', EV03: '#ff5d73', EV04: '#c9a6ff', EV06: '#ffb36b', EV07: '#ffd166', EV08: '#7f7cff', EV09: '#ff9aa8' };
+    const evs = Array.isArray(SEA_EVENTS.active) ? SEA_EVENTS.active : [];
+    for (const ev of evs) {
+      if (!ev || ev.x == null || ev.y == null) continue;
+      const dx = (ev.x - P.x) * scale, dy = (ev.y - P.y) * scale;
+      const dd = Math.hypot(dx, dy) || 1;
+      const k2 = dd > R - 9 ? (R - 9) / dd : 1;
+      const col = EV_COL[ev.id] || '#ffd166';
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(dx * k2, dy * k2, 3.4, 0, 7); ctx.fill();
+      ctx.strokeStyle = col;
+      ctx.globalAlpha = 0.8;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(dx * k2, dy * k2, 6.5 + Math.sin(sea.t * 4) * 1.6, 0, 7); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    const rift = SEA_EVENTS.rift;
+    if (rift && rift.alive !== false && typeof rift.x === 'number' && typeof rift.y === 'number') {
+      const dx = (rift.x - P.x) * scale, dy = (rift.y - P.y) * scale;
+      const dd = Math.hypot(dx, dy) || 1;
+      const k2 = dd > R - 9 ? (R - 9) / dd : 1;
+      ctx.strokeStyle = '#c9a6ff';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(dx * k2, dy * k2, 8, 0, 7); ctx.stroke();
+      ctx.fillStyle = 'rgba(201,166,255,.9)';
+      ctx.beginPath(); ctx.arc(dx * k2, dy * k2, 2.6, 0, 7); ctx.fill();
     }
   }
 

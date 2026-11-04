@@ -40,14 +40,20 @@ const fmtNum = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(Math.flo
 
 /* ---------- audio ---------- */
 let AC = null, master = null, muted = false, amb = null;
+function sfxMasterVol() { return muted ? 0 : 0.22 * (clamp(game.settings.sfxVol, 0, 100) / 80); }
 function initAudio() {
-  if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
+  if (AC) {
+    if (AC.state === 'suspended') AC.resume();
+    if (typeof MUSIC !== 'undefined') MUSIC.unlock();
+    return;
+  }
   try {
     AC = new (window.AudioContext || window.webkitAudioContext)();
     master = AC.createGain();
-    master.gain.value = muted ? 0 : 0.22;
+    master.gain.value = sfxMasterVol();
     master.connect(AC.destination);
     startAmbient();
+    if (typeof MUSIC !== 'undefined') MUSIC.unlock();
   } catch (e) { AC = null; }
 }
 function startAmbient() {
@@ -67,7 +73,15 @@ function startAmbient() {
   } catch (e) { amb = null; }
 }
 function applyMute() {
-  if (master) master.gain.value = muted ? 0 : 0.22;
+  if (master) master.gain.value = sfxMasterVol();
+  if (typeof MUSIC !== 'undefined') MUSIC.setMuted();
+}
+function applySettings() {
+  if (typeof document !== 'undefined' && game.settings) {
+    document.body.classList.toggle('reduce-motion', !!game.settings.reduceMotion);
+  }
+  applyMute();
+  if (typeof MUSIC !== 'undefined') MUSIC.updateVolume();
 }
 function tone(f0, dur, type, vol, f1) {
   if (!AC || muted) return;
@@ -116,6 +130,138 @@ function sfx(n) {
     default: if (window.fx && typeof fx.sfx === 'function') fx.sfx(n); break;
   }
 }
+
+/* ---------- 背景音樂（WebAudio；docs/audio/*.mp3；404 安靜降級） ---------- */
+const MUSIC = {
+  unlocked: false, current: '', desired: '', playing: false, paused: false,
+  buffers: Object.create(null), loading: Object.create(null), failed: Object.create(null),
+  src: null, gain: null,
+  MAP: { title: 'sea-a', intro: 'sea-a', sea: 'sea-a', launch: 'launch-b', dock: 'launch-b', moon: 'boss-a', ending: null },
+  baseVol() { return Math.max(0.0001, 0.32 * (clamp(game.settings.musicVol, 0, 100) / 55)); },
+  ensure() {
+    if (!AC) initAudio();
+    if (!AC) return false;
+    if (!this.gain) {
+      this.gain = AC.createGain();
+      this.gain.gain.value = 0;
+      this.gain.connect(AC.destination);
+    }
+    return true;
+  },
+  unlock() {
+    if (!this.ensure()) return;
+    this.unlocked = true;
+    if (AC.state === 'suspended') { try { AC.resume(); } catch (e) {} }
+    this.preload(['sea-a', 'launch-b', 'boss-a']);
+    if (this.desired && this.desired !== this.current) this.play(this.desired);
+  },
+  fetchBuffer(name) {
+    if (this.buffers[name]) return Promise.resolve(this.buffers[name]);
+    if (this.failed[name]) return Promise.resolve(null);
+    if (this.loading[name]) return this.loading[name];
+    const p = (async () => {
+      try {
+        const r = await fetch('docs/audio/' + name + '.mp3?v=0.6.0');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const buf = await AC.decodeAudioData(await r.arrayBuffer());
+        this.buffers[name] = buf;
+        return buf;
+      } catch (e) {
+        this.failed[name] = true;
+        return null;
+      } finally { delete this.loading[name]; }
+    })();
+    this.loading[name] = p;
+    return p;
+  },
+  preload(names) {
+    if (!AC || !this.unlocked) return;
+    for (const n of names) this.fetchBuffer(n);
+  },
+  stopCurrent(fade) {
+    const s = this.src, g = this.gain;
+    this.src = null; this.gain = null;
+    this.playing = false;
+    if (!s || !AC) return;
+    const t = AC.currentTime;
+    try {
+      if (g) {
+        g.gain.cancelScheduledValues(t);
+        g.gain.setValueAtTime(g.gain.value, t);
+        g.gain.linearRampToValueAtTime(0.0001, t + fade);
+      }
+      s.stop(t + fade + 0.05);
+    } catch (e) {}
+  },
+  play(name, fade) {
+    fade = fade || 1.2;
+    if (!AC || !this.unlocked) return false;
+    if (!name) { this.stopCurrent(1.5); this.current = ''; return true; }
+    if (this.current === name && this.src) return true;
+    this.current = name;               // 先把 desired track 反映給 __T.music()
+    const token = name;
+    this.fetchBuffer(name).then(buf => {
+      if (this.desired !== token || !buf || !AC) { this.playing = false; return; }
+      this.stopCurrent(fade);
+      try {
+        const src = AC.createBufferSource();
+        src.buffer = buf; src.loop = true; src.loopStart = 0; src.loopEnd = buf.duration;
+        const g = AC.createGain();
+        const v = muted ? 0 : this.baseVol();
+        g.gain.setValueAtTime(0.0001, AC.currentTime);
+        g.gain.linearRampToValueAtTime(Math.max(0.0001, v), AC.currentTime + fade);
+        src.connect(g); g.connect(AC.destination);
+        src.start(0);
+        this.src = src; this.gain = g;
+        this.playing = !muted && !this.paused;
+      } catch (e) { this.playing = false; }
+    });
+    return true;
+  },
+  setScene(scene) {
+    if (scene === 'ending') {
+      this.desired = ''; this.current = '';
+      if (AC) this.stopCurrent(1.5);
+      return;
+    }
+    const name = this.MAP[scene] || null;
+    this.desired = name || '';
+    if (!name) { if (AC) this.stopCurrent(0.8); this.current = ''; return; }
+    if (this.current === name && this.src) return;
+    if (this.unlocked && AC) this.play(name);
+  },
+  setMuted() {
+    this.playing = !!this.src && !muted && !this.paused;
+    if (!AC || !this.gain) return;
+    const t = AC.currentTime;
+    try {
+      this.gain.gain.cancelScheduledValues(t);
+      this.gain.gain.setValueAtTime(this.gain.gain.value, t);
+      this.gain.gain.linearRampToValueAtTime(muted ? 0.0001 : this.baseVol(), t + 0.18);
+    } catch (e) {}
+  },
+  updateVolume() { this.setMuted(); },
+  status() {
+    return {
+      track: this.current || this.desired, desired: this.desired,
+      playing: !!this.playing, paused: !!this.paused, muted: !!muted,
+      musicVol: game.settings.musicVol, sfxVol: game.settings.sfxVol,
+      ctx: AC ? AC.state : 'none', failed: Object.keys(this.failed)
+    };
+  }
+};
+document.addEventListener('visibilitychange', () => {
+  if (!AC) return;
+  if (document.visibilityState === 'hidden') {
+    MUSIC.paused = true;
+    MUSIC.playing = false;
+    try { AC.suspend(); } catch (e) {}
+  } else if (MUSIC.paused) {
+    MUSIC.paused = false;
+    try { AC.resume(); } catch (e) {}
+    MUSIC.playing = !!MUSIC.src && !muted;
+  }
+});
 
 /* ---------- 資源 / 建築資料 ---------- */
 const RESMETA = {
@@ -266,6 +412,57 @@ const QUESTS = [
     reward: { alloy: 5 } }
 ];
 
+/* ---------- 成就 24（DATA-v0.6 §1） ---------- */
+const ACH = [
+  { id:'first_dive', name:'第一次下潛', type:'progress', hidden:false, desc:'收集第一件海上垃圾。', toast:'成就解鎖：第一次下潛', cond:() => game.stats.collected >= 1 },
+  { id:'cleaner', name:'海上清道夫', type:'progress', hidden:false, desc:'累計收集 1000 件物資。', toast:'成就解鎖：海上清道夫', cond:() => game.stats.collected >= 1000 },
+  { id:'builder', name:'平台一號', type:'progress', hidden:false, desc:'建造第一座建築。', toast:'成就解鎖：平台一號', cond:() => game.stats.built >= 1 },
+  { id:'automated', name:'自動化上線', type:'progress', hidden:false, desc:'基地建築達 5 座。', toast:'成就解鎖：自動化上線', cond:() => game.stats.built >= 5 },
+  { id:'iron_isles', name:'鋼鐵群島', type:'progress', hidden:false, desc:'基地建築達 19 座。', toast:'成就解鎖：鋼鐵群島', cond:() => game.stats.built >= 19 },
+  { id:'gunmaster', name:'魚槍大師', type:'progress', hidden:false, desc:'壓縮魚槍升到 Lv4。', toast:'成就解鎖：魚槍大師', cond:() => game.up.harpoon >= 4 },
+  { id:'full_kit', name:'五體全滿', type:'progress', hidden:false, desc:'五條裝備線全部 Lv4。', toast:'成就解鎖：五體全滿', cond:() => ['fin','tank','suit','magnet','harpoon'].every(k => game.up[k] >= 4) },
+  { id:'tech4', name:'科技狂人', type:'progress', hidden:false, desc:'集滿 4 塊科技碎片。', toast:'成就解鎖：科技狂人', cond:() => game.tech >= 4 },
+  { id:'mods3', name:'模組收藏家', type:'progress', hidden:false, desc:'魚槍插滿 3 個模組。', toast:'成就解鎖：模組收藏家', cond:() => game.mods.length >= 3 },
+  { id:'revenge', name:'星際復仇', type:'progress', hidden:false, desc:'擊毀母船核心，完成第一輪。', toast:'成就解鎖：星際復仇', cond:() => game.stats.won === true },
+  { id:'bounty10', name:'賞金獵人', type:'challenge', hidden:false, desc:'累計完成 10 張賞金合約。', toast:'成就解鎖：賞金獵人', cond:() => game.bounty.done >= 10 },
+  { id:'levi4', name:'巨獸終結者', type:'challenge', hidden:false, desc:'擊敗 4 隻深海巨獸。', toast:'成就解鎖：巨獸終結者', cond:() => game.stats.leviathanKills >= 4 },
+  { id:'iron_dive', name:'鐵人潛水', type:'challenge', hidden:false, desc:'零死亡通關。', toast:'成就解鎖：鐵人潛水', cond:() => game.stats.won && game.stats.deaths === 0 },
+  { id:'safe_dive', name:'穩健船長', type:'challenge', hidden:false, desc:'死亡 5 次內通關。', toast:'成就解鎖：穩健船長', cond:() => game.stats.won && game.stats.deaths <= 5 },
+  { id:'quick90', name:'分秒必爭', type:'challenge', hidden:false, desc:'90 分鐘內通關。', toast:'成就解鎖：分秒必爭', cond:() => game.stats.won && game.stats.time <= 5400 },
+  { id:'speed60', name:'極速復仇', type:'challenge', hidden:false, desc:'60 分鐘內通關。', toast:'成就解鎖：極速復仇', cond:() => game.stats.won && game.stats.time <= 3600 },
+  { id:'no_mods', name:'素槍主義', type:'challenge', hidden:false, desc:'不裝任何模組通關。', toast:'成就解鎖：素槍主義', cond:() => game.stats.won && game.mods.length === 0 },
+  { id:'no_tower', name:'走位上癮', type:'challenge', hidden:false, desc:'不建造任何防禦炮塔通關。', toast:'成就解鎖：走位上癮', cond:() => game.stats.won && countType('tower') === 0 },
+  { id:'cheater', name:'作弊者', type:'egg', hidden:true, desc:'在標題畫面輸入 cheat。', toast:'成就解鎖：作弊者', cond:() => game.cheat === true },
+  { id:'shark50', name:'鯊魚剋星', type:'egg', hidden:true, desc:'擊殺 50 隻鯊魚。', toast:'成就解鎖：鯊魚剋星', cond:() => game.stats.sharkKills >= 50 },
+  { id:'drone100', name:'無人機墳場', type:'egg', hidden:true, desc:'擊殺 100 台外星無人機。', toast:'成就解鎖：無人機墳場', cond:() => game.stats.droneKills >= 100 },
+  { id:'jelly20', name:'水母終結', type:'egg', hidden:true, desc:'擊殺 20 隻水母。', toast:'成就解鎖：水母終結', cond:() => game.stats.jellyKills >= 20 },
+  { id:'bot300', name:'BOT 工頭', type:'egg', hidden:true, desc:'BOT 累計帶回 300 件物資。', toast:'成就解鎖：BOT 工頭', cond:() => game.stats.botCollected >= 300 },
+  { id:'deaths10', name:'十次重生', type:'egg', hidden:true, desc:'死亡 10 次。', toast:'成就解鎖：十次重生', cond:() => game.stats.deaths >= 10 }
+];
+let achNewRun = 0;
+let achBaseline = 0;
+function checkAch() {
+  if (!Array.isArray(game.ach)) game.ach = [];
+  /* 標題/intro 不檢查，避免還沒開局就存檔；ending 仍要檢查（A 指定放在 scene guard 之前） */
+  if (game.scene === 'title' || game.scene === 'intro') return;
+  for (const a of ACH) {
+    if (game.ach.indexOf(a.id) >= 0) continue;
+    if (a.type === 'challenge' && game.cheat) continue;   /* 作弊不給挑戰成就 */
+    let ok = false;
+    try { ok = !!a.cond(); } catch (e) { ok = false; }
+    if (!ok) continue;
+    game.ach.push(a.id);
+    achNewRun++;
+    toast(a.toast || ('成就解鎖：' + a.name), 'gold');
+    sfx('quest');
+    const F = (typeof window !== 'undefined') ? window.fx : null;
+    if (F && typeof F.ring === 'function' && typeof sea !== 'undefined' && sea.player) {
+      F.ring(sea.player.x, sea.player.y - 18, { r0: 8, r1: 90, life: 0.5, col: '#ffd166' });
+    }
+    saveGame(true);
+  }
+}
+
 /* ---------- 遊戲狀態 ---------- */
 const SAVE_KEY = 'escape-the-sea-v2';
 const OLD_KEY = 'escape-the-sea-v1';
@@ -297,7 +494,10 @@ const game = {
   cheat: false,
   cheatUp: { fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0 },
   bounty: defaultBounty(),
-  mods: []
+  mods: [],
+  ach: [],
+  ng: 0,
+  settings: { musicVol: 55, sfxVol: 80, reduceMotion: false }
 };
 window.game = game;
 
@@ -374,7 +574,7 @@ function saveSnapshot() {
     res: game.res, up: game.up, base: game.base, parts: game.parts,
     stats: game.stats, quest: game.quest, pos: game.pos, muted: muted,
     tech: game.tech, bossesKilled: game.bossesKilled, cheat: game.cheat, cheatUp: game.cheatUp,
-    bounty: game.bounty, mods: game.mods
+    bounty: game.bounty, mods: game.mods, ach: game.ach, ng: game.ng, settings: game.settings
   };
 }
 /* 立即存檔；同內容 250ms 內只寫一次（debounce）。force 忽略 debounce。
@@ -425,6 +625,12 @@ function migrateSave(s) {
   if (typeof s.bounty.rerollT !== 'number') s.bounty.rerollT = 0;
   if (typeof s.bounty.zoneT !== 'number') s.bounty.zoneT = 0;
   s.mods = Array.isArray(s.mods) ? s.mods.filter(id => MODS.some(m => m.id === id)).slice(0, 3) : [];
+  s.ach = Array.isArray(s.ach) ? s.ach.filter(id => ACH.some(a => a.id === id)) : [];
+  if (typeof s.ng !== 'number') s.ng = 0;
+  s.settings = (s.settings && typeof s.settings === 'object') ? s.settings : {};
+  if (typeof s.settings.musicVol !== 'number') s.settings.musicVol = 55;
+  if (typeof s.settings.sfxVol !== 'number') s.settings.sfxVol = 80;
+  if (typeof s.settings.reduceMotion !== 'boolean') s.settings.reduceMotion = false;
   s.v = SAVE_VER;
   return s;
 }
@@ -474,6 +680,11 @@ function validateSave(s) {
   s.bounty.rerollT = int(s.bounty.rerollT, 0, 1e9, 0);
   s.bounty.zoneT = int(s.bounty.zoneT, 0, 1e9, 0);
   s.quest.claimed = [...new Set(s.quest.claimed.filter(x => typeof x === 'string'))];
+  s.ach = Array.isArray(s.ach) ? [...new Set(s.ach.filter(id => ACH.some(a => a.id === id)))] : [];
+  s.ng = int(s.ng, 0, 9, 0);
+  s.settings.musicVol = int(s.settings.musicVol, 0, 100, 55);
+  s.settings.sfxVol = int(s.settings.sfxVol, 0, 100, 80);
+  s.settings.reduceMotion = !!s.settings.reduceMotion;
   s.bossesKilled = Array.isArray(s.bossesKilled) ? [...new Set(s.bossesKilled.filter(x => typeof x === 'string'))] : [];
   s.pos = { x: int(s.pos.x, -1e5, 1e5, 1000), y: int(s.pos.y, -1e5, 1e5, 700) };
   return s;
@@ -503,9 +714,14 @@ function loadGame() {
     game.cheatUp = Object.assign({ fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0 }, s.cheatUp || {});
     game.bounty = s.bounty;
     game.mods = s.mods;
+    game.ach = s.ach;
+    game.ng = s.ng;
+    game.settings = s.settings;
+    achNewRun = 0;
+    achBaseline = game.ach.length;
     bountyRefillT = 0;
     muted = !!s.muted; game.muted = muted;
-    if (typeof applyMute === 'function') applyMute();
+    applySettings();
     try { saveLastWritten = raw || localStorage.getItem(SAVE_KEY) || ''; } catch (e) { saveLastWritten = ''; }
     game.dirty = false;
     return true;
@@ -545,6 +761,10 @@ function resetGame() {
   game.cheatUp = { fin: 0, tank: 0, suit: 0, magnet: 0, harpoon: 0 };
   game.bounty = defaultBounty();
   game.mods = [];
+  game.ach = [];
+  game.ng = 0;
+  achNewRun = 0;
+  achBaseline = 0;
   bountyRefillT = 0;
   game.dirty = true;
   saveLastStr = ''; saveLastAt = -1e9; saveLastWritten = '';
@@ -1131,6 +1351,37 @@ function openCheat() {
 }
 
 /* ---------- 任務 / 說明 / 暫停 ---------- */
+function achHtml() {
+  const done = game.ach.length, total = ACH.length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  const tabs = [['all', '全部'], ['progress', '進度'], ['challenge', '挑戰'], ['secret', '彩蛋']];
+  let h = `<div class="ach">
+    <div class="ach-top">
+      <div class="ach-progress"><div class="ach-bar"><i style="width:${pct}%"></i></div></div>
+      <span class="ach-count">${done} / ${total}</span>
+    </div>
+    <div class="ach-tabs">`;
+  for (const [id, label] of tabs) {
+    h += `<button class="ach-tab${id === 'all' ? ' on' : ''}" data-ach-cat="${id}" aria-pressed="${id === 'all'}">${label}</button>`;
+  }
+  h += '</div><div class="ach-grid">';
+  for (const a of ACH) {
+    const unlocked = game.ach.includes(a.id);
+    const hidden = !!a.hidden && !unlocked;
+    const cat = a.type === 'egg' ? 'secret' : a.type;
+    const catLabel = a.type === 'progress' ? '進度' : a.type === 'challenge' ? '挑戰' : '彩蛋';
+    const name = hidden ? '???' : a.name;
+    const desc = unlocked ? a.desc : (hidden ? '隱藏成就 — 解鎖後揭曉' : '未達成：' + a.desc);
+    const icon = unlocked ? '✓' : hidden ? '?' : a.type === 'progress' ? '◆' : a.type === 'challenge' ? '★' : '✦';
+    h += `<div class="ach-card${unlocked ? ' unlocked' : ''}" data-ach="${a.id}" data-cat="${cat}" data-unlocked="${unlocked}" data-hidden="${hidden}">
+      <span class="ach-icon">${icon}</span>
+      <div class="ach-main"><div class="ach-name">${name}</div><div class="ach-desc">${desc}</div></div>
+      <span class="ach-badge">${unlocked ? '已解鎖' : catLabel}</span>
+    </div>`;
+  }
+  return h + '</div></div>';
+}
+
 function openQuests() {
   let h = '<div class="qlist">';
   for (const q of QUESTS) {
@@ -1142,7 +1393,18 @@ function openQuests() {
     </div>`;
   }
   h += '</div><p class="muted" style="margin-top:14px">完成任務會獲得資源獎勵。任務只是引導，你可以用任何順序建造。</p>';
-  openModal('任務', h, [{ label: '關閉 (Esc)' }]);
+  h += achHtml();
+  openModal('任務與成就', h, [{ label: '關閉 (Esc)' }]);
+  modalBody.querySelectorAll('.ach-tab').forEach(btn => {
+    btn.onclick = () => {
+      const cat = btn.dataset.achCat;
+      modalBody.querySelectorAll('.ach-tab').forEach(b => { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); });
+      btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true');
+      modalBody.querySelectorAll('.ach-card').forEach(card => {
+        card.style.display = (cat === 'all' || card.dataset.cat === cat) ? '' : 'none';
+      });
+    };
+  });
 }
 
 function openHelp() {
@@ -1162,12 +1424,58 @@ function openHelp() {
     [{ label: '知道了', cls: 'primary' }]);
 }
 
+function openSettings() {
+  const s = game.settings;
+  const row = (label, key, val) => `<div class="settings-row"><label>${label}</label>
+    <input class="slider" type="range" min="0" max="100" step="1" value="${val}" data-setting="${key}">
+    <output class="settings-value" data-value="${key}">${val}</output></div>`;
+  const h = `<div class="settings">
+    <div class="settings-group">${row('音樂音量', 'music', s.musicVol)}${row('音效音量', 'sfx', s.sfxVol)}</div>
+    <div class="settings-group">
+      <div class="settings-row"><label>總靜音</label><button class="toggle" data-setting="mute" aria-checked="${muted}">${muted ? '開' : '關'}</button></div>
+      <div class="settings-row"><label>減少動態</label><button class="toggle" data-setting="reduceMotion" aria-checked="${!!s.reduceMotion}">${s.reduceMotion ? '開' : '關'}</button></div>
+      <div class="settings-row"><label>語言</label><div class="segmented">
+        <button class="seg" data-lang="zh-Hant" aria-pressed="true">繁中</button>
+        <button class="seg" data-lang="en" aria-pressed="false" disabled>EN <span class="soon">soon</span></button>
+      </div></div>
+    </div>
+    <p class="settings-note">音樂與音效可分開調整；M 可快速總靜音。英文介面與 reduce motion 完整支援會在 v0.8 完成。</p>
+  </div>`;
+  openModal('設定 — 音量', h, [{ label: '關閉 (Esc)' }]);
+  modalBody.querySelectorAll('input[data-setting]').forEach(inp => {
+    inp.oninput = () => {
+      const key = inp.dataset.setting === 'music' ? 'musicVol' : 'sfxVol';
+      game.settings[key] = clamp(+inp.value || 0, 0, 100);
+      const out = modalBody.querySelector('output[data-value="' + inp.dataset.setting + '"]');
+      if (out) out.textContent = game.settings[key];
+      applySettings(); saveGame();
+    };
+  });
+  const muteBtn = modalBody.querySelector('[data-setting="mute"]');
+  if (muteBtn) muteBtn.onclick = () => {
+    muted = !muted; game.muted = muted;
+    applyMute();
+    muteBtn.setAttribute('aria-checked', String(muted));
+    muteBtn.textContent = muted ? '開' : '關';
+    saveGame();
+  };
+  const rmBtn = modalBody.querySelector('[data-setting="reduceMotion"]');
+  if (rmBtn) rmBtn.onclick = () => {
+    game.settings.reduceMotion = !game.settings.reduceMotion;
+    applySettings();
+    rmBtn.setAttribute('aria-checked', String(!!game.settings.reduceMotion));
+    rmBtn.textContent = game.settings.reduceMotion ? '開' : '關';
+    saveGame();
+  };
+}
+
 function openPause() {
   if (game.scene !== 'sea' && game.scene !== 'moon' && game.scene !== 'launch' && game.scene !== 'dock') return;
   const btns = [
     { label: '繼續遊戲', cls: 'primary' },
     { label: muted ? '音效：關閉' : '音效：開啟', keepOpen: true,
       onClick: () => { muted = !muted; game.muted = muted; applyMute(); saveGame(); openPause(); } },
+    { label: '音量設定', onClick: () => setTimeout(openSettings, 10) },
     { label: '操作說明', onClick: () => setTimeout(openHelp, 10) }
   ];
   if (game.cheat) btns.push({ label: '作弊裝備', onClick: () => setTimeout(openCheat, 10) });
@@ -1178,6 +1486,7 @@ function openPause() {
 /* ---------- 任務結算 ---------- */
 let questT = 0;
 function updateQuests(dt) {
+  checkAch();   /* A 指定：放在 scene guard 之前，ending 才會結算通關成就 */
   if (game.scene !== 'sea' && game.scene !== 'moon' && game.scene !== 'launch') return;
   if (game.paused) return;   /* AUDIT P2-3：暫停中不結算任務 */
   questT += dt;
@@ -1236,7 +1545,10 @@ function nextIntro() {
 
 /* ---------- 結局 ---------- */
 function showEnding(win) {
-  if (win) { game.stats.won = true; saveGame(); }
+  if (win) game.stats.won = true;
+  checkAch();   /* 「星際復仇」等通關成就在結算前解鎖，結算頁才數得到 */
+  if (win) saveGame();
+  if (typeof MUSIC !== 'undefined') MUSIC.setScene('ending');
   $('end-kicker').textContent = win ? '任務完成 · 母船決戰' : '任務失敗';
   $('end-title').textContent = win ? '你把帳算清了' : '你被擊落了';
   $('end-text').innerHTML = win
@@ -1247,7 +1559,8 @@ function showEnding(win) {
     <div>收集垃圾<b>${game.stats.collected}</b></div>
     <div>基地建築<b>${game.base.structures.length}</b></div>
     <div>擊殺敵人<b>${game.stats.kills}</b></div>
-    <div>裝備等級<b>${Object.values(game.up).reduce((a, b) => a + b, 0)}</b></div>`;
+    <div>裝備等級<b>${Object.values(game.up).reduce((a, b) => a + b, 0)}</b></div>
+    <div>成就<b>${game.ach.length} / ${ACH.length}</b>（本輪 +${Math.max(0, game.ach.length - achBaseline)}）</div>`;
   $('ending').hidden = false;
   game.paused = true;
   game.scene = 'ending';

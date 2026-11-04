@@ -66,7 +66,8 @@
       t: rndf(0, 6.3), ang: rndf(0, 6.3), hit: 0, coreHit: 0,
       phase: 1,
       fanT: rndf(1.2, 2.2), ringT: rndf(1.0, 1.8), summonT: 8,
-      dashT: 0, dashCd: 4, dashAng: 0, contactCd: 0
+      dashT: 0, dashCd: 4, dashAng: 0, contactCd: 0,
+      aggroMul: 1, speedMul: 1      /* EV09 守衛甦醒用（events.js 設定，事件結束歸 1） */
     };
   }
 
@@ -131,8 +132,9 @@
     var dx = P.x - L.x, dy = P.y - L.y;
     var d = Math.hypot(dx, dy) || 1;
     var homeD = dist(L.x, L.y, L.homeX, L.homeY);
-    var engaged = !inSafe && d < 1150 && homeD < 1500;
-    var baseSp = L.phase === 3 ? 46 * 1.35 : 46;
+    /* EV09 守衛甦醒：aggroMul（1100→2400＝×2.18）、speedMul（×1.7）由 events.js 設定 */
+    var engaged = !inSafe && d < 1150 * (L.aggroMul || 1) && homeD < 1500;
+    var baseSp = (L.phase === 3 ? 46 * 1.35 : 46) * (L.speedMul || 1);
 
     if (engaged) {
       L.active = true;
@@ -377,43 +379,40 @@
     }
   }
 
-  /* 外光暈：走 fx.grad 快取（同 key 只建一次；沒有 fx 就跳過） */
-  var _drawCtx = null;
-  function _mkGlow(rgb) {
-    var g = _drawCtx.createRadialGradient(0, 0, 24, 0, 0, 150);
-    g.addColorStop(0, 'rgba(' + rgb + ',.20)');
-    g.addColorStop(0.55, 'rgba(' + rgb + ',.07)');
-    g.addColorStop(1, 'rgba(' + rgb + ',0)');
-    return g;
-  }
-  var GLOW_FNS = {
-    1: function () { return _mkGlow('180,120,255'); },
-    2: function () { return _mkGlow('255,150,60'); },
-    3: function () { return _mkGlow('255,70,110'); }
-  };
+  /* 外光暈：預渲染 sprite（比每幀 createRadialGradient + 大面積 fill 快很多） */
+  var GLOW_SPR = (function () {
+    var out = {};
+    for (var p = 1; p <= 3; p++) {
+      var rgb = p === 1 ? '180,120,255' : (p === 2 ? '255,150,60' : '255,70,110');
+      var c = document.createElement('canvas');
+      c.width = c.height = 128;
+      var g = c.getContext('2d');
+      var rg = g.createRadialGradient(64, 64, 8, 64, 64, 64);
+      rg.addColorStop(0, 'rgba(' + rgb + ',.24)');
+      rg.addColorStop(0.55, 'rgba(' + rgb + ',.08)');
+      rg.addColorStop(1, 'rgba(' + rgb + ',0)');
+      g.fillStyle = rg; g.fillRect(0, 0, 128, 128);
+      out[p] = c;
+    }
+    return out;
+  })();
 
   function drawOne(ctx, L) {
     var P = PAL[L.phase] || PAL[1];
     var t = L.t;
     var hf = L.hit > 0 ? Math.min(1, L.hit / 0.16) : 0;
     var dash = L.dashT > 0;
-    _drawCtx = ctx;
     var F = fxAPI();
-    var glow = (F && F.grad && typeof F.grad.rad === 'function')
-      ? F.grad.rad('levi:glow' + L.phase, GLOW_FNS[L.phase]) : null;
+
+    /* 外光暈（drawImage 快取 sprite） */
+    var spr = GLOW_SPR[L.phase] || GLOW_SPR[1];
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(spr, L.x - 120, L.y - 120, 240, 240);
+    ctx.restore();
 
     ctx.save();
     ctx.translate(L.x, L.y);
-
-    /* 外光暈 */
-    if (glow) {
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = glow;
-      ctx.beginPath(); ctx.arc(0, 0, 150, 0, 6.2832); ctx.fill();
-      ctx.restore();
-    }
-
     ctx.rotate(L.ang);
     ctx.scale(1.12, 1.12);
 
