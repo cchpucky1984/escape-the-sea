@@ -1,8 +1,21 @@
-# 交接文件（HANDOFF）— v0.11 主線（已推 GitHub）
+# 交接文件（HANDOFF）— v0.12 渲染層升級（決策 A，進行中）
 
-> 最後更新：2026-11-05 20:55（Lead）。本檔是「下次開工第一份要讀」的文件。
-> **v0.11 已推上 GitHub `main`**（使用者授權），GitHub Pages 會自動更新。
+> 最後更新：2026-11-05 23:40（Lead）。本檔是「下次開工第一份要讀」的文件。
+> **v0.11 已推上 GitHub `main`**；v0.12 是渲染升級（WebGL2 合成層），**預設仍是 Canvas2D、可 `?gl=1` 試**。
 > 目標：打磨到商業級 v1.0（`docs/PRODUCT-v1.0.md`）。工具：`tools/qa.mjs`（47 項）、`shot.mjs`、`balance.mjs`、`fixtures/`。
+
+## 0. v0.12 渲染升級（本輪完成 S1：決策＋POC＋設計）
+
+- **決策 A 已定案**：留在 Web，升級渲染層。文件：`docs/tech/ENGINE-DECISION.md`（三選項比較／Go-No-Go／時程／風險）。
+- **做法（Lead 裁決）**：只做「WebGL2 合成層」——現有 Canvas2D 場景照畫 → texture → GL post（bloom／caustics／additive／暗角／色差）。**不重寫 10k 行繪製**；完整 Renderer 遷移排 v1.1（`docs/tech/WEBGL-INTEGRATION.md` 保留為長期設計）。
+- **POC 數據**（`docs/tech/webgl-poc.html`＋`WEBGL-POC-RESULTS.md`；headless SwiftShader）：
+  - 1280×800：500 粒子 Canvas 20.1 → **WebGL 43.1 fps（2.14×）**；1500 粒子 17.6 → **41.9（2.38×）**
+  - 1920×1080：500 粒子 10.9 → **23.7（2.17×）**；1500 11.3 → **22.8（2.26×）**；draw calls **1640→7**
+  - ⚠️ headless 是 CPU 渲染，絕對 fps 不代表實機（50fps 門檻需實機 GPU 複測）；相對 2× 優勢成立。
+- **接線（B）**：`main.js` 加 `?gl=0`（強制 canvas）／`?gl=1`（嘗試 WebGL2，失敗自動 canvas）、`__T.glEnabled()`、`__T.glStats()`；`Renderer` stub 不畫任何東西、行為不變；**QA 47/47 PASS**。
+- **POC 相容性**：context loss/restore seam 已備（`__POC.onContextLost/onContextRestored/simulateContextLoss`，loss 時自動切 Canvas2D 續跑、restore 後回 WebGL）。
+- **視覺與驗收**：`docs/art/WEBGL-VISUALS.md`（效果預算三檔）、`docs/design/VISUAL-UPGRADE-v0.12.md`（P0 7 人日＝D 5.5＋B 1.5；D5 go/no-go）。
+- **S2 下一步**：D 做 `js/gl2.js`（合成層＋bloom＋caustics），B 接線 `?gl=0/1` 與 fx 整合，C 做「畫質 自動/高/中/低」UI，Lead 加 QA `?gl=0/1` 兩組；D5 = S2 落地且 QA 全綠那輪，若 P0 未成或 mobile <24fps → v1.0 用 Canvas2D 上架、GL 排 v1.1。
 
 ## 1. 環境（重開機後要重建）
 

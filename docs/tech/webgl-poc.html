@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Escape the Sea · WebGL2 vs Canvas2D POC</title>
+<style>
+  :root { --bg:#050b12; --ink:#dff4ff; --dim:#7fa3b4; --line:rgba(120,235,255,.22); --accent:#6fe3ff; }
+  * { box-sizing: border-box; }
+  html,body { margin:0; padding:0; background:var(--bg); color:var(--ink); font:13px/1.5 "Microsoft JhengHei",system-ui,sans-serif; }
+  #wrap { display:flex; flex-direction:column; align-items:center; gap:12px; padding:14px 14px 26px; }
+  #stage { position:relative; line-height:0; border:1px solid var(--line); border-radius:8px; overflow:hidden; box-shadow:0 12px 40px rgba(0,0,0,.55); }
+  #stage canvas { display:block; max-width:100%; height:auto; }
+  #stage canvas[hidden] { display:none; }
+  #hud { position:absolute; left:12px; top:10px; padding:8px 10px; border-radius:6px; background:rgba(2,10,18,.62); border:1px solid var(--line); font:12px/1.5 monospace; color:var(--ink); pointer-events:none; }
+  #hud b { color:var(--accent); font-weight:600; }
+  #panel { width:min(100%, 980px); display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:rgba(6,20,30,.68); }
+  .group { display:flex; align-items:center; gap:6px; }
+  .group > span { color:var(--dim); font-size:12px; }
+  button { background:rgba(10,34,46,.9); color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:6px 10px; font:12px/1 inherit; cursor:pointer; }
+  button:hover { border-color:var(--accent); color:#fff; }
+  button[aria-pressed="true"] { background:rgba(40,150,190,.35); border-color:var(--accent); color:#fff; }
+  button:disabled { opacity:.35; cursor:not-allowed; }
+  #run { background:rgba(40,150,190,.45); border-color:var(--accent); font-weight:600; }
+  #status { flex:1 1 100%; color:var(--dim); font-size:12px; min-height:18px; }
+  table { border-collapse:collapse; width:100%; font-size:12px; }
+  th,td { border:1px solid var(--line); padding:5px 8px; text-align:right; }
+  th:first-child, td:first-child { text-align:left; }
+  th { color:var(--dim); font-weight:600; background:rgba(8,26,38,.7); }
+  tr.fallback td { color:#ff9aa8; }
+  #note { width:min(100%, 980px); color:var(--dim); font-size:12px; }
+  code { color:#ffd166; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="stage">
+    <canvas id="cv2d" width="1280" height="800"></canvas>
+    <canvas id="cvgl" width="1280" height="800" hidden></canvas>
+    <div id="hud"></div>
+  </div>
+  <div id="panel">
+    <div class="group"><span>模式</span>
+      <button id="m2d" aria-pressed="true">Canvas2D</button>
+      <button id="mgl" aria-pressed="false">WebGL2</button>
+    </div>
+    <div class="group"><span>解析度</span>
+      <button id="r1" aria-pressed="true">1280×800</button>
+      <button id="r2" aria-pressed="false">1920×1080</button>
+    </div>
+    <div class="group"><span>粒子</span>
+      <button id="p500" aria-pressed="true">500</button>
+      <button id="p1500" aria-pressed="false">1500</button>
+    </div>
+    <div class="group"><span>品質</span>
+      <button id="q0" aria-pressed="true">高</button>
+      <button id="q1" aria-pressed="false">中</button>
+      <button id="q2" aria-pressed="false">低</button>
+    </div>
+    <button id="run">跑完整基準（8 組 × 5s）</button>
+    <div id="status">就緒</div>
+  </div>
+  <table id="tbl">
+    <thead><tr><th>模式</th><th>解析度</th><th>粒子</th><th>FPS</th><th>avg ms</th><th>draw calls/frame</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <div id="note">本頁自包含（inline GLSL／無外部資產／file:// 可開）。<code>window.__POC</code> 與 <code>exportPoc()</code> 供 QA；WebGL2 不可用時自動 fallback 到 Canvas2D。負載＝水色漸層＋程序化 caustics＋god rays、additive 粒子（500／1500）、100 sprites、vignette＋簡易 bloom。</div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ================= 0. 基本狀態／fallback ================= */
+  var cv2d = document.getElementById('cv2d');
+  var cvgl = document.getElementById('cvgl');
+  var hud = document.getElementById('hud');
+  var ctx2d = cv2d.getContext('2d');
+  var gl = null;
+  var qs = location.search || '';
+  var force2d = qs.indexOf('force2d') >= 0 || /[?&]gl=0([&#]|$)/.test(qs);
+  var forceGl = /[?&]gl=1([&#]|$)/.test(qs);
+  if (!force2d) {
+    try { gl = cvgl.getContext('webgl2', { alpha: false, antialias: false, depth: false, preserveDrawingBuffer: true }); } catch (e) { gl = null; }
+  }
+  var state = {
+    mode: gl ? 'webgl' : 'canvas',
+    w: 1280, h: 800, particles: 500, quality: 0,
+    time: 0, lastCalls: 0, log: null,
+    results: [], fallback: !gl,
+    lastFrameAt: 0,
+    contextLost: false, contextEvents: [], lastContextEvent: null,
+    loseExt: null, forceGl: forceGl
+  };
+  /* v0.12：B 的合成層 seam：context loss/restore hooks（可註冊 callback） */
+  var ctxHooks = { lost: [], restored: [] };
+  function onContextLost(fn) { if (typeof fn === 'function') ctxHooks.lost.push(fn); return ctxHooks.lost.length; }
+  function onContextRestored(fn) { if (typeof fn === 'function') ctxHooks.restored.push(fn); return ctxHooks.restored.length; }
+  function fireContext(kind, info) {
+    state.contextEvents.push({ kind: kind, t: Date.now(), info: info || '' });
+    var list = kind === 'lost' ? ctxHooks.lost : ctxHooks.restored;
+    for (var i = 0; i < list.length; i++) {
+      try {
+        list[i]({
+          kind: kind, contextLost: state.contextLost, mode: state.mode,
+          fallback: state.fallback, webgl2: !!gl,
+          stats: typeof getStats === 'function' ? getStats() : null
+        });
+      } catch (e) { }
+    }
+  }
+  /* v0.12：B 的整合介面用 quality tier（0=高、1=中、2=低） */
+  var QUALITY = {
+    0: { cap: 1500, bloom: true, caust: 30, rays: 6 },
+    1: { cap: 800, bloom: true, caust: 20, rays: 4 },
+    2: { cap: 400, bloom: false, caust: 12, rays: 3 }
+  };
+  function qualityCfg() { return QUALITY[state.quality] || QUALITY[0]; }
+
+  function nowMs() { return (typeof performance !== 'undefined') ? performance.now() : Date.now(); }
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+
+  /* ================= 1. 共用程序化素材（atlas：glow / crate / fish / bubble） ================= */
+  function buildAtlas() {
+    var S = 256, cn = document.createElement('canvas');
+    cn.width = cn.height = S;
+    var g = cn.getContext('2d');
+    var cell = S / 2;
+    /* 0: 光暈（粒子用） */
+    var rg = g.createRadialGradient(cell / 2, cell / 2, 0, cell / 2, cell / 2, cell / 2);
+    rg.addColorStop(0, 'rgba(210,245,255,1)');
+    rg.addColorStop(0.35, 'rgba(140,235,255,.85)');
+    rg.addColorStop(1, 'rgba(60,160,220,0)');
+    g.fillStyle = rg; g.fillRect(0, 0, cell, cell);
+    /* 1: 木箱（sprite） */
+    g.save(); g.translate(cell, 0);
+    g.fillStyle = '#8a6a3f'; g.beginPath(); g.roundRect(22, 22, 84, 84, 10); g.fill();
+    g.strokeStyle = '#ffd166'; g.lineWidth = 6; g.beginPath(); g.roundRect(22, 22, 84, 84, 10); g.stroke();
+    g.beginPath(); g.moveTo(22, 22); g.lineTo(106, 106); g.moveTo(106, 22); g.lineTo(22, 106); g.stroke();
+    g.restore();
+    /* 2: 魚（sprite） */
+    g.save(); g.translate(0, cell);
+    g.fillStyle = '#6fe3ff';
+    g.beginPath(); g.ellipse(66, 64, 40, 20, 0, 0, 7); g.fill();
+    g.beginPath(); g.moveTo(26, 64); g.lineTo(6, 40); g.lineTo(6, 88); g.closePath(); g.fill();
+    g.fillStyle = '#0a2330'; g.beginPath(); g.arc(88, 58, 4.4, 0, 7); g.fill();
+    g.restore();
+    /* 3: 水母（sprite） */
+    g.save(); g.translate(cell, cell);
+    g.fillStyle = 'rgba(201,166,255,.92)';
+    g.beginPath(); g.arc(64, 46, 34, Math.PI, 0); g.fill();
+    g.strokeStyle = 'rgba(201,166,255,.8)'; g.lineWidth = 4;
+    for (var i = 0; i < 4; i++) { g.beginPath(); g.moveTo(34 + i * 20, 50); g.bezierCurveTo(28 + i * 20, 78, 44 + i * 20, 92, 34 + i * 20, 112); g.stroke(); }
+    g.restore();
+    return cn;
+  }
+  var ATLAS = buildAtlas();
+
+  /* ================= 2. 場景資料（種子固定，兩模式一致） ================= */
+  var PARTICLES = [];
+  var SPRITES = [];
+  function seedScene() {
+    PARTICLES.length = 0; SPRITES.length = 0;
+    var n = 1500;
+    for (var i = 0; i < n; i++) {
+      PARTICLES.push({
+        x: Math.random(), y: Math.random(),
+        s: rnd(1.0, 5.0), vy: rnd(0.012, 0.05), vx: rnd(-0.012, 0.012),
+        ph: rnd(0, 6.283), a: rnd(0.25, 0.9), c: i % 3
+      });
+    }
+    for (var j = 0; j < 100; j++) {
+      SPRITES.push({
+        x: rnd(0.06, 0.94), y: rnd(0.18, 0.94),
+        s: rnd(14, 40), type: j % 3,
+        ph: rnd(0, 6.283), vy: rnd(0.004, 0.016), rot: rnd(0, 6.283)
+      });
+    }
+  }
+  seedScene();
+
+  /* ================= 3. Canvas2D renderer ================= */
+  var g2 = { bg: null, vig: null, bloom: null, size: '' };
+  function build2DGradients() {
+    var W = state.w, H = state.h, key = W + 'x' + H;
+    if (g2.size === key) return;
+    g2.size = key;
+    var bg = ctx2d.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#0f5163');
+    bg.addColorStop(0.32, '#0a3a4c');
+    bg.addColorStop(1, '#03101a');
+    g2.bg = bg;
+    var vg = ctx2d.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.28, W / 2, H / 2, Math.max(W, H) * 0.72);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,6,12,.62)');
+    g2.vig = vg;
+    var bg2 = ctx2d.createRadialGradient(W * 0.5, H * 0.28, 0, W * 0.5, H * 0.28, Math.max(W, H) * 0.55);
+    bg2.addColorStop(0, 'rgba(160,240,255,.10)');
+    bg2.addColorStop(1, 'rgba(160,240,255,0)');
+    g2.bloom = bg2;
+  }
+
+  function updateParticles2D(dt) {
+    var n = state.particles;
+    for (var i = 0; i < n; i++) {
+      var p = PARTICLES[i];
+      p.y -= p.vy * dt * 0.06;
+      p.x += p.vx * dt * 0.06;
+      if (p.y < -0.05) { p.y = 1.05; p.x = Math.random(); }
+      if (p.x < -0.05) p.x = 1.05; else if (p.x > 1.05) p.x = -0.05;
+    }
+    for (var j = 0; j < SPRITES.length; j++) {
+      var s = SPRITES[j];
+      s.y -= s.vy * dt * 0.06;
+      s.ph += dt;
+      if (s.y < -0.1) s.y = 1.1;
+    }
+  }
+
+  function render2D(now) {
+    var W = state.w, H = state.h, t = now / 1000;
+    var calls = 0;
+    build2DGradients();
+    ctx2d.setTransform(1, 0, 0, 1, 0, 0);
+    ctx2d.globalCompositeOperation = 'source-over';
+    ctx2d.globalAlpha = 1;
+    /* 背景 */
+    ctx2d.fillStyle = g2.bg; ctx2d.fillRect(0, 0, W, H); calls++;
+    /* caustics：正弦光紋（additive，數量依 quality） */
+    ctx2d.save();
+    ctx2d.globalCompositeOperation = 'lighter';
+    var caustN = qualityCfg().caust;
+    for (var c = 0; c < caustN; c++) {
+      var yy = (c + 0.5) / caustN * H * 0.72;
+      var amp = 10 + 16 * Math.sin(c * 0.7 + t * 0.7);
+      ctx2d.strokeStyle = 'rgba(150,240,255,' + (0.05 + 0.05 * Math.abs(Math.sin(c * 1.3 + t))) + ')';
+      ctx2d.lineWidth = 1.6 + (c % 4);
+      ctx2d.beginPath();
+      for (var x = -20; x <= W + 20; x += 34) {
+        var y2 = yy + Math.sin(x * 0.012 + t * 1.4 + c) * amp * 0.4 + Math.cos(x * 0.02 - t) * 8;
+        if (x < 0) ctx2d.moveTo(x, y2); else ctx2d.lineTo(x, y2);
+      }
+      ctx2d.stroke(); calls++;
+    }
+    /* god rays（additive 多邊形，數量依 quality） */
+    var rayN = qualityCfg().rays;
+    for (var r = 0; r < rayN; r++) {
+      var cx = W * (0.18 + 0.13 * r) + Math.sin(t * 0.2 + r) * W * 0.02;
+      var wTop = W * (0.035 + 0.01 * (r % 3)), wBot = wTop * 2.6;
+      var grad = ctx2d.createLinearGradient(cx, 0, cx, H * 0.9);
+      grad.addColorStop(0, 'rgba(170,245,255,.20)');
+      grad.addColorStop(1, 'rgba(170,245,255,0)');
+      ctx2d.fillStyle = grad;
+      ctx2d.beginPath();
+      ctx2d.moveTo(cx - wTop, 0); ctx2d.lineTo(cx + wTop, 0);
+      ctx2d.lineTo(cx + wBot, H * 0.9); ctx2d.lineTo(cx - wBot, H * 0.9);
+      ctx2d.closePath(); ctx2d.fill(); calls++;
+    }
+    ctx2d.restore();
+    /* 粒子（additive，精靈圖縮放） */
+    ctx2d.save();
+    ctx2d.globalCompositeOperation = 'lighter';
+    var n = Math.min(state.particles, qualityCfg().cap);
+    for (var i = 0; i < n; i++) {
+      var p = PARTICLES[i];
+      var px = p.x * W, py = p.y * H;
+      var sz = p.s * (1 + 0.35 * Math.sin(p.ph + t * 2));
+      var a = p.a * (0.65 + 0.35 * Math.sin(p.ph + t * 1.7));
+      ctx2d.globalAlpha = a;
+      ctx2d.drawImage(ATLAS, 0, 0, 128, 128, px - sz * 2, py - sz * 2, sz * 4, sz * 4); calls++;
+    }
+    ctx2d.globalAlpha = 1;
+    /* bloom 近似：便宜的加色光暈層（tier2 關閉） */
+    if (qualityCfg().bloom) { ctx2d.fillStyle = g2.bloom; ctx2d.fillRect(0, 0, W, H); calls++; }
+    ctx2d.restore();
+    /* sprites（100 個：木箱／魚／水母） */
+    for (var s = 0; s < SPRITES.length; s++) {
+      var sp = SPRITES[s];
+      var sx = (sp.type === 0 ? 128 : sp.type === 1 ? 0 : 128);
+      var sy = (sp.type === 0 ? 0 : 128);
+      var d = sp.s * (W / 1280) * 1.6;
+      var wob = Math.sin(sp.ph + t * 1.2) * d * 0.15;
+      ctx2d.globalAlpha = 0.9;
+      ctx2d.drawImage(ATLAS, sx, sy, 128, 128, sp.x * W - d / 2 + wob, sp.y * H - d / 2, d, d); calls++;
+    }
+    ctx2d.globalAlpha = 1;
+    /* vignette */
+    ctx2d.fillStyle = g2.vig; ctx2d.fillRect(0, 0, W, H); calls++;
+    /* HUD */
+    ctx2d.fillStyle = 'rgba(220,245,255,.85)';
+    ctx2d.font = '600 13px "Microsoft JhengHei",system-ui';
+    ctx2d.fillText('Canvas2D · ' + state.particles + ' particles · ' + W + '×' + H, 16, H - 18); calls++;
+    state.lastCalls = calls;
+  }
+
+  /* ================= 4. WebGL2 renderer ================= */
+  var GL = null;
+  function glShader(type, src) {
+    var s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('shader: ' + gl.getShaderInfoLog(s));
+    return s;
+  }
+  function glProgram(vs, fs) {
+    var p = gl.createProgram();
+    gl.attachShader(p, glShader(gl.VERTEX_SHADER, vs));
+    gl.attachShader(p, glShader(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('link: ' + gl.getProgramInfoLog(p));
+    return p;
+  }
+  var VS_FULL = '#version 300 es\nout vec2 vUV;\nvoid main(){ vec2 p[3] = vec2[3](vec2(-1.0,-1.0), vec2(3.0,-1.0), vec2(-1.0,3.0)); vUV = p[gl_VertexID] * 0.5 + 0.5; gl_Position = vec4(p[gl_VertexID], 0.0, 1.0); }';
+  var FS_BG = '#version 300 es\nprecision highp float;\nuniform vec2 uRes; uniform float uTime;\nin vec2 vUV; out vec4 outColor;\nfloat hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }\nfloat noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }\nvoid main(){\n  vec2 uv = vUV;\n  vec3 deep = vec3(0.010,0.032,0.055);\n  vec3 shall = vec3(0.055,0.26,0.34);\n  vec3 col = mix(shall, deep, smoothstep(0.0, 0.92, uv.y));\n  float t = uTime * 0.55;\n  vec2 p = uv * vec2(6.0, 3.2);\n  float n1 = noise(p + vec2(t*0.35, -t*0.22));\n  float n2 = noise(p*1.7 + vec2(-t*0.24, t*0.17));\n  float caust = pow(max(0.0, sin((n1*3.0 + n2*2.0 + uv.y*8.0) * 3.1416 + uTime*0.7)), 8.0);\n  caust *= smoothstep(1.05, 0.18, uv.y);\n  col += vec3(0.32,0.78,0.88) * caust * 0.65;\n  float rays = 0.0;\n  for (int i=0;i<3;i++){ float fi=float(i); float ang = (uv.x-0.5)*3.2 + sin(uTime*0.15+fi)*0.22 + fi*0.18; rays += pow(max(0.0, sin((ang+fi*1.3)*6.0)), 6.0); }\n  rays *= smoothstep(0.96, 0.0, uv.y);\n  col += vec3(0.45,0.85,0.95) * rays * 0.28;\n  outColor = vec4(col, 1.0);\n}';
+  var VS_PART = '#version 300 es\nlayout(location=0) in vec2 aSeed;\nuniform vec2 uRes; uniform float uTime;\nout vec3 vCol; out float vA;\nvoid main(){\n  float t = uTime;\n  vec2 pos = fract(aSeed + vec2(t*0.018*(0.25+aSeed.y), -t*0.026*(0.35+aSeed.x)));\n  vec2 clip = pos * 2.0 - 1.0;\n  gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);\n  float sz = (1.5 + 6.0*fract(aSeed.x*13.7)) * (0.7 + 0.5*fract(aSeed.y*5.3));\n  gl_PointSize = sz * (uRes.y / 800.0);\n  vCol = mix(vec3(0.42,0.90,0.98), vec3(1.0,0.92,0.55), fract(aSeed.y*7.3));\n  vA = 0.05 + 0.24 * fract(aSeed.x*3.1);\n}';
+  var FS_PART = '#version 300 es\nprecision highp float;\nin vec3 vCol; in float vA; out vec4 outColor;\nvoid main(){ vec2 c = gl_PointCoord - 0.5; float d = length(c); float a = smoothstep(0.5, 0.0, d); outColor = vec4(vCol * (a*a + a*0.5) * vA, 1.0); }';
+  var VS_SPR = '#version 300 es\nlayout(location=0) in vec2 aCorner;\nlayout(location=1) in vec4 aInst; // x,y(0..1), scalePx, phase\nlayout(location=2) in float aType;\nuniform vec2 uRes; uniform float uTime;\nout vec2 vUV; out float vType;\nvoid main(){\n  vec2 c = aInst.xy;\n  float wob = sin(aInst.w + uTime*1.2) * 0.02;\n  c.x += wob;\n  float s = aInst.z / 800.0;\n  vec2 clip = (c * 2.0 - 1.0) + aCorner * s;\n  gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);\n  vUV = aCorner * 0.5 + 0.5;\n  vType = aType;\n}';
+  var FS_SPR = '#version 300 es\nprecision highp float;\nuniform sampler2D uAtlas;\nin vec2 vUV; in float vType; out vec4 outColor;\nvoid main(){\n  float tx = mod(vType, 2.0); float ty = floor(vType / 2.0);\n  vec2 uv = vec2((vUV.x + tx) * 0.5, (1.0 - vUV.y + ty) * 0.5);\n  vec4 c = texture(uAtlas, uv);\n  if (c.a < 0.02) discard;\n  outColor = c;\n}';
+  var FS_COPY = '#version 300 es\nprecision highp float;\nuniform sampler2D uTex; uniform vec2 uTexel; uniform float uDir; in vec2 vUV; out vec4 outColor;\nvoid main(){\n  vec2 o = vec2(uTexel.x * uDir, 0.0);\n  vec4 c = texture(uTex, vUV) * 0.36;\n  c += texture(uTex, vUV + o) * 0.24; c += texture(uTex, vUV - o) * 0.24;\n  c += texture(uTex, vUV + o*2.0) * 0.08; c += texture(uTex, vUV - o*2.0) * 0.08;\n  outColor = c;\n}';
+  var FS_COMP = '#version 300 es\nprecision highp float;\nuniform sampler2D uScene; uniform sampler2D uBloom; in vec2 vUV; out vec4 outColor;\nvoid main(){\n  vec3 c = texture(uScene, vUV).rgb;\n  vec3 b = texture(uBloom, vUV).rgb;\n  c += b * 0.55;\n  float v = smoothstep(1.18, 0.34, length((vUV - 0.5) * vec2(1.0, 1.12)));\n  c *= mix(0.55, 1.0, v);\n  c = c / (c + vec3(0.85)) * 1.30;\n  outColor = vec4(c, 1.0);\n}';
+
+  function createGLResources() {
+    GL = {};
+    GL.bg = glProgram(VS_FULL, FS_BG);
+    GL.part = glProgram(VS_PART, FS_PART);
+    GL.spr = glProgram(VS_SPR, FS_SPR);
+    GL.copy = glProgram(VS_FULL, FS_COPY);
+    GL.comp = glProgram(VS_FULL, FS_COMP);
+    GL.u = {};
+    ['bg','part','spr','copy','comp'].forEach(function (k) { GL.u[k] = {}; });
+    ['uRes','uTime'].forEach(function (n) { GL.u.bg[n] = gl.getUniformLocation(GL.bg, n); });
+    ['uRes','uTime'].forEach(function (n) { GL.u.part[n] = gl.getUniformLocation(GL.part, n); });
+    ['uRes','uTime','uAtlas'].forEach(function (n) { GL.u.spr[n] = gl.getUniformLocation(GL.spr, n); });
+    GL.u.spr.uAtlas = gl.getUniformLocation(GL.spr, 'uAtlas');
+    GL.u.copy.uTex = gl.getUniformLocation(GL.copy, 'uTex');
+    GL.u.copy.uTexel = gl.getUniformLocation(GL.copy, 'uTexel');
+    GL.u.copy.uDir = gl.getUniformLocation(GL.copy, 'uDir');
+    GL.u.comp.uScene = gl.getUniformLocation(GL.comp, 'uScene');
+    GL.u.comp.uBloom = gl.getUniformLocation(GL.comp, 'uBloom');
+    GL.vaoEmpty = gl.createVertexArray();
+    /* 粒子：GPU 端用 seed 算位置 */
+    GL.partVAO = gl.createVertexArray();
+    gl.bindVertexArray(GL.partVAO);
+    GL.partBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, GL.partBuf);
+    var seeds = new Float32Array(1500 * 2);
+    for (var i = 0; i < 1500; i++) { seeds[i * 2] = Math.random(); seeds[i * 2 + 1] = Math.random(); }
+    gl.bufferData(gl.ARRAY_BUFFER, seeds, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    /* sprites：instanced quad */
+    GL.sprVAO = gl.createVertexArray();
+    gl.bindVertexArray(GL.sprVAO);
+    GL.quadBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, GL.quadBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    var inst = new Float32Array(100 * 5);
+    for (var j = 0; j < 100; j++) {
+      inst[j * 5] = Math.random() * 0.88 + 0.06;
+      inst[j * 5 + 1] = Math.random() * 0.72 + 0.2;
+      inst[j * 5 + 2] = 26 + Math.random() * 34;
+      inst[j * 5 + 3] = Math.random() * 6.283;
+      inst[j * 5 + 4] = j % 3 + 1; /* atlas cell 1..3 */
+    }
+    GL.instBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, GL.instBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, inst, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 20, 0);
+    gl.vertexAttribDivisor(1, 1);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 20, 16);
+    gl.vertexAttribDivisor(2, 1);
+    gl.bindVertexArray(null);
+    /* atlas texture */
+    GL.tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, GL.tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, ATLAS);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    /* FBOs */
+    gl.bindVertexArray(null);
+    resizeGL();
+  }
+  function makeFBO(w, h, withDepth) {
+    var tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    var fb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return { fb: fb, tex: tex, w: w, h: h };
+  }
+  function resizeGL() {
+    if (!gl || !GL) return;
+    var W = state.w, H = state.h;
+    cvgl.width = W; cvgl.height = H;
+    gl.viewport(0, 0, W, H);
+    if (GL.scene) { gl.deleteFramebuffer(GL.scene.fb); gl.deleteTexture(GL.scene.tex); }
+    if (GL.bloomA) { gl.deleteFramebuffer(GL.bloomA.fb); gl.deleteTexture(GL.bloomA.tex); }
+    if (GL.bloomB) { gl.deleteFramebuffer(GL.bloomB.fb); gl.deleteTexture(GL.bloomB.tex); }
+    GL.scene = makeFBO(W, H);
+    GL.bloomA = makeFBO(Math.max(2, W >> 1), Math.max(2, H >> 1));
+    GL.bloomB = makeFBO(Math.max(2, W >> 1), Math.max(2, H >> 1));
+    gl.bindFramebuffer(gl.FRAMEBUFFER, GL.scene.fb);
+    gl.clearColor(0.02, 0.05, 0.08, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  function renderGL(now) {
+    if (!GL) return;
+    var W = state.w, H = state.h, t = now / 1000, calls = 0;
+    /* scene pass */
+    gl.bindFramebuffer(gl.FRAMEBUFFER, GL.scene.fb);
+    gl.viewport(0, 0, W, H);
+    gl.disable(gl.BLEND);
+    gl.clearColor(0.02, 0.05, 0.08, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(GL.bg);
+    gl.uniform2f(GL.u.bg.uRes, W, H);
+    gl.uniform1f(GL.u.bg.uTime, t);
+    gl.bindVertexArray(GL.vaoEmpty);
+    gl.drawArrays(gl.TRIANGLES, 0, 3); calls++;
+    /* particles additive */
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.useProgram(GL.part);
+    gl.uniform2f(GL.u.part.uRes, W, H);
+    gl.uniform1f(GL.u.part.uTime, t);
+    gl.bindVertexArray(GL.partVAO);
+    var pn = Math.min(state.particles, qualityCfg().cap);
+    gl.drawArrays(gl.POINTS, 0, pn); calls++;
+    /* sprites alpha */
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.useProgram(GL.spr);
+    gl.uniform2f(GL.u.spr.uRes, W, H);
+    gl.uniform1f(GL.u.spr.uTime, t);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, GL.tex);
+    gl.uniform1i(GL.u.spr.uAtlas, 0);
+    gl.bindVertexArray(GL.sprVAO);
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 100); calls++;
+    gl.disable(gl.BLEND);
+    if (!qualityCfg().bloom) {
+      /* tier2：直出 scene（跳過 downsample/blur/composite 共 4 calls） */
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, W, H);
+      gl.useProgram(GL.copy);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, GL.scene.tex);
+      gl.uniform1i(GL.u.copy.uTex, 0);
+      gl.uniform2f(GL.u.copy.uTexel, 0, 0);
+      gl.uniform1f(GL.u.copy.uDir, 0);
+      gl.bindVertexArray(GL.vaoEmpty);
+      gl.drawArrays(gl.TRIANGLES, 0, 3); calls++;
+      gl.bindVertexArray(null);
+      state.lastCalls = calls;
+      return;
+    }
+    /* bloom downsample + blur */
+    var bw = GL.bloomA.w, bh = GL.bloomA.h;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, GL.bloomA.fb);
+    gl.viewport(0, 0, bw, bh);
+    gl.useProgram(GL.copy);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, GL.scene.tex);
+    gl.uniform1i(GL.u.copy.uTex, 0);
+    gl.uniform2f(GL.u.copy.uTexel, 0, 0);
+    gl.uniform1f(GL.u.copy.uDir, 0);
+    gl.bindVertexArray(GL.vaoEmpty);
+    gl.drawArrays(gl.TRIANGLES, 0, 3); calls++;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, GL.bloomB.fb);
+    gl.uniform2f(GL.u.copy.uTexel, 1 / bw, 0);
+    gl.uniform1f(GL.u.copy.uDir, 1);
+    gl.bindTexture(gl.TEXTURE_2D, GL.bloomA.tex);
+    gl.drawArrays(gl.TRIANGLES, 0, 3); calls++;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, GL.bloomA.fb);
+    gl.uniform2f(GL.u.copy.uTexel, 0, 1 / bh);
+    gl.uniform1f(GL.u.copy.uDir, 1);
+    gl.bindTexture(gl.TEXTURE_2D, GL.bloomB.tex);
+    gl.drawArrays(gl.TRIANGLES, 0, 3); calls++;
+    /* composite to screen */
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, W, H);
+    gl.useProgram(GL.comp);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, GL.scene.tex); gl.uniform1i(GL.u.comp.uScene, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, GL.bloomA.tex); gl.uniform1i(GL.u.comp.uBloom, 1);
+    gl.bindVertexArray(GL.vaoEmpty);
+    gl.drawArrays(gl.TRIANGLES, 0, 3); calls++;
+    gl.bindVertexArray(null);
+    state.lastCalls = calls;
+  }
+
+  if (gl) {
+    try { createGLResources(); } catch (e) { gl = null; state.fallback = true; state.mode = 'canvas'; }
+  }
+
+  /* ---------- context loss / restore（B 的合成層 seam） ---------- */
+  cvgl.addEventListener('webglcontextlost', function (ev) {
+    if (ev && ev.preventDefault) ev.preventDefault();
+    state.contextLost = true;
+    state.lastContextEvent = { kind: 'lost', t: Date.now(), autoFallback: 'canvas' };
+    setMode('canvas');                       /* 自動 fallback 到 Canvas2D，維持可玩 */
+    fireContext('lost', 'webglcontextlost');
+  }, false);
+  cvgl.addEventListener('webglcontextrestored', function () {
+    state.contextLost = false;
+    var ok = false;
+    try { createGLResources(); ok = !!GL; } catch (e) { ok = false; }
+    if (ok) setMode('webgl');
+    else { gl = null; state.fallback = true; setMode('canvas'); }
+    state.lastContextEvent = { kind: 'restored', t: Date.now(), recreated: ok };
+    fireContext('restored', 'webglcontextrestored');
+  }, false);
+  function simulateContextLoss(opts) {
+    opts = opts || {};
+    if (!gl) return { ok: false, reason: 'no-webgl2' };
+    var ext = null;
+    try { ext = gl.getExtension('WEBGL_lose_context'); } catch (e) { ext = null; }
+    if (!ext) return { ok: false, reason: 'no-lose-context-ext' };
+    state.loseExt = ext;
+    try { ext.loseContext(); } catch (e) { return { ok: false, reason: 'lose-failed' }; }
+    var restore = opts.restore !== false;
+    if (restore) setTimeout(function () { try { if (state.loseExt) state.loseExt.restoreContext(); } catch (e) { } }, opts.delayMs || 500);
+    return { ok: true, restore: restore, delayMs: opts.delayMs || 500 };
+  }
+  function simulateContextRestore() {
+    try { if (state.loseExt) state.loseExt.restoreContext(); return { ok: true }; }
+    catch (e) { return { ok: false, reason: String(e) }; }
+  }
+
+  /* ================= 5. 主迴圈 / 幀記錄 ================= */
+  var lastNow = 0;
+  function loop(now) {
+    requestAnimationFrame(loop);
+    if (!lastNow) lastNow = now;
+    var dt = Math.min(0.05, (now - lastNow) / 1000);
+    lastNow = now;
+    state.time += dt;
+    if (state.mode === 'webgl' && gl) { cv2d.hidden = true; cvgl.hidden = false; renderGL(now); }
+    else { cvgl.hidden = true; cv2d.hidden = false; updateParticles2D(dt); render2D(now); }
+    updateHud();
+    if (state.log) state.log.push({ t: now, calls: state.lastCalls });
+  }
+  function updateHud() {
+    var fps = 0;
+    if (state.fps) fps = state.fps;
+    hud.innerHTML = '<b>' + (state.mode === 'webgl' ? 'WebGL2' : 'Canvas2D') + '</b> · ' + state.w + '×' + state.h +
+      '<br>parts ' + Math.min(state.particles, qualityCfg().cap) + '/' + state.particles + ' · q' + state.quality + ' · calls <b>' + state.lastCalls + '</b>' +
+      (state.fallback ? '<br><span style="color:#ff9aa8">WebGL2 不可用（fallback）</span>' : '');
+    hud.style.display = 'block';
+  }
+  requestAnimationFrame(loop);
+
+  /* ================= 6. 對外控制 / 基準 ================= */
+  function setMode(m) {
+    if (m === 'webgl' && !gl) m = 'canvas';
+    state.mode = m;
+    document.getElementById('m2d').setAttribute('aria-pressed', String(m === 'canvas'));
+    document.getElementById('mgl').setAttribute('aria-pressed', String(m === 'webgl'));
+    document.getElementById('mgl').disabled = !gl;
+    if (m === 'webgl' && GL) resizeGL();
+  }
+  function setRes(w, h) {
+    state.w = w; state.h = h;
+    cv2d.width = w; cv2d.height = h;
+    cvgl.width = w; cvgl.height = h;
+    g2.size = '';
+    if (GL) resizeGL();
+    document.getElementById('r1').setAttribute('aria-pressed', String(w === 1280));
+    document.getElementById('r2').setAttribute('aria-pressed', String(w === 1920));
+  }
+  function setParticles(n) {
+    state.particles = n;
+    document.getElementById('p500').setAttribute('aria-pressed', String(n === 500));
+    document.getElementById('p1500').setAttribute('aria-pressed', String(n === 1500));
+  }
+  /* B 的整合介面：resize / setQuality / getStats */
+  function setQuality(t) {
+    t = clamp(t | 0, 0, 2);
+    state.quality = t;
+    for (var i = 0; i < 3; i++) {
+      var b = document.getElementById('q' + i);
+      if (b) b.setAttribute('aria-pressed', String(i === t));
+    }
+    return t;
+  }
+  function resize(w, h) { setRes(w, h); }
+  function getStats() {
+    var last = state.results.length ? state.results[state.results.length - 1] : null;
+    return {
+      mode: state.mode,
+      fps: last ? last.fps : 0,
+      ms: last ? last.ms : 0,
+      calls: state.lastCalls,
+      drawCalls: state.lastCalls,
+      particles: Math.min(state.particles, qualityCfg().cap),
+      particlesSetting: state.particles,
+      particlesActive: Math.min(state.particles, qualityCfg().cap),
+      tier: state.quality,
+      quality: state.quality,
+      qualityTier: state.quality,
+      w: state.w, h: state.h,
+      webgl2: !!gl, fallback: state.fallback,
+      contextLost: state.contextLost,
+      contextEvents: state.contextEvents.length,
+      lastContextEvent: state.lastContextEvent,
+      results: state.results.length
+    };
+  }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  async function runOne(mode, w, h, particles, seconds) {
+    seconds = seconds || 5;
+    setRes(w, h);
+    setMode(mode);
+    setParticles(particles);
+    await sleep(320);
+    state.log = [];
+    await sleep(seconds * 1000);
+    var log = state.log; state.log = null;
+    if (!log || log.length < 5) return { mode: mode, w: w, h: h, particles: particles, fps: 0, ms: 0, calls: 0, fallback: mode === 'webgl' && !gl };
+    var t0 = log[0].t, tn = log[log.length - 1].t;
+    var frames = log.length - 1;
+    var fps = frames / ((tn - t0) / 1000);
+    var calls = 0;
+    for (var i = 1; i < log.length; i++) calls += log[i].calls;
+    calls = calls / frames;
+    var row = {
+      mode: mode, w: w, h: h, particles: particles,
+      fps: +fps.toFixed(1), ms: +(1000 / fps).toFixed(2), calls: +calls.toFixed(1),
+      frames: frames, fallback: mode === 'webgl' && !gl
+    };
+    state.results.push(row);
+    renderTable();
+    return row;
+  }
+  async function runAll() {
+    var btn = document.getElementById('run');
+    btn.disabled = true;
+    var status = document.getElementById('status');
+    state.results = [];
+    renderTable();
+    var combos = [];
+    [[1280, 800], [1920, 1080]].forEach(function (res) {
+      [500, 1500].forEach(function (p) {
+        combos.push(['canvas', res[0], res[1], p]);
+        if (gl) combos.push(['webgl', res[0], res[1], p]);
+      });
+    });
+    for (var i = 0; i < combos.length; i++) {
+      var c = combos[i];
+      status.textContent = '量測中 ' + (i + 1) + '/' + combos.length + '：' + c[0] + ' ' + c[1] + '×' + c[2] + ' particles=' + c[3];
+      await runOne(c[0], c[1], c[2], c[3], 5);
+    }
+    status.textContent = '完成：' + state.results.length + ' 組（每組 5s）' + (gl ? '' : ' · WebGL2 不可用，已 fallback');
+    btn.disabled = false;
+    return state.results;
+  }
+  function renderTable() {
+    var tb = document.querySelector('#tbl tbody');
+    tb.innerHTML = '';
+    state.results.forEach(function (r) {
+      var tr = document.createElement('tr');
+      if (r.fallback) tr.className = 'fallback';
+      tr.innerHTML = '<td>' + (r.mode === 'webgl' ? 'WebGL2' : 'Canvas2D') + '</td><td>' + r.w + '×' + r.h +
+        '</td><td>' + r.particles + '</td><td>' + r.fps + '</td><td>' + r.ms + '</td><td>' + r.calls +
+        (r.fallback ? ' <span>(fallback)</span>' : '') + '</td>';
+      tb.appendChild(tr);
+    });
+  }
+  function exportPoc() {
+    return JSON.stringify({
+      ts: new Date().toISOString(),
+      ua: (navigator && navigator.userAgent) || '',
+      webgl2: !!gl,
+      fallback: !gl,
+      quality: state.quality,
+      contextLost: state.contextLost,
+      contextEvents: state.contextEvents.slice(),
+      lastContextEvent: state.lastContextEvent,
+      results: state.results
+    });
+  }
+
+  /* UI wiring */
+  document.getElementById('m2d').onclick = function () { setMode('canvas'); };
+  document.getElementById('mgl').onclick = function () { setMode('webgl'); };
+  document.getElementById('r1').onclick = function () { setRes(1280, 800); };
+  document.getElementById('r2').onclick = function () { setRes(1920, 1080); };
+  document.getElementById('p500').onclick = function () { setParticles(500); };
+  document.getElementById('p1500').onclick = function () { setParticles(1500); };
+  document.getElementById('q0').onclick = function () { setQuality(0); };
+  document.getElementById('q1').onclick = function () { setQuality(1); };
+  document.getElementById('q2').onclick = function () { setQuality(2); };
+  document.getElementById('run').onclick = function () { runAll(); };
+  document.getElementById('mgl').disabled = !gl;
+
+  window.__POC = {
+    get mode() { return state.mode; },
+    get fps() { return state.results.length ? state.results[state.results.length - 1].fps : 0; },
+    get ms() { return state.results.length ? state.results[state.results.length - 1].ms : 0; },
+    get calls() { return state.lastCalls; },
+    get results() { return state.results.slice(); },
+    get fallback() { return state.fallback; },
+    get contextLost() { return state.contextLost; },
+    get contextEvents() { return state.contextEvents.slice(); },
+    get lastContextEvent() { return state.lastContextEvent; },
+    setMode: setMode, setRes: setRes, setParticles: setParticles,
+    setQuality: setQuality, resize: resize, getStats: getStats,
+    onContextLost: onContextLost, onContextRestored: onContextRestored,
+    simulateContextLoss: simulateContextLoss, simulateContextRestore: simulateContextRestore,
+    runOne: runOne, runAll: runAll, exportPoc: exportPoc,
+    render: function () { if (state.mode === 'webgl' && gl) renderGL(nowMs()); else render2D(nowMs()); }
+  };
+  window.exportPoc = exportPoc;
+  setMode(state.mode);
+  setParticles(500);
+})();
+</script>
+</body>
+</html>

@@ -12,6 +12,10 @@
 - **GitHub Pages**：https://cchpucky1984.github.io/escape-the-sea/ （最新開發版）　·　**Steam／itch.io**：Coming soon
 - **版本**：v0.11（`main` 分支）；一輪約 **75–105 分鐘（模型推估，封測後定案）**
 
+### v0.12：渲染層升級進行中（WebGL2）
+
+使用者已選定「留在 Web、升級渲染層到 WebGL2」（[ENGINE-DECISION](docs/tech/ENGINE-DECISION.md)）。目前**進行中、尚未完成**：Canvas 2D 仍是預設與 fallback，玩法／存檔／QA 不變；對外說法見 [WEBGL-STORY](docs/marketing/WEBGL-STORY.md)、施工紀錄見 [DEVLOG-05](docs/marketing/DEVLOG-05.md)。POC 數據出來前不寫 fps 數字，也不宣稱已支援 WebGL。
+
 ![Escape the Sea — 標題畫面](docs/art/store/hero-with-logo-1920x1080.webp)
 
 ![母船最終 BOSS — 四階段核心](docs/art/store/screenshots/03-core-boss.webp)
@@ -210,6 +214,11 @@
 - [docs/design/DIFFICULTY-v0.8.md](docs/design/DIFFICULTY-v0.8.md) — 難度與最終戰施工規格（四巨獸／彈幕／核心四階段／鏡像）
 - [docs/design/BETA-PLAN.md](docs/design/BETA-PLAN.md) — 8 人封測計劃（招募／腳本／問卷／指標）
 - [docs/tech/AUDIT-v0.4.md](docs/tech/AUDIT-v0.4.md) — 架構與技術債審查
+- [docs/tech/ENGINE-DECISION.md](docs/tech/ENGINE-DECISION.md) — 引擎決策：留在 Web、渲染層升級 WebGL2（含 Go/No-Go 門檻與遷移順序）
+- [docs/marketing/WEBGL-STORY.md](docs/marketing/WEBGL-STORY.md) — 渲染升級的對外說法（技術／玩家／press 三版本＋商店補充草稿）
+- [docs/marketing/DEVLOG-05.md](docs/marketing/DEVLOG-05.md) — Devlog #5：為何選 WebGL、POC 待補、下一步與風險
+
+**渲染升級（v0.12，施工中，尚未完成）**：`docs/tech/webgl-poc.html`、`docs/tech/WEBGL-POC-RESULTS.md`（D）、`docs/tech/WEBGL-INTEGRATION.md`（B）、`docs/art/WEBGL-VISUALS.md`（C）、`docs/design/VISUAL-UPGRADE-v0.12.md`（A）——以上材料完成後才會補上連結與數據。
 - [docs/art/STYLE-v0.4.md](docs/art/STYLE-v0.4.md) — 視覺風格與 HUD／面板規格
 - [docs/art/TITLE-ART.md](docs/art/TITLE-ART.md) — 標題 key art 接線規格；素材見 [AI-ASSETS-v0.5.md](docs/art/AI-ASSETS-v0.5.md)
 - [docs/audio/AUDIO-SPEC.md](docs/audio/AUDIO-SPEC.md) — 背景音樂規格、候選與接線說明
@@ -246,6 +255,7 @@
 - **Controls**: WASD/Arrows swim · Shift sprint · Mouse aim/fire · B base · C gear · H bounties · J quests · Esc pause/settings · M mute.
 - **Loop**: collect trash → grow the platform base → send out BOTs → upgrade gear → build a spacecraft → storm the mothership.
 - **Status**: v0.11 mainline is playable end to end — four patterned leviathans, a four-phase core, a 90-second escape countdown and a Mirror Core (+1 skill). Plus 3 challenge modes, NG+ 0–9, 24 achievements, 8 sea events, EN/zh-Hant. Run length is a model estimate (~75–105 min) until beta.
+- **Renderer (v0.12, in progress)**: a WebGL2 renderer upgrade is underway; Canvas 2D remains the default and fallback, and gameplay/saves are unchanged. Not shipped yet — see [ENGINE-DECISION](docs/tech/ENGINE-DECISION.md). No fps numbers are claimed until the POC results are in.
 - **Requirements**: Windows/macOS/Linux with a recent Chrome, Edge, Firefox or Safari; 1280×800+; keyboard and mouse. Mobile: iOS 15+/Android 10+, 390×844+, touch, installable PWA. No install needed.
 - **License**: © 2026 cchpucky1984, All Rights Reserved — see [LICENSE](LICENSE) and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 - **Beta builds**: optional diagnostic export (`testlog.json`) contains game state only — no names, emails, IPs or device fingerprints. See [LEGAL.md](docs/marketing/LEGAL.md) §2.5.

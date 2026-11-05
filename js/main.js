@@ -8,6 +8,63 @@ window.KEYS = KEYS;
 const MOUSE = { x: 0, y: 0, down: false, inside: false };
 window.MOUSE = MOUSE;
 
+/* ---------- v0.12 Renderer spike（最小、無行為改變；預設 canvas） ----------
+   只保留介面與 resize 掛鉤；實際 canvas/webgl 繪製仍走既有 draw* 函式。
+   `?gl=1` 只切 seam／adapter 名，stub 不畫任何東西；`?gl=0` 強制 Canvas2D。
+   D 的 js/gl2.js 合成層未來從這個 seam 接手，完整 Renderer 遷移排 v1.1。 */
+const RENDER_PARAMS = new URLSearchParams(location.search);
+const GL_PARAM = RENDER_PARAMS.get('gl');
+const GL2_SUPPORTED = (() => {
+  try { return !!document.createElement('canvas').getContext('webgl2'); } catch (e) { return false; }
+})();
+const RENDER_INITIAL = (GL_PARAM === '1' && GL2_SUPPORTED) ? 'webgl' : 'canvas';
+window.__RENDER = RENDER_INITIAL;
+const Renderer = {
+  name: 'RendererStub',
+  adapter: RENDER_INITIAL,
+  tier: 0,
+  contextLost: false,
+  glSupported: GL2_SUPPORTED,
+  fallback: GL_PARAM === '1' && !GL2_SUPPORTED,
+  init() { this.adapter = (window.__RENDER === 'webgl') ? 'webgl' : 'canvas'; return true; },
+  resize(w, h) { this.adapter = (window.__RENDER === 'webgl') ? 'webgl' : 'canvas'; this.width = w; this.height = h; },
+  setQuality(tier) { this.tier = Math.max(0, Math.min(2, Number(tier) || 0)); },
+  getStats() { return { fps: 0, ms: 0, calls: 0, particles: 0, tier: this.tier }; },
+  capabilities() { return { webgl2: GL2_SUPPORTED, maxTex: 0, tier: this.tier, contextLost: !!this.contextLost }; },
+  beginFrame() {},
+  endFrame() {},
+  drawWater() {},
+  drawGodRays() {},
+  drawSprite() {},
+  drawParticles() {},
+  post() {},
+  destroy() { this.adapter = 'canvas'; }
+};
+window.Renderer = Renderer;
+window.__RENDERER = Renderer;
+function glEnabled() { return !!(GL2_SUPPORTED && window.__RENDER === 'webgl'); }
+function glStats() {
+  const s = Renderer.getStats();
+  let poc = null;
+  try { if (window.__POC && typeof window.__POC.getStats === 'function') poc = window.__POC.getStats(); } catch (e) {}
+  return {
+    enabled: glEnabled(),
+    mode: window.__RENDER,
+    fallback: !!Renderer.fallback,
+    fps: s.fps, ms: s.ms, calls: s.calls, particles: s.particles, tier: s.tier,
+    quality: Renderer.tier, qualityTier: (poc && poc.qualityTier != null) ? poc.qualityTier : Renderer.tier,
+    contextLost: !!(poc && poc.contextLost != null ? poc.contextLost : Renderer.contextLost),
+    contextEvents: (poc && poc.contextEvents) || 0,
+    lastContextEvent: (poc && poc.lastContextEvent) || null,
+    drawCalls: (poc && poc.drawCalls != null) ? poc.drawCalls : s.calls,
+    particlesActive: (poc && poc.particlesActive != null) ? poc.particlesActive : s.particles,
+    w: window.innerWidth, h: window.innerHeight,
+    webgl2: GL2_SUPPORTED,
+    results: (window.__POC && Array.isArray(window.__POC.results)) ? window.__POC.results : []
+  };
+}
+window.addEventListener('resize', () => Renderer.resize());
+
 /* ---------- 場景 ---------- */
 function setScene(s) {
   /* 切場景清一次 fx 粒子池（initLaunch/initMoon/initSea 都會走這裡；無 fx 時略過） */
@@ -357,6 +414,8 @@ function frame(now) {
 }
 
 /* ---------- 啟動 ---------- */
+Renderer.init();
+Renderer.resize();
 restoreBootSettings();
 if (hasSave()) {
   $('btn-continue').hidden = false;
@@ -424,6 +483,8 @@ window.__T = {
   get tut() { return game.tut; },
   skipTut() { game.tut.done = true; },
   music: () => MUSIC.status(), MUSIC,
+  Renderer, renderMode: () => Renderer.adapter,
+  glEnabled, glStats, glSupported: GL2_SUPPORTED, glParam: GL_PARAM,
   give(k, n) { addRes(k, n); refreshHud(); },
   mountAll() {
     for (const k of STRUCT_KEYS) {
