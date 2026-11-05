@@ -53,6 +53,44 @@ const MIRROR_CFG = {
   gravity: { r: 380, pull: 110, dur: 2.5 }
 };
 
+/* ---------- v0.11 可及性：色盲形狀 ---------- */
+function cbSafe() {
+  try {
+    if (document.body.classList.contains('cb-safe') || document.body.classList.contains('colorblind')) return true;
+    return !!(typeof game !== 'undefined' && game && game.settings && game.settings.colorblind);
+  } catch (e) { return false; }
+}
+function hudFs() {
+  try { return (typeof game !== 'undefined' && game && game.settings && game.settings.fontScale === 1.2) ? 1.2 : 1; } catch (e) { return 1; }
+}
+/* 子彈形狀：fast=條、slow=圓、homing=菱形、laser=線（laser 在別處畫） */
+function drawBulletShape(ctx, b, cb) {
+  const ux = b.vx / (Math.hypot(b.vx, b.vy) || 1), uy = b.vy / (Math.hypot(b.vx, b.vy) || 1);
+  const nx = -uy, ny = ux;
+  ctx.beginPath();
+  if (b.homing) {
+    ctx.moveTo(b.x + ux * 11, b.y + uy * 11);
+    ctx.lineTo(b.x + nx * 7, b.y + ny * 7);
+    ctx.lineTo(b.x - ux * 9, b.y - uy * 9);
+    ctx.lineTo(b.x - nx * 7, b.y - ny * 7);
+    ctx.closePath();
+  } else if (b.r >= 8) {
+    ctx.arc(b.x, b.y, b.r, 0, 7);
+  } else {
+    ctx.moveTo(b.x + ux * 9 + nx * 2.4, b.y + uy * 9 + ny * 2.4);
+    ctx.lineTo(b.x + ux * 9 - nx * 2.4, b.y + uy * 9 - ny * 2.4);
+    ctx.lineTo(b.x - ux * 10 - nx * 2.4, b.y - uy * 10 - ny * 2.4);
+    ctx.lineTo(b.x - ux * 10 + nx * 2.4, b.y - uy * 10 + ny * 2.4);
+    ctx.closePath();
+  }
+  ctx.fill();
+  if (cb) {
+    ctx.strokeStyle = 'rgba(255,255,255,.95)';
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+  }
+}
+
 /* ---------- v0.10 效能：高頻漸層快取（canvas 漸層與 CTM 無關、可跨幀重用；resize 清空）
    window.__PERF_LEGACY=true 走舊路徑，供同機 before/after 量測 ---------- */
 var _gcache = new Map();
@@ -125,7 +163,34 @@ function bossuiShow(mode) {
   el.dataset.phase = '1';
   el.style.setProperty('--hp', '1');
   el.style.setProperty('--mirror-hp', '1');
-  _bossText(el, '.boss-hp-text', _i18n('bossui.name') || '');
+  /* v0.12：補齊 C 的 DOM skeleton 文字（i18n key 由 core fallback 提供） */
+  const fin = el.querySelector('.boss-final');
+  if (fin) {
+    _bossText(fin, '.boss-eyebrow', _i18n('bossui.eyebrow') || 'FINAL BOSS');
+    _bossText(fin, '.boss-name', _i18n('bossui.name') || 'Mothership Core');
+    _bossText(fin, '.boss-phase', (_i18n('bossui.phase', { n: 1 }) || 'PHASE 1 / 4').replace(/\/\s*3\s*$/, '/ 4'));
+    for (const mv of fin.querySelectorAll('.boss-move')) {
+      const mk = mv.getAttribute('data-move');
+      _bossText(mv, '.mv-name', _i18n('bossui.move.' + mk) || mk);
+    }
+    const warn = fin.querySelector('.boss-warning span');
+    if (warn) warn.textContent = _i18n('bossui.warning') || 'CORE OVERLOAD';
+    _bossText(fin, '.boss-hp-text', '100%');
+  }
+  const mir = el.querySelector('.boss-mirror');
+  if (mir) {
+    _bossText(mir, '.boss-eyebrow', _i18n('bossui.mirror.eyebrow') || 'ESCAPE');
+    _bossText(mir, '.boss-name', _i18n('bossui.mirror.name') || 'Your Mirror');
+    _bossText(mir, '.boss-skill', _i18n('bossui.skillPlus') || 'SKILL +1');
+    _bossText(mir, '.mirror-note', _i18n('bossui.mirror.note') || '');
+    _bossText(mir, '.boss-hp-text', '100%');
+    _bossText(mir, '.mc-player-label', _i18n('bossui.player') || 'YOU');
+    _bossText(mir, '.mc-mirror-label', _i18n('bossui.mirrorLabel') || 'MIRROR');
+    for (const row of mir.querySelectorAll('.mc-row[data-stat]')) {
+      const rk = row.getAttribute('data-stat');
+      _bossText(row, '.mc-name', _i18n('bossui.compare.' + rk) || rk);
+    }
+  }
 }
 function bossuiHide() {
   const el = bossuiEl();
@@ -137,7 +202,7 @@ function _bossText(el, sel, txt) {
   const n = el.querySelector(sel);
   if (n && txt != null) n.textContent = txt;
 }
-let _bossuiLast = { mode: '', phase: 0, active: '', hp: -1, mhp: -1 };
+let _bossuiLast = { mode: '', phase: 0, active: '', hp: -1, mhp: -1, labels: false };
 function bossuiUpdate(boss, mirror) {
   const el = bossuiEl();
   if (!el) return;
@@ -145,7 +210,7 @@ function bossuiUpdate(boss, mirror) {
   const mode = mirror ? 'mirror' : 'final';
   if (el.hidden || el.dataset.visible !== 'true' || _bossuiLast.mode !== mode) {
     bossuiShow(mode);
-    _bossuiLast = { mode, phase: 0, active: '', hp: -1, mhp: -1 };
+    _bossuiLast = { mode, phase: 0, active: '', hp: -1, mhp: -1, labels: false };
   }
   const hp = mirror ? (mirror.hp / Math.max(1, mirror.maxhp)) : (boss.hp / Math.max(1, boss.maxhp));
   if (Math.abs(hp - _bossuiLast.hp) > 0.004 || _bossuiLast.phase !== (mirror ? mirror.phase : boss.phase)) {
@@ -157,7 +222,8 @@ function bossuiUpdate(boss, mirror) {
   if (phase !== _bossuiLast.phase) {
     _bossuiLast.phase = phase;
     el.dataset.phase = String(phase);
-    _bossText(el, '.boss-phase', _i18n('bossui.phase', { n: phase }) || ('PHASE ' + phase + ' / 4'));
+    _bossText(el.querySelector(mirror ? '.boss-mirror' : '.boss-final') || el, '.boss-phase',
+      (_i18n('bossui.phase', { n: phase }) || ('PHASE ' + phase + ' / 4')).replace(/\/\s*3\s*$/, '/ 4'));
   }
   const active = (mirror ? mirror.active : boss.active) || '';
   if (active !== _bossuiLast.active) {
@@ -166,11 +232,23 @@ function bossuiUpdate(boss, mirror) {
     const moves = el.querySelectorAll('.boss-move');
     for (const mv of moves) mv.classList.toggle('on', mv.getAttribute('data-move') === active);
   }
-  if (mirror) {
-    _bossText(el, '.mc-player', 'YOU');
-    _bossText(el, '.mc-mirror', 'MIRROR');
+  /* 鏡像：對比列名稱／YOU・MIRROR 標籤（只在進 mirror 模式時填一次） */
+  if (mirror && !_bossuiLast.labels) {
+    _bossuiLast.labels = true;
+    const mir = el.querySelector('.boss-mirror');
+    if (mir) {
+      _bossText(mir, '.mc-player-label', _i18n('bossui.player') || 'YOU');
+      _bossText(mir, '.mc-mirror-label', _i18n('bossui.mirrorLabel') || 'MIRROR');
+      _bossText(mir, '.mirror-note', _i18n('bossui.mirror.note') || '');
+      for (const row of mir.querySelectorAll('.mc-row[data-stat]')) {
+        const rk = row.getAttribute('data-stat');
+        _bossText(row, '.mc-name', _i18n('bossui.compare.' + rk) || rk);
+      }
+    }
   }
-  _bossText(el, '.boss-hp-text', Math.ceil(hp * 100) + '%');
+  /* 血條文字只放百分比（放在目前卡片內，避免兩張卡互蓋） */
+  const card = el.querySelector(mirror ? '.boss-mirror' : '.boss-final');
+  if (card) _bossText(card, '.boss-hp-text', Math.ceil(hp * 100) + '%');
 }
 
 
@@ -2034,22 +2112,60 @@ function drawMoon() {
   } else {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  var bn = 0;
-  ctx.fillStyle = 'rgba(255,90,130,.95)';
-  ctx.beginPath();
-  for (const b of M.ebullets) {
-    if (b.boom || b.dust) continue;
-    ctx.moveTo(b.x + b.r, b.y); ctx.arc(b.x, b.y, b.r, 0, 7); bn++;
+  const cb = cbSafe();
+  /* 色盲模式：逐顆帶輪廓（清楚優先） */
+  if (cb) {
+    ctx.fillStyle = 'rgba(255,90,130,.95)';
+    for (const b of M.ebullets) { if (b.boom || b.dust) continue; drawBulletShape(ctx, b, true); }
+  } else {
+    /* 批次：slow 圓（單一路徑） */
+    var bn = 0;
+    ctx.fillStyle = 'rgba(255,90,130,.95)';
+    ctx.beginPath();
+    for (const b of M.ebullets) {
+      if (b.boom || b.dust || b.homing || b.r < 8) continue;
+      ctx.moveTo(b.x + b.r, b.y); ctx.arc(b.x, b.y, b.r, 0, 7); bn++;
+    }
+    if (bn) ctx.fill();
+    /* 批次：fast 條（以速度方向算四角，不需 transform） */
+    ctx.beginPath();
+    var fb = 0;
+    for (const b of M.ebullets) {
+      if (b.boom || b.dust || b.homing || b.r >= 8) continue;
+      const sp = Math.hypot(b.vx, b.vy) || 1;
+      const ux = b.vx / sp, uy = b.vy / sp, nx = -uy, ny = ux;
+      ctx.moveTo(b.x + ux * 9 + nx * 2.4, b.y + uy * 9 + ny * 2.4);
+      ctx.lineTo(b.x + ux * 9 - nx * 2.4, b.y + uy * 9 - ny * 2.4);
+      ctx.lineTo(b.x - ux * 10 - nx * 2.4, b.y - uy * 10 - ny * 2.4);
+      ctx.lineTo(b.x - ux * 10 + nx * 2.4, b.y - uy * 10 + ny * 2.4);
+      ctx.closePath(); fb++;
+    }
+    if (fb) ctx.fill();
+    /* 批次：homing 菱形 */
+    ctx.fillStyle = 'rgba(255,120,90,.95)';
+    ctx.beginPath();
+    var hb = 0;
+    for (const b of M.ebullets) {
+      if (b.boom || b.dust || !b.homing) continue;
+      const sp = Math.hypot(b.vx, b.vy) || 1;
+      const ux = b.vx / sp, uy = b.vy / sp, nx = -uy, ny = ux;
+      ctx.moveTo(b.x + ux * 11, b.y + uy * 11);
+      ctx.lineTo(b.x + nx * 7, b.y + ny * 7);
+      ctx.lineTo(b.x - ux * 9, b.y - uy * 9);
+      ctx.lineTo(b.x - nx * 7, b.y - ny * 7);
+      ctx.closePath(); hb++;
+    }
+    if (hb) ctx.fill();
+    /* 外光暈 */
+    var bg2n = 0;
+    ctx.fillStyle = 'rgba(255,120,150,.28)';
+    ctx.beginPath();
+    for (const b of M.ebullets) {
+      if (b.boom || b.dust) continue;
+      ctx.moveTo(b.x + b.r * 2.4, b.y); ctx.arc(b.x, b.y, b.r * 2.4, 0, 7); bg2n++;
+    }
+    if (bg2n) ctx.fill();
   }
-  if (bn) ctx.fill();
-  var bg2n = 0;
-  ctx.fillStyle = 'rgba(255,120,150,.28)';
-  ctx.beginPath();
-  for (const b of M.ebullets) {
-    if (b.boom || b.dust) continue;
-    ctx.moveTo(b.x + b.r * 2.4, b.y); ctx.arc(b.x, b.y, b.r * 2.4, 0, 7); bg2n++;
-  }
-  if (bg2n) ctx.fill();
   for (const b of M.ebullets) {
     if (!b.boom && !b.dust) continue;
     ctx.fillStyle = b.boom ? 'rgba(255,170,80,.95)' : 'rgba(180,200,215,.25)';
@@ -2201,6 +2317,18 @@ function drawAlien(a) {
     ctx.fillRect(-16, -26, 32, 4);
     ctx.fillStyle = '#ff6b6b';
     ctx.fillRect(-16, -26, 32 * (a.hp / a.maxhp), 4);
+  }
+  /* v0.11：菁英形狀標記（不只顏色） */
+  if (a.type === 'elite') {
+    ctx.strokeStyle = 'rgba(255,140,170,.95)';
+    ctx.lineWidth = cbSafe() ? 2.4 : 1.6;
+    ctx.beginPath();
+    ctx.moveTo(0, -34); ctx.lineTo(30, 0); ctx.lineTo(0, 34); ctx.lineTo(-30, 0);
+    ctx.closePath(); ctx.stroke();
+    ctx.fillStyle = '#ffd166';
+    ctx.beginPath();
+    ctx.moveTo(-6, -44); ctx.lineTo(0, -52); ctx.lineTo(6, -44); ctx.lineTo(0, -36);
+    ctx.closePath(); ctx.fill();
   }
   ctx.restore();
 }
@@ -2451,19 +2579,32 @@ function drawMoonHud() {
   const S = calcStats();
   const maxh = Math.max(1, P.maxhp);
   const ratio = clamp(P.hp / maxh, 0, 1);
-  /* v0.4：艙壓條（取代「一顆心＝1HP」，maxhp 現在是 100~223） */
-  const w = 330, x = 26, y = VH - 68, h = 52;
+  /* v0.11：text-lg（1.2×）＋小螢幕自適應，任何文字都不超出容器 */
+  const FS = hudFs();
+  const small = VW < 520;
+  const w = Math.min(330, VW - 36), x = small ? 18 : 26, y = VH - 68, h = 52;
+  const fitFont = function (text, base, maxW, weight) {
+    let s = Math.round(base * FS);
+    ctx.font = (weight || '700') + ' ' + s + 'px "Microsoft JhengHei",system-ui';
+    while (s > 8 && ctx.measureText(text).width > maxW) {
+      s--;
+      ctx.font = (weight || '700') + ' ' + s + 'px "Microsoft JhengHei",system-ui';
+    }
+    return s;
+  };
+  const hpText = Math.ceil(P.hp) + ' / ' + maxh + '（' + Math.round(ratio * 100) + '%）';
   ctx.fillStyle = 'rgba(2,10,18,.72)';
   ctx.strokeStyle = ratio < 0.3 ? 'rgba(255,120,140,.8)' : 'rgba(120,235,255,.32)';
   ctx.lineWidth = 1.4;
   ctx.beginPath(); ctx.roundRect(x, y, w, h, 8); ctx.fill(); ctx.stroke();
   ctx.textAlign = 'left';
-  ctx.font = '700 11px "Microsoft JhengHei",system-ui';
+  fitFont('艙壓', 11, 44);
   ctx.fillStyle = 'rgba(170,225,245,.8)';
   ctx.fillText('艙壓', x + 14, y + 17);
   ctx.textAlign = 'right';
+  fitFont(hpText, 11, w - 70);
   ctx.fillStyle = ratio < 0.3 ? '#ff8f9f' : '#dff6ff';
-  ctx.fillText(Math.ceil(P.hp) + ' / ' + maxh + '（' + Math.round(ratio * 100) + '%）', x + w - 14, y + 17);
+  ctx.fillText(hpText, x + w - 14, y + 17);
   const bx0 = x + 14, by0 = y + 24, bw0 = w - 28, bh0 = 10;
   ctx.fillStyle = 'rgba(255,255,255,.08)';
   ctx.beginPath(); ctx.roundRect(bx0, by0, bw0, bh0, 5); ctx.fill();
@@ -2476,60 +2617,48 @@ function drawMoonHud() {
     ctx.globalAlpha = 1;
   }
   ctx.textAlign = 'left';
-  ctx.font = '10.5px "Microsoft JhengHei",system-ui';
+  const sub = '裝甲 ' + Math.round(S.armor * 100) + '%　·　火力 ×' + S.gunMult.toFixed(2) +
+    (M.supplies.length ? '　·　補給 ' + M.supplies.length : '');
+  fitFont(sub, 10.5, w - 28, '400');
   ctx.fillStyle = 'rgba(150,205,225,.75)';
-  ctx.fillText('裝甲 ' + Math.round(S.armor * 100) + '%　·　火力 ×' + S.gunMult.toFixed(2) +
-    (M.supplies.length ? '　·　補給艙 ' + M.supplies.length : ''), x + 14, y + h - 7);
+  ctx.fillText(sub, x + 14, y + h - 7);
 
   ctx.textAlign = 'center';
-  ctx.font = '700 13px "Microsoft JhengHei",system-ui';
+  const title = M.boss ? '母船核心' : '外星母船 · 內部　第 ' + M.wave + ' 波';
+  fitFont(title, 13, VW - 120);
   ctx.fillStyle = 'rgba(180,230,255,.75)';
-  ctx.fillText(M.boss ? '母船核心' : '外星母船 · 內部　第 ' + M.wave + ' 波', VW / 2, 34);
+  ctx.fillText(title, VW / 2, 34);
   const glh = S.gunLv;
   if (S.gunMult < 1) {
-    ctx.font = '700 10.5px "Microsoft JhengHei",system-ui';
-    ctx.fillStyle = 'rgba(255,150,160,.85)';
-    ctx.fillText(S.gunMult <= 0
+    const warn = S.gunMult <= 0
       ? '武器 Lv' + glh + ' — 外星人有護盾，攻擊無效'
-      : '武器 Lv' + glh + ' — 護盾減傷，傷害 ' + Math.round(S.gunMult * 100) + '%', VW / 2, 64);
+      : '武器 Lv' + glh + ' — 護盾減傷，傷害 ' + Math.round(S.gunMult * 100) + '%';
+    fitFont(warn, 10.5, VW - 60);
+    ctx.fillStyle = 'rgba(255,150,160,.85)';
+    ctx.fillText(warn, VW / 2, 64);
   }
   if (M.shieldHint > 0) {
-    ctx.font = '700 20px "Microsoft JhengHei",system-ui';
+    fitFont('護盾無效', 20, VW - 80);
     ctx.fillStyle = 'rgba(150,220,255,' + clamp(M.shieldHint, 0, 1) + ')';
     ctx.fillText('護盾無效', VW / 2, VH * 0.6);
   }
 
   if (M.state === 'escape') {
     const left = Math.max(0, Math.ceil(M.escapeT));
+    const cTxt = '逃生倒數 ' + left + ' 秒';
     ctx.textAlign = 'center';
-    ctx.font = '700 30px "Microsoft JhengHei",system-ui';
+    fitFont(cTxt, small ? 22 : 30, VW - 40);
     ctx.fillStyle = left <= 20 ? 'rgba(255,120,140,.95)' : 'rgba(255,235,180,.92)';
-    ctx.fillText('逃生倒數 ' + left + ' 秒', VW / 2, 78);
+    ctx.fillText(cTxt, VW / 2, 78);
     if (!M.mirror) {
-      ctx.font = '700 12px "Microsoft JhengHei",system-ui';
+      const nTxt = '鏡像將於 ' + Math.max(0, Math.ceil(M.escapeT - (MIRROR_CFG.escapeTime - MIRROR_CFG.spawnAt))) + ' 秒後出現';
+      fitFont(nTxt, 12, VW - 40);
       ctx.fillStyle = 'rgba(255,190,200,.85)';
-      ctx.fillText('鏡像將於 ' + Math.max(0, Math.ceil(M.escapeT - (MIRROR_CFG.escapeTime - MIRROR_CFG.spawnAt))) + ' 秒後出現', VW / 2, 102);
+      ctx.fillText(nTxt, VW / 2, 102);
     }
   }
-  if (M.boss) {
-    const bw = Math.min(520, VW * 0.5), bx = VW / 2 - bw / 2, by = 46;
-    ctx.fillStyle = 'rgba(0,0,0,.6)';
-    ctx.beginPath(); ctx.roundRect(bx, by, bw, 14, 7); ctx.fill();
-    const bg = gLin('hud.boss', bx, 0, bx + bw, 0, [[0, '#ff3d5f'], [0.6, '#ff8a5c'], [1, '#ffd166']]);
-    ctx.fillStyle = bg;
-    ctx.beginPath(); ctx.roundRect(bx, by, bw * clamp(M.boss.hp / M.boss.maxhp, 0, 1), 14, 7); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,140,170,.5)';
-    ctx.beginPath(); ctx.roundRect(bx, by, bw, 14, 7); ctx.stroke();
-  } else if (M.mirror) {
-    const bw = Math.min(520, VW * 0.5), bx = VW / 2 - bw / 2, by = 46;
-    ctx.fillStyle = 'rgba(0,0,0,.6)';
-    ctx.beginPath(); ctx.roundRect(bx, by, bw, 14, 7); ctx.fill();
-    const bg = gLin('hud.mirror', bx, 0, bx + bw, 0, [[0, '#ff5d73'], [1, '#ffb36b']]);
-    ctx.fillStyle = bg;
-    ctx.beginPath(); ctx.roundRect(bx, by, bw * clamp(M.mirror.hp / Math.max(1, M.mirror.maxhp), 0, 1), 14, 7); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,140,170,.6)';
-    ctx.beginPath(); ctx.roundRect(bx, by, bw, 14, 7); ctx.stroke();
-  } else if (M.state !== 'escape') {
+  /* 核心／鏡像血條由 #bossui DOM 顯示（避免 canvas 重複畫）；這裡只留一般波次提示 */
+  if (!M.boss && !M.mirror && M.state !== 'escape') {
     ctx.textAlign = 'right';
     ctx.font = '12px "Microsoft JhengHei",system-ui';
     ctx.fillStyle = 'rgba(160,210,230,.75)';

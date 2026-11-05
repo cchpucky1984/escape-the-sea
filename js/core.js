@@ -67,6 +67,24 @@ const I18N_EXTRA = {
   'settings.fontScale': ['字級', 'Text size'],
   'qa.marked': ['已標記卡點 #{n}（{time}）', 'Pinned issue #{n} ({time})'],
   'qa.export': ['匯出測試紀錄', 'Export QA log'],
+  'bossui.eyebrow': ['最終 BOSS', 'FINAL BOSS'],
+  'bossui.name': ['母船核心', 'Mothership Core'],
+  'bossui.phase': ['階段 {n} / 3', 'PHASE {n} / 3'],
+  'bossui.warning': ['核心過載 — 快躲', 'CORE OVERLOAD — MOVE'],
+  'bossui.move.beam': ['光束', 'Beam'],
+  'bossui.move.missile': ['導彈', 'Missile'],
+  'bossui.move.charge': ['衝撞', 'Charge'],
+  'bossui.move.gravity': ['重力', 'Gravity'],
+  'bossui.mirror.eyebrow': ['逃脫階段', 'ESCAPE'],
+  'bossui.mirror.name': ['你的鏡像', 'Your Mirror'],
+  'bossui.skillPlus': ['技能 +1', 'SKILL +1'],
+  'bossui.player': ['玩家', 'YOU'],
+  'bossui.mirrorLabel': ['鏡像', 'MIRROR'],
+  'bossui.compare.harpoon': ['魚槍', 'Harpoon'],
+  'bossui.compare.speed': ['速度', 'Speed'],
+  'bossui.compare.armor': ['裝甲', 'Armor'],
+  'bossui.compare.rate': ['射速', 'Fire Rate'],
+  'bossui.mirror.note': ['擊敗鏡像，奪回主控權', 'Defeat your mirror to reclaim control'],
   'radar.giant': ['巨獸 {dist}', 'Leviathan {dist}'],
   'dir.北': ['北', 'N'], 'dir.東北': ['東北', 'NE'], 'dir.東': ['東', 'E'], 'dir.東南': ['東南', 'SE'],
   'dir.南': ['南', 'S'], 'dir.西南': ['西南', 'SW'], 'dir.西': ['西', 'W'], 'dir.西北': ['西北', 'NW']
@@ -1264,7 +1282,7 @@ function qaMark() {
   stored.push(entry);
   while (stored.length > 200) stored.shift();
   try { localStorage.setItem(QA_LOG_KEY, JSON.stringify(stored)); } catch (e) {}
-  toast(t('qa.marked', { n: d.marks.length, time: fmtTime(entry.t) }), 'gold');
+  toast(t('qa.marked', { n: d.marks.length, time: fmtTime(entry.t) }), 'qa-mark');
   return entry;
 }
 function qaVersion() {

@@ -3,19 +3,49 @@
 單機 HTML5 網頁遊戲：在海灘被外星飛船巨炮打落海，被暗湧沖到大海中央。
 收集海上垃圾 → 建造會長大的自動化基地 → 派出 BOT 出海 → 升級裝備 → 造太空船飛上月球 → 與外星母船決戰。
 
-目前版本 **v0.9.0-alpha**（v1.0 為發售目標）；**v0.10 開發中**：封測工具（F2 標記／F3 FPS／匯出測試紀錄）、itch 上架彩排、封測隱私與 AI 揭露、效能收尾。v0.9 已完成挑戰 3／NG+／可及性／核心 1800，見文末〈v0.10〉／〈v0.9〉。
+## v0.11 主線已上線
+
+完整主線可從頭玩到結局：**四隻深海巨獸（四種模式）→ 四階段母船核心 → 90 秒逃生倒數 → 鏡像 BOSS**。破關後有 3 個挑戰模式（一命／限時 45／赤手空拳）、NG+ 0–9、24 個成就與 8 個海域事件。
+
+- **現在就玩**：https://cchpucky1984.github.io/escape-the-sea/ （GitHub Pages，免費、免安裝；itch.io／Steam 上架準備中）
+- **從原始碼跑**：下載 repo → 雙擊 `index.html`（或執行 `start.bat`）
+- **GitHub Pages**：https://cchpucky1984.github.io/escape-the-sea/ （最新開發版）　·　**Steam／itch.io**：Coming soon
+- **版本**：v0.11（`main` 分支）；一輪約 **75–105 分鐘（模型推估，封測後定案）**
+
+![Escape the Sea — 標題畫面](docs/art/store/hero-with-logo-1920x1080.webp)
+
+![母船最終 BOSS — 四階段核心](docs/art/store/screenshots/03-core-boss.webp)
+
+## 系統需求
+
+| 平台 | 需求 |
+|---|---|
+| 桌機 | Windows 10+／macOS 11+／Linux；Chrome、Edge、Firefox、Safari 最近 2 版；4 GB RAM；1280×800 以上；鍵盤＋滑鼠 |
+| 手機／平板 | iOS 15+／Android 10+；390×844 以上；觸控（左搖桿／右射擊）；PWA 可安裝 |
+| 網路 | **免安裝、免連線**；首次載入頁面需要網路（含音樂約 10MB），PWA 可離線 |
+| 存檔 | 瀏覽器 `localStorage`（key：`escape-the-sea-v2`）；清除網站資料會清掉進度 |
+| 不支援 | Internet Explorer、舊版 Safari（<15）、關閉 WebGL 以外的舊裝置 |
 
 ## 開始玩
 
 雙擊 `index.html`，或執行 `start.bat`（用預設瀏覽器開啟）。
 免安裝、免網絡、免伺服器。進度自動存在瀏覽器 `localStorage`（key：`escape-the-sea-v2`）。
 
+## 授權與 AI 揭露
+
+© 2026 cchpucky1984，**All Rights Reserved**。允許個人遊玩、分享官方頁面連結、實況／錄影／評論（需標示作品名稱與作者）；**不得**重製、散布、改作、商用或作訓練資料。完整條文見 [LICENSE](LICENSE)、第三方與 AI 素材見 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+
+- **AI 美術**：key art／capsule／概念圖由 ComfyUI + `anima_pencil-XL` 生成（FAIPL-1.0-SD，輸出可商用）；**遊戲內美術 100% 程式繪製**。
+- **AI 音樂**：3 段背景音樂由 ACE-Step 1.5 生成（Apache-2.0，輸出屬本作品）；音效為 WebAudio 合成。
+- **AI 文字**：遊戲與商店文案由 AI 輔助起草、團隊人工編輯；執行時不生成文字。
+- 未採用 `animeScreencapStyle` 的任何輸出（該模型禁止販售生成圖）。
+
 ## 商店與連結（上架中）
 
-- **itch.io**：`[待填]` — 付費版 Coming soon；另有「前 15 分鐘試玩」免費頁。
-- **Steam 願望清單**：`[待填]` — 先開頁收集關注，桌面打包在 v0.7 之後評估。
-- **GitHub Pages**：`[待填]` — 可免費直接玩最新開發版。
-- 英文商店頁草稿：[docs/marketing/STORE-v0.6-EN.md](docs/marketing/STORE-v0.6-EN.md)　媒體素材：[PRESSKIT.md](docs/marketing/PRESSKIT.md)　隱私／授權：[LEGAL.md](docs/marketing/LEGAL.md)
+- **itch.io**：`[ITCH URL]` — 付費版 US$2.99（首發 −20%）；另有「前 15 分鐘試玩」免費頁。
+- **Steam 願望清單**：`[STEAM URL]` — 先開頁收集關注，桌面打包在 v0.7 之後評估。
+- **GitHub Pages**：`[GITHUB PAGES URL]` — 可免費直接玩最新開發版。
+- 最終商店文案：[ITCH-FINAL.md](docs/marketing/ITCH-FINAL.md)　·　媒體素材：[PRESSKIT.md](docs/marketing/PRESSKIT.md)　·　隱私／授權：[LEGAL.md](docs/marketing/LEGAL.md)
 - **AI 揭露**：key art 與概念圖為 ComfyUI + `anima_pencil-XL`（FAIPL-1.0-SD，輸出可商用）；音樂為 ACE-Step 1.5（Apache-2.0）；**遊戲內美術與音效全部是程式即時生成**。`animeScreencapStyle` 模型的輸出禁止商用、未採用。
 
 ## 操作
@@ -112,7 +142,14 @@
 
 死亡：在基地復活，失去 15% 塑膠。升空／登艦失敗：回基地修理（金屬 -8）。母船戰敗：可再次出擊。
 
-## v0.10（本輪）
+## v0.11（本輪）
+
+- **發售整備**：`LICENSE`（All Rights Reserved）＋ `THIRD-PARTY-NOTICES`、`CHANGELOG`（v0.3→v0.11）、最終 itch 頁文案 `ITCH-FINAL.md`、`RELEASE-NOTES-v0.11.md`、社群發佈包 `SOCIAL-LAUNCH-v0.11.md`。
+- **商店素材**：wordmark、1920×1080 英雄圖、5 張 1920 實機截圖、玩法 3 步驟資訊圖（`docs/art/store/`）。
+- **平衡模型**：首輪中位推估 **75 分**（±25%；目標 90–150），已提 L1 護盾 gate／L2 登艦走廊／L3 賞金 T3 三個「加內容不加 grind」槓桿；封測＋新 `balance.mjs` log 後定案（`BALANCE-v0.11.md`）。
+- **修正**：海面繪製效能收尾＋低 fps 自動降級；QA 47/47、pageErrors 0。
+
+## v0.10（上一輪）
 
 - **封測工具**：F2 標記卡點、F3 顯示 FPS、Esc → 匯出 `testlog.json`（版本／進度／設定／標記／FPS；**不含個資**，見 `LEGAL.md` §2.5）。
 - **上架彩排**：`docs/marketing/ITCH-ROLLOUT.md`（逐步操作＋私密 beta 流程＋上線後 24h 清單）；外聯信在 `OUTREACH.md`（5 家 press 中英模板）。
@@ -120,12 +157,12 @@
 - **i18n**：`STRINGS.js` 增至 **555 條**（新增封測工具／QA 面板 21 條）。
 - **效能**：headless 30–37fps；實機 60fps 與 iOS/Android 觸控仍是上架 gate（見 HANDOFF §4）。
 
-## v0.9（上一輪）
+## v0.9（更早）
 
 - **挑戰模式 3**：通關一次後從標題進入——一命深海（死亡即結束）、限時 45（45 分鐘內攻入核心）、赤手空拳（不建砲塔／不裝模組／四裝備不可升級）。不能存檔，最佳分寫在獨立 key。
 - **NG+**：通關後進下一輪（上限 NG+9）；重置資源／裝備／基地／零件，保留成就、挑戰最佳分、巨獸擊殺。敵人 HP +25%·ng、傷害 +10%·ng、產出 +15%·ng。
 - **可及性**：減少動態（震動／閃光／粒子）、色盲輔助（形狀＋文字）、字級 100%／120%，重開保留。
-- **平衡**：最終核心 HP 900 → 1800，核心 TTK 目標 70–100 秒、含波次＋逃生＋鏡像的整場決戰 5–7 分鐘；首輪 90–150 分鐘用 `balance.mjs` 長跑驗。
+- **平衡**：最終核心 HP 900 → 1800，核心 TTK 目標 70–100 秒、含波次＋逃生＋鏡像的整場決戰 5–7 分鐘；首輪目標 90–150 分鐘（v0.11 模型推估中位 75，待平衡槓桿與實測定案）。
 - **i18n**：`docs/i18n/STRINGS.js` 增至 540 條（挑戰／NG+／可及性／canvas 海域名短版）；v0.10 再加封測工具 21 條至 555。
 
 ## v0.8（更早）
@@ -141,7 +178,7 @@
 - **發佈包**：`docs/marketing/LAUNCH-KIT.md`（itch 上架檢查表、Steam 願望清單待補、X／Reddit／巴哈中英貼文、5 個 press 名單）。
 - 待辦：挑戰模式／NG+／教學、Steam 打包、商店 1920 截圖與預告。
 
-## v0.6（上一輪）
+## v0.6（更早）
 
 - **標題畫面**：key art 換成原生 1920×1080（`docs/art/title-art/`，CSS 接線、載入失敗回退程序背景）。
 - **背景音樂**：3 場景 × 2 候選（`docs/audio/`，ACE-Step、-18 LUFS、無縫循環）；已接 `MUSIC`（`setScene` 切換、音量可調）。候選仍需人耳驗收。
@@ -167,6 +204,7 @@
 
 - [docs/PRODUCT-v1.0.md](docs/PRODUCT-v1.0.md) — 商業級品質標準（六支柱＋里程碑）
 - [docs/HANDOFF.md](docs/HANDOFF.md) — 交接文件（暫停點、已知問題、下次開工順序）
+- [LICENSE](LICENSE) — 授權條文（All Rights Reserved）　·　[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) — 第三方與 AI 素材揭露
 - [docs/design/GDD-v0.4.md](docs/design/GDD-v0.4.md) — v0.4 企劃定案：賞金海域、數值、驗收
 - [docs/design/CONTENT-v0.5.md](docs/design/CONTENT-v0.5.md) — 內容深度：成就 24／挑戰 3／事件 8／教學／NG+ 規格
 - [docs/design/DIFFICULTY-v0.8.md](docs/design/DIFFICULTY-v0.8.md) — 難度與最終戰施工規格（四巨獸／彈幕／核心四階段／鏡像）
@@ -177,6 +215,11 @@
 - [docs/audio/AUDIO-SPEC.md](docs/audio/AUDIO-SPEC.md) — 背景音樂規格、候選與接線說明
 - [docs/vfx/VFX-AUDIO-v0.4.md](docs/vfx/VFX-AUDIO-v0.4.md) — 打擊感、粒子與音效設計
 - [docs/content/LEVELS-v0.4.md](docs/content/LEVELS-v0.4.md) — 海域事件、守衛、數值與任務擴充
+- [docs/marketing/CHANGELOG.md](docs/marketing/CHANGELOG.md) — 更新紀錄（v0.3→v0.11，中英）
+- [docs/marketing/ITCH-FINAL.md](docs/marketing/ITCH-FINAL.md) — itch.io 最終頁文案（短／長描述、6 特色、12 標籤、FAQ）
+- [docs/marketing/RELEASE-NOTES-v0.11.md](docs/marketing/RELEASE-NOTES-v0.11.md) — v0.11 發佈說明（中英）
+- [docs/marketing/SOCIAL-LAUNCH-v0.11.md](docs/marketing/SOCIAL-LAUNCH-v0.11.md) — X thread／Reddit／巴哈發佈包與 3 張截圖
+- [docs/design/BALANCE-v0.11.md](docs/design/BALANCE-v0.11.md) — 首輪長度重算與三個平衡槓桿
 - [docs/marketing/STORE-v0.6-EN.md](docs/marketing/STORE-v0.6-EN.md) — 英文商店頁（itch＋Steam）與 AI 揭露
 - [docs/marketing/STORE-v0.5.md](docs/marketing/STORE-v0.5.md) — 中文商店頁與素材清單
 - [docs/marketing/TRAILER-v0.6.md](docs/marketing/TRAILER-v0.6.md) — 30 秒預告分鏡與重現指令
@@ -198,10 +241,12 @@
 
 **Escape the Sea** is a single-player HTML5 survival / base-building game: an alien ship blasts you into the ocean, and you turn floating trash into a growing offshore base, a BOT fleet, and finally a spacecraft to take the fight to the alien mothership.
 
-- **Play on itch.io**: `[itch URL — coming soon]` (free 15-minute demo; full version US$2.99 TBD)
+- **Play on itch.io**: `[ITCH URL]` (free 15-minute demo: `[DEMO URL]`; full version US$2.99 TBD)
 - **Play locally**: open `index.html` (or run `start.bat`). No install, no network, no account.
 - **Controls**: WASD/Arrows swim · Shift sprint · Mouse aim/fire · B base · C gear · H bounties · J quests · Esc pause/settings · M mute.
 - **Loop**: collect trash → grow the platform base → send out BOTs → upgrade gear → build a spacecraft → storm the mothership.
-- **Status**: v0.9.0-alpha is playable (3 challenge modes, NG+ up to 9, accessibility set, 1800 HP final core). v0.10 adds beta tools (F2 stuck-point marks, F3 FPS, JSON test-log export), an itch rollout rehearsal and updated AI/privacy disclosures.
+- **Status**: v0.11 mainline is playable end to end — four patterned leviathans, a four-phase core, a 90-second escape countdown and a Mirror Core (+1 skill). Plus 3 challenge modes, NG+ 0–9, 24 achievements, 8 sea events, EN/zh-Hant. Run length is a model estimate (~75–105 min) until beta.
+- **Requirements**: Windows/macOS/Linux with a recent Chrome, Edge, Firefox or Safari; 1280×800+; keyboard and mouse. Mobile: iOS 15+/Android 10+, 390×844+, touch, installable PWA. No install needed.
+- **License**: © 2026 cchpucky1984, All Rights Reserved — see [LICENSE](LICENSE) and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 - **Beta builds**: optional diagnostic export (`testlog.json`) contains game state only — no names, emails, IPs or device fingerprints. See [LEGAL.md](docs/marketing/LEGAL.md) §2.5.
 - **Privacy**: no accounts, no tracking; progress stays in your browser's `localStorage`. See [LEGAL.md](docs/marketing/LEGAL.md).

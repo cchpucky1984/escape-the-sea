@@ -776,6 +776,63 @@ function updateSea(dt) {
 /* =========================================================
    draw
    ========================================================= */
+/* v0.11 背景水面（god rays／caustics）快取：透明覆蓋層每 2 幀重畫一次，
+   其餘幀只 blit；`window.__PERF_LEGACY=true` 可切回原逐幀路徑做 A/B。 */
+let seaFxCv = null, seaFxCtx = null, seaFxFrame = 0;
+function paintWaterFX(c, t, cam, legacy) {
+  c.save();
+  c.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 7; i++) {
+    const span = VW + 520;
+    const x = ((i * 240 - cam.x * 0.22 - t * 12) % span + span) % span - 200;
+    const lg = c.createLinearGradient(x, 0, x + 220, VH);
+    lg.addColorStop(0, 'rgba(130,235,255,.09)');
+    lg.addColorStop(1, 'rgba(130,235,255,0)');
+    c.fillStyle = lg;
+    c.beginPath();
+    c.moveTo(x, -40); c.lineTo(x + 92, -40);
+    c.lineTo(x + 300, VH + 40); c.lineTo(x + 140, VH + 40);
+    c.closePath(); c.fill();
+  }
+  c.restore();
+
+  c.save();
+  c.globalCompositeOperation = 'lighter';
+  c.strokeStyle = 'rgba(150,245,255,.06)';
+  c.lineWidth = 1.5;
+  const step = legacy ? 70 : 96;
+  const dx = legacy ? 40 : 64;
+  const off = ((cam.y * 0.45 + t * 14) % step + step) % step;
+  for (let i = 0; i < VH / step + 2; i++) {
+    const by = i * step - off;
+    c.beginPath();
+    for (let x = -dx; x <= VW + dx; x += dx) {
+      const y = by + Math.sin((x + cam.x * 0.45) * 0.0058 + t * 0.9 + i * 0.7) * 9
+                   + Math.cos(x * 0.0031 - t * 0.55) * 5;
+      if (x === -dx) c.moveTo(x, y); else c.lineTo(x, y);
+    }
+    c.stroke();
+  }
+  c.restore();
+}
+function drawWaterFX(t, cam) {
+  if (window.__PERF_LEGACY) { paintWaterFX(ctx, t, cam, true); return; }
+  if (!seaFxCv || seaFxCv.width !== VW || seaFxCv.height !== VH) {
+    seaFxCv = document.createElement('canvas');
+    seaFxCv.width = VW; seaFxCv.height = VH;
+    seaFxCtx = seaFxCv.getContext('2d');
+    seaFxFrame = 0;
+  }
+  if (seaFxFrame++ % 2 === 0) {
+    seaFxCtx.clearRect(0, 0, VW, VH);
+    paintWaterFX(seaFxCtx, t, cam, false);
+  }
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.drawImage(seaFxCv, 0, 0);
+  ctx.restore();
+}
+
 function drawSea() {
   const cam = sea.cam, t = sea.t, P = sea.player;
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -800,41 +857,8 @@ function drawSea() {
     ctx.fillRect(0, 0, VW, VH);
   }
 
-  /* god rays */
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  for (let i = 0; i < 7; i++) {
-    const span = VW + 520;
-    const x = ((i * 240 - cam.x * 0.22 - t * 12) % span + span) % span - 200;
-    const lg = ctx.createLinearGradient(x, 0, x + 220, VH);
-    lg.addColorStop(0, 'rgba(130,235,255,.09)');
-    lg.addColorStop(1, 'rgba(130,235,255,0)');
-    ctx.fillStyle = lg;
-    ctx.beginPath();
-    ctx.moveTo(x, -40); ctx.lineTo(x + 92, -40);
-    ctx.lineTo(x + 300, VH + 40); ctx.lineTo(x + 140, VH + 40);
-    ctx.closePath(); ctx.fill();
-  }
-  ctx.restore();
-
-  /* caustics */
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.strokeStyle = 'rgba(150,245,255,.06)';
-  ctx.lineWidth = 1.5;
-  const step = 70;
-  const off = ((cam.y * 0.45 + t * 14) % step + step) % step;
-  for (let i = 0; i < VH / step + 2; i++) {
-    const by = i * step - off;
-    ctx.beginPath();
-    for (let x = -40; x <= VW + 40; x += 40) {
-      const y = by + Math.sin((x + cam.x * 0.45) * 0.0058 + t * 0.9 + i * 0.7) * 9
-                   + Math.cos(x * 0.0031 - t * 0.55) * 5;
-      if (x === -40) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-  }
-  ctx.restore();
+  /* god rays + caustics（v0.11 快取 overlay；__PERF_LEGACY 切回逐幀） */
+  drawWaterFX(t, cam);
 
   /* particles in water */
   ctx.fillStyle = 'rgba(190,245,255,.5)';

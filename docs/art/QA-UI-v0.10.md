@@ -84,3 +84,20 @@ CSS 已吃：
 - B 目前尚未建立 `#fps`；C 未在 index 預留，避免 id 衝突；CSS 已可用。
 - 若 B 用 canvas 畫 FPS 而非 DOM，CSS 不適用；本檔以 DOM `#fps` 為準（B task-40 允許 DOM）。
 - FPS 面板與 toast 都是 QA-only，不寫存檔、不影響成就。
+
+## 7. v0.11 實際接線補充（B v0.10 已實作）
+
+已確認 B 的實際 DOM：
+- `ensureQaFpsPanel()`：`<div id="fps" class="fps-panel" style="position:fixed;right:12px;top:12px;z-index:9999;...">FPS 59.8 / 16.7 ms / E 0</div>`，單行 textContent、inline style。
+  - C 的 CSS 已吃 `#fps.fps-panel`；**390 需 `!important` 覆寫 inline `top/right`**，已加（移到左下、bottom 320px，避開 HUD）。
+- 匯出：`<div class="settings-row"><label>QA</label><button class="ghost qa-export" data-qa-export>匯出測試紀錄</button></div>`；C 已加 `.settings-row button.qa-export`／`[data-qa-export]` 樣式＋下載 icon；390 全寬。
+- F2：B 已把 toast class 改成 `qa-mark`；實測 `#toasts .toast`＝`toast qa-mark`、`::before`＝`"⚠"`，C 的專屬樣式生效（截圖 `_shots/C12/10-f2-toast-1920.png`）。
+- `#ending[data-mode=challenge]`、`#ending[data-mode=challenge][data-result=win|lose]` 與 `.ng-badge.end-ng`／`.hud-ng` 都已接線，C 的 CSS 生效。
+- **bossui 已修**：D 已更新 `space.js`，`.boss-name`／`.boss-eyebrow`／`.boss-move .mv-name`／鏡像 `.mc-row .mc-name`／`.mc-player-label`／`.mc-mirror-label`／`.mirror-note` 都正確填入；實測 BOSS 名稱「母船核心」、四招「光束/導彈/衝撞/重力」、鏡像「魚槍/速度/裝甲/射速」、`i18nMissing=[]`。商店 04/05 已改為 v0.10 實際 UI。
+
+## 8. 驗收（v0.11）
+- itch 定稿包：`docs/art/store/ITCH-PACK.md`（全部 ≤400KB）。
+- Steam 檢查：`docs/art/store/STEAM-CAPSULE-CHECK.md`。
+- 390：FPS 面板在左下（x10、寬 ~174）、不遮 HUD；匯出按鈕可見（bottom <844）；`docSW=390`。
+- 截圖：`_shots/C12/06-hud-390-colorbind-textlg.png`、`07-settings-export-390.png`、`09-steam-capsule-check.png`。
+- `qa.mjs`：**47/47 PASS、pageErrors 0**。

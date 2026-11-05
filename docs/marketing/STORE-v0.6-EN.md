@@ -11,7 +11,7 @@
 - **Tagline:** Scavenge the sea. Grow a base. Take the fight to the moon.
 - **One-liner:** An alien ship blasts you into the ocean. Turn floating trash into a self-growing base, a BOT fleet, and a rocket — then fly to the moon and settle the score.
 - **Genre:** Single-player action survival × base building × light shooter (HTML5 / Canvas 2D).
-- **Run length:** 90–150 minutes per run, with a clear ending. Short runs, replayable via bounties, events, achievements and NG+.
+- **Run length:** about 75–105 minutes per run (model estimate; beta will confirm), with a clear ending. Replayable via bounties, events, achievements, challenge modes and NG+.
 - **No account, no network, no ads, no microtransactions.** Progress is saved locally in your browser.
 
 ## 2. AI content disclosure (must match `LEGAL.md` §4)
@@ -38,7 +38,7 @@
 >
 > Dodge meteors during ascent, breach the mothership's hangar, and fight through two waves of guards to reach the reactor core. At 50% core integrity the Earth Alliance fleet arrives to fight beside you. Your escape pod leaves the wreck behind.
 >
-> **A complete 90–150 minute run with a real ending — and reasons to come back.** Bounty contracts, eight dynamic sea events, four deep-sea leviathans, 24 achievements, and NG+ after you finish.
+> **A complete run of roughly 75–105 minutes (estimate) with a real ending — and reasons to come back.** Bounty contracts, eight dynamic sea events, four deep-sea leviathans, 24 achievements, and NG+ after you finish.
 >
 > **No install, no network, no ads, no in-app purchases.** Open the page and play; your progress stays in your own browser.
 
@@ -47,7 +47,7 @@
 2. **Automation that actually works** — collection nets and salvage works produce while you explore; BOTs sail out, fill up and return on their own.
 3. **Risk and reward at depth** — four sea zones, four deep-sea leviathans and eight dynamic events keep the middle of a run from going quiet.
 4. **Your gear becomes your rocket** — fins set rocket speed, the harpoon sets firepower, the dive suit sets armor, researched shield tech reduces ascent damage.
-5. **A 90–150 minute curve** — trash → base → bounties → gear → launch → boarding → mothership core → ending. Then NG+.
+5. **A 75–105 minute curve (estimate)** — trash → base → bounties → gear → launch → boarding → mothership core → ending. Then NG+.
 
 **Tags:** `singleplayer` `action` `survival` `base-building` `underwater` `sci-fi` `html5` `exploration` `shooter` `short`
 **Genre:** Action (secondary: Adventure, Indie)
@@ -73,8 +73,8 @@
 
 ## 4. Steam wishlist page (English)
 
-**Short description (≤300 characters — 272 chars)**
-> Blasted into the ocean by an alien ship, you turn floating trash into a growing base, a BOT fleet and a rocket, then fly to the moon to fight the mothership. A single-player HTML5 run of 90–150 minutes, with English and Traditional Chinese, plus 3 challenge modes and NG+.
+**Short description (≤300 characters — 289 chars)**
+> Blasted into the ocean by an alien ship, you turn floating trash into a growing base, a BOT fleet and a rocket, then fly to the moon to fight the mothership. A single-player HTML5 run of about 75–105 minutes (estimate), with English and Traditional Chinese, plus 3 challenge modes and NG+.
 
 **Long description (BBCode, paste into Steamworks)**
 > [b]Scavenge the sea. Grow a base. Settle the score.[/b]
@@ -87,7 +87,7 @@
 > Four sea zones, four deep-sea leviathans, eight dynamic sea events. Guardians in the deep drop Tech Shards; four shards unlock rocket shield research.
 > [b]Your gear is your rocket[/b]
 > Fins set rocket speed, the harpoon sets firepower, the dive suit sets armor. Below Lv3 the harpoon cannot pierce alien fighter shields; inside the mothership, anything below max level deals only 10% damage.
-> [b]A 90–150 minute run with an ending[/b]
+> [b]A full run with an ending[/b]
 > Launch through a meteor storm, breach the hangar, survive two waves of guards and destroy the reactor core. At 50% core integrity the Earth Alliance fleet joins the fight. Then NG+.
 
 **Five bullet features (Steam "About This Game")**
@@ -120,7 +120,7 @@
 
 - The English dictionary is `docs/i18n/STRINGS.js` (`window.I18N_DATA`, **541 strings**). Store copy should use the same fixed terms: Base, Safe Zone, Tech Shard, Alien Alloy, Mothership, Cabin Pressure, Bounty Contract, Leviathan, Rift, Harpoon, Fins, Dive Suit, Oxygen Tank.
 - English is **live since v0.7**; do not write "English localization ships in v0.8" anywhere. The wording review is in `docs/i18n/EN-REVIEW.md`.
-- Character counts above were counted with the exact strings in this file (itch short 157 chars, Steam short 272 chars); recount if the wording changes.
+- Character counts above were counted with the exact strings in this file (itch short 157 chars, Steam short 289 chars); recount if the wording changes.
 - AI disclosure must be identical on itch, Steam and `PRESSKIT.md`; if `LEGAL.md` §4 changes, update §2 here in the same commit.
 
 ## 6. Pre-launch checklist (Lead)

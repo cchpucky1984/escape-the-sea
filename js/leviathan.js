@@ -51,6 +51,36 @@
   var PAT_COL = {
     laser: '#8ee6ff', homing: '#ff8a5c', charge: '#ff6f8a', current: '#8dffc8'
   };
+  /* v0.11 可及性：色盲形狀／字級 */
+  function cbOn() {
+    try {
+      if (document.body.classList.contains('cb-safe') || document.body.classList.contains('colorblind')) return true;
+      return !!(typeof game !== 'undefined' && game && game.settings && game.settings.colorblind);
+    } catch (e) { return false; }
+  }
+  function hudFs() {
+    try { return (typeof game !== 'undefined' && game && game.settings && game.settings.fontScale === 1.2) ? 1.2 : 1; } catch (e) { return 1; }
+  }
+  /* 模式形狀記號（不只顏色）：beam=三橫線、homing=菱形、charge=三角、current=圓 */
+  function modeGlyph(ctx, mode, x, y, s, col) {
+    ctx.save();
+    ctx.fillStyle = col;
+    ctx.strokeStyle = 'rgba(255,255,255,.9)';
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    if (mode === 'beam') {
+      for (var i = 0; i < 3; i++) ctx.rect(x - s, y - s + i * s * 0.75, s * 2, Math.max(1.2, s * 0.22));
+    } else if (mode === 'homing') {
+      ctx.moveTo(x, y - s); ctx.lineTo(x + s, y); ctx.lineTo(x, y + s); ctx.lineTo(x - s, y); ctx.closePath();
+    } else if (mode === 'charge') {
+      ctx.moveTo(x, y - s); ctx.lineTo(x + s, y + s); ctx.lineTo(x - s, y + s); ctx.closePath();
+    } else {
+      ctx.arc(x, y, s, 0, 6.2832);
+    }
+    ctx.fill();
+    if (cbOn()) ctx.stroke();
+    ctx.restore();
+  }
   /* §3 子彈表（傷害/速度/壽命/尺寸）；巨獸用 fast/slow/homing + laser */
   var BUL = {
     fast: { spd: [480, 620], dmg: 4, r: 6, life: 3.0 },
@@ -889,6 +919,12 @@
         ctx.strokeStyle = 'rgba(255,255,255,.95)';
         ctx.lineWidth = w * 0.42;
         ctx.beginPath(); ctx.moveTo(L.x, L.y); ctx.lineTo(ex, ey); ctx.stroke();
+        /* v0.11：色盲額外輪廓（laser = 線段） */
+        if (cbOn()) {
+          ctx.strokeStyle = 'rgba(255,255,255,.7)';
+          ctx.lineWidth = w + 5;
+          ctx.beginPath(); ctx.moveTo(L.x, L.y); ctx.lineTo(ex, ey); ctx.stroke();
+        }
       }
       ctx.restore();
     }
@@ -907,15 +943,20 @@
       var ang = Math.atan2(p.vy, p.vx);
       ctx.save();
       if (p.type === 'fast') {
+        /* v0.11：fast = 細長條（色盲不靠顏色） */
         ctx.globalCompositeOperation = 'lighter';
-        ctx.strokeStyle = 'rgba(200,245,255,.85)';
-        ctx.lineWidth = 3;
+        var ux = Math.cos(ang), uy = Math.sin(ang);
+        var px2 = -uy, py2 = ux;
+        ctx.fillStyle = 'rgba(200,245,255,.85)';
         ctx.beginPath();
-        ctx.moveTo(p.x - Math.cos(ang) * 16, p.y - Math.sin(ang) * 16);
-        ctx.lineTo(p.x, p.y);
-        ctx.stroke();
+        ctx.moveTo(p.x + ux * 9, p.y + uy * 9);
+        ctx.lineTo(p.x + px2 * 2.6, p.y + py2 * 2.6);
+        ctx.lineTo(p.x - ux * 17, p.y - uy * 17);
+        ctx.lineTo(p.x - px2 * 2.6, p.y - py2 * 2.6);
+        ctx.closePath(); ctx.fill();
         ctx.fillStyle = '#eaffff';
-        ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, 6.2832); ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, 6.2832); ctx.fill();
+        if (cbOn()) { ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 1.4; ctx.stroke(); }
       } else if (p.type === 'slow') {
         ctx.globalCompositeOperation = 'lighter';
         ctx.fillStyle = 'rgba(255,120,80,.22)';
@@ -924,20 +965,28 @@
         ctx.beginPath(); ctx.arc(p.x, p.y, 9, 0, 6.2832); ctx.fill();
         ctx.fillStyle = '#fff3e0';
         ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, 6.2832); ctx.fill();
+        if (cbOn()) {
+          ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 1.8;
+          ctx.beginPath(); ctx.arc(p.x, p.y, 9.5, 0, 6.2832); ctx.stroke();
+        }
       } else if (p.type === 'homing') {
         ctx.globalCompositeOperation = 'lighter';
         ctx.strokeStyle = 'rgba(255,110,90,.55)';
         ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.moveTo(p.x - Math.cos(ang) * 22, p.y - Math.sin(ang) * 22);
+        ctx.moveTo(p.x - Math.cos(ang) * 24, p.y - Math.sin(ang) * 24);
         ctx.lineTo(p.x, p.y);
         ctx.stroke();
         ctx.translate(p.x, p.y);
         ctx.rotate(ang);
+        /* v0.11：homing = 菱形（帶尾跡） */
         ctx.fillStyle = '#ff8a5c';
-        ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-6, -5); ctx.lineTo(-6, 5); ctx.closePath(); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(11, 0); ctx.lineTo(0, -7); ctx.lineTo(-9, 0); ctx.lineTo(0, 7);
+        ctx.closePath(); ctx.fill();
         ctx.strokeStyle = 'rgba(255,220,180,.9)'; ctx.lineWidth = 1.2;
-        ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-6, -5); ctx.lineTo(-6, 5); ctx.closePath(); ctx.stroke();
+        ctx.stroke();
+        if (cbOn()) { ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 1.8; ctx.stroke(); }
         if (p.warn > 0) {
           ctx.strokeStyle = 'rgba(255,120,90,.7)';
           ctx.setLineDash([5, 5]);
@@ -1115,15 +1164,19 @@
     /* 名稱與血條 */
     var ratio = clamp01(L.hp / L.maxhp);
     var bw = 132, bx = L.x - bw / 2, by = L.y - 112;
+    var fs = (function () {
+      try { return (typeof game !== 'undefined' && game && game.settings && game.settings.fontScale === 1.2) ? 1.2 : 1; } catch (e) { return 1; }
+    })();
     ctx.save();
     ctx.textAlign = 'center';
-    ctx.font = '700 10px "Microsoft JhengHei",system-ui';
+    ctx.font = '700 ' + Math.round(10 * fs) + 'px "Microsoft JhengHei",system-ui';
     ctx.fillStyle = 'rgba(220,235,255,.8)';
     ctx.fillText(L.name, L.x, by - 8);
     /* v0.8：模式標籤（讓玩家／QA 一眼分辨四隻） */
-    ctx.font = '600 9px "Microsoft JhengHei",system-ui';
+    ctx.font = '600 ' + Math.round(9 * fs) + 'px "Microsoft JhengHei",system-ui';
     ctx.fillStyle = PAT_COL[L.pattern] || '#8ee6ff';
     ctx.fillText(PAT_LABEL[L.mode] || '', L.x, by - 21);
+    modeGlyph(ctx, L.mode, bx - 12, by + 3.5, 5, PAT_COL[L.pattern] || '#8ee6ff');
     ctx.fillStyle = 'rgba(0,0,0,.55)';
     ctx.beginPath(); ctx.roundRect(bx, by, bw, 7, 3.5); ctx.fill();
     ctx.fillStyle = L.phase === 3 ? '#ff5d73' : L.phase === 2 ? '#ffb36b' : '#c9a6ff';

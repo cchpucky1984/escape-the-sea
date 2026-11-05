@@ -1216,3 +1216,18 @@ body:is(.text-lg,.font-large) .nextstep span{font-size:.95rem}
 @media (max-width:430px){
   .settings-row button.qa-export,.settings-row button[data-qa-export]{margin-left:0}
 }
+
+/* v0.11 收尾：390 FPS 面板避開 HUD（移到左下、hint/toast 上方）；色盲 HUD 對比 */
+@media (max-width:430px){
+  #fps{left:10px;right:auto;top:auto;bottom:calc(320px + env(safe-area-inset-bottom,0px));
+    max-width:calc(100vw - 20px);min-width:170px}
+}
+body:is(.cb-safe,.colorblind) .chip i{color:#e6f9ff}
+body:is(.cb-safe,.colorblind) .chip .dot{outline:1.5px solid rgba(255,255,255,.6);outline-offset:1px}
+body:is(.cb-safe,.colorblind) .chip b{color:#fff}
+/* v0.11：B 的 #fps 帶 inline top/right，390 需 !important 才能移到左下 */
+@media (max-width:430px){
+  #fps{left:10px!important;right:auto!important;top:auto!important;
+    bottom:calc(320px + env(safe-area-inset-bottom,0px))!important;
+    height:auto!important;max-width:calc(100vw - 20px)!important}
+}
