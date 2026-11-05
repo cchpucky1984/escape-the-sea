@@ -53,6 +53,39 @@ const MIRROR_CFG = {
   gravity: { r: 380, pull: 110, dur: 2.5 }
 };
 
+/* ---------- v0.10 效能：高頻漸層快取（canvas 漸層與 CTM 無關、可跨幀重用；resize 清空）
+   window.__PERF_LEGACY=true 走舊路徑，供同機 before/after 量測 ---------- */
+var _gcache = new Map();
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('resize', function () { _gcache.clear(); });
+}
+function gLin(key, x0, y0, x1, y1, stops) {
+  if (window.__PERF_LEGACY) {
+    var a = ctx.createLinearGradient(x0, y0, x1, y1);
+    for (var i = 0; i < stops.length; i++) a.addColorStop(stops[i][0], stops[i][1]);
+    return a;
+  }
+  var g = _gcache.get(key);
+  if (g) return g;
+  g = ctx.createLinearGradient(x0, y0, x1, y1);
+  for (var j = 0; j < stops.length; j++) g.addColorStop(stops[j][0], stops[j][1]);
+  _gcache.set(key, g);
+  return g;
+}
+function gRad(key, x0, y0, r0, x1, y1, r1, stops) {
+  if (window.__PERF_LEGACY) {
+    var a2 = ctx.createRadialGradient(x0, y0, r0, x1, y1, r1);
+    for (var i2 = 0; i2 < stops.length; i2++) a2.addColorStop(stops[i2][0], stops[i2][1]);
+    return a2;
+  }
+  var g2 = _gcache.get(key);
+  if (g2) return g2;
+  g2 = ctx.createRadialGradient(x0, y0, r0, x1, y1, r1);
+  for (var j2 = 0; j2 < stops.length; j2++) g2.addColorStop(stops[j2][0], stops[j2][1]);
+  _gcache.set(key, g2);
+  return g2;
+}
+
 /* ---------- i18n / v0.8 overlay 接線（C 的 DOM；只切 class 與文字，不建 DOM） ---------- */
 function _i18n(k, vars) {
   if (typeof window.t === 'function') { try { return window.t(k, vars); } catch (e) { } }
@@ -438,10 +471,7 @@ function drawLaunch() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.clearRect(0, 0, VW, VH);
 
-  const g = ctx.createLinearGradient(0, 0, 0, VH);
-  g.addColorStop(0, '#01030a');
-  g.addColorStop(0.55, '#061427');
-  g.addColorStop(1, '#0d2f4a');
+  const g = gLin('launch.bg', 0, 0, 0, VH, [[0, '#01030a'], [0.55, '#061427'], [1, '#0d2f4a']]);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, VW, VH);
 
@@ -806,10 +836,7 @@ function dockFail() {
 function drawDock() {
   const D = dock, h = dockHangar();
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  const g = ctx.createLinearGradient(0, 0, 0, VH);
-  g.addColorStop(0, '#02040b');
-  g.addColorStop(0.65, '#050b18');
-  g.addColorStop(1, '#0a1a2c');
+  const g = gLin('dock.bg', 0, 0, 0, VH, [[0, '#02040b'], [0.65, '#050b18'], [1, '#0a1a2c']]);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, VW, VH);
 
@@ -1436,6 +1463,7 @@ function escapeWin() {
   if (typeof window.fx !== 'undefined' && window.fx) {
     window.fx.flash('#ffffff', 0.5, 320);
     window.fx.shake(12, 500);
+    window.fx.hitstop(120);          /* fx 內部會夾在單次 ≤220ms、每秒 ≤350ms */
     window.fx.slowmo(0.35, 300);
   }
 }
@@ -1758,6 +1786,11 @@ function updateMoon(dt) {
         tone(180, 0.1, 'sine', 0.1, 100);
       } else {
         M.boss.hp -= b.dmg; M.boss.hit = 0.12;
+        if (typeof window.fx !== 'undefined' && window.fx) {
+          window.fx.spark(b.x, b.y, { n: 5, spd: [140, 340], life: [0.06, 0.16], size: [1.1, 2.2], col: 'gold' });
+          window.fx.ring(b.x, b.y, { r0: 4, r1: 26, life: 0.16, w: 1.8, col: 'gold' });
+          window.fx.shake(1.2, 60);
+        }
         if (M.boss.hp <= 0) { M.boss.hp = 0; startEscape(); }
       }
     }
@@ -1766,6 +1799,9 @@ function updateMoon(dt) {
       b.dead = true;
       M.mirror.hp -= b.dmg;
       M.mirror.hit = 0.12;
+      if (typeof window.fx !== 'undefined' && window.fx) {
+        window.fx.spark(b.x, b.y, { n: 4, spd: [120, 300], life: [0.05, 0.15], size: [1, 2], col: 'red' });
+      }
       if (M.mirror.hp <= 0) { M.mirror.hp = 0; escapeWin(); }
     }
   }
@@ -1807,10 +1843,7 @@ function drawMoon() {
   ctx.clearRect(0, 0, VW, VH);
 
   /* 艙內背景 */
-  const g = ctx.createLinearGradient(0, 0, 0, VH);
-  g.addColorStop(0, '#05070d');
-  g.addColorStop(0.45, '#080c14');
-  g.addColorStop(1, '#0b0f18');
+  const g = gLin('moon.bg', 0, 0, 0, VH, [[0, '#05070d'], [0.45, '#080c14'], [1, '#0b0f18']]);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, VW, VH);
 
@@ -1839,10 +1872,7 @@ function drawMoon() {
   ctx.scale(v.s, v.s);
 
   /* 艙壁 */
-  const wallG = ctx.createLinearGradient(0, 0, 0, ARENA.h * 0.74);
-  wallG.addColorStop(0, '#05080e');
-  wallG.addColorStop(0.55, '#0a1019');
-  wallG.addColorStop(1, '#121a26');
+  const wallG = gLin('moon.wall', 0, 0, 0, ARENA.h * 0.74, [[0, '#05080e'], [0.55, '#0a1019'], [1, '#121a26']]);
   ctx.fillStyle = wallG;
   ctx.fillRect(0, 0, ARENA.w, ARENA.h * 0.74);
 
@@ -1984,21 +2014,49 @@ function drawMoon() {
     ctx.lineTo(b.x - Math.cos(b.ang) * 26, b.y - Math.sin(b.ang) * 26);
     ctx.stroke();
   }
-  for (const b of M.ebullets) {
-    if (b.boom) {
-      ctx.fillStyle = 'rgba(255,' + Math.floor(120 + Math.random() * 100) + ',80,.95)';
-      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
-    } else if (b.dust) {
-      ctx.fillStyle = 'rgba(180,200,215,.25)';
-      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
-    } else {
-      ctx.fillStyle = 'rgba(255,90,130,.95)';
-      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
-      ctx.fillStyle = 'rgba(255,120,150,.28)';
-      ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 2.4, 0, 7); ctx.fill();
+  /* v0.10：子彈批次繪製（同色一次 fill，減少 beginPath/fill 呼叫）
+     __PERF_LEGACY=true 走舊的逐顆路徑，供 before/after 量測 */
+  if (window.__PERF_LEGACY) {
+    for (const b of M.ebullets) {
+      if (b.boom) {
+        ctx.fillStyle = 'rgba(255,170,80,.95)';
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
+      } else if (b.dust) {
+        ctx.fillStyle = 'rgba(180,200,215,.25)';
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
+      } else {
+        ctx.fillStyle = 'rgba(255,90,130,.95)';
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
+        ctx.fillStyle = 'rgba(255,120,150,.28)';
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 2.4, 0, 7); ctx.fill();
+      }
     }
+  } else {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  var bn = 0;
+  ctx.fillStyle = 'rgba(255,90,130,.95)';
+  ctx.beginPath();
+  for (const b of M.ebullets) {
+    if (b.boom || b.dust) continue;
+    ctx.moveTo(b.x + b.r, b.y); ctx.arc(b.x, b.y, b.r, 0, 7); bn++;
+  }
+  if (bn) ctx.fill();
+  var bg2n = 0;
+  ctx.fillStyle = 'rgba(255,120,150,.28)';
+  ctx.beginPath();
+  for (const b of M.ebullets) {
+    if (b.boom || b.dust) continue;
+    ctx.moveTo(b.x + b.r * 2.4, b.y); ctx.arc(b.x, b.y, b.r * 2.4, 0, 7); bg2n++;
+  }
+  if (bg2n) ctx.fill();
+  for (const b of M.ebullets) {
+    if (!b.boom && !b.dust) continue;
+    ctx.fillStyle = b.boom ? 'rgba(255,170,80,.95)' : 'rgba(180,200,215,.25)';
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
   }
   ctx.restore();
+  }
 
   drawAstronaut(P);
 
@@ -2098,18 +2156,14 @@ function drawAlien(a) {
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const gg = ctx.createRadialGradient(0, 0, 0, 0, 0, 40);
-  gg.addColorStop(0, a.type === 'grunt' ? 'rgba(255,80,120,.22)' : 'rgba(200,120,255,.26)');
-  gg.addColorStop(1, 'rgba(255,80,120,0)');
+  const gg = gRad('alien.glow' + (a.type === 'grunt' ? 'g' : 's'), 0, 0, 0, 0, 0, 40, [[0, a.type === 'grunt' ? 'rgba(255,80,120,.22)' : 'rgba(200,120,255,.26)'], [1, 'rgba(255,80,120,0)']]);
   ctx.fillStyle = gg;
   ctx.beginPath(); ctx.arc(0, 0, 40, 0, 7); ctx.fill();
   ctx.restore();
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const tg = ctx.createLinearGradient(-12, 0, -46, 0);
-  tg.addColorStop(0, 'rgba(255,120,150,.55)');
-  tg.addColorStop(1, 'rgba(255,120,150,0)');
+  const tg = gLin('alien.tail', -12, 0, -46, 0, [[0, 'rgba(255,120,150,.55)'], [1, 'rgba(255,120,150,0)']]);
   ctx.fillStyle = tg;
   ctx.beginPath();
   ctx.moveTo(-12, -5);
@@ -2133,9 +2187,7 @@ function drawAlien(a) {
   const coreA = 0.7 + Math.sin(a.t * 6) * 0.3;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const cg2 = ctx.createRadialGradient(2, 0, 1, 2, 0, 14);
-  cg2.addColorStop(0, a.type === 'grunt' ? 'rgba(255,110,140,' + coreA + ')' : 'rgba(200,150,255,' + coreA + ')');
-  cg2.addColorStop(1, 'rgba(255,80,120,0)');
+  const cg2 = gRad('alien.core', 2, 0, 1, 2, 0, 14, [[0, a.type === 'grunt' ? 'rgba(255,110,140,' + coreA + ')' : 'rgba(200,150,255,' + coreA + ')'], [1, 'rgba(255,80,120,0)']]);
   ctx.fillStyle = cg2;
   ctx.beginPath(); ctx.arc(2, 0, 14, 0, 7); ctx.fill();
   ctx.restore();
@@ -2162,9 +2214,7 @@ function drawAlly(a) {
   /* 引擎 */
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const tg = ctx.createLinearGradient(-14, 0, -44, 0);
-  tg.addColorStop(0, 'rgba(120,200,255,.7)');
-  tg.addColorStop(1, 'rgba(120,200,255,0)');
+  const tg = gLin('ally.tail', -14, 0, -44, 0, [[0, 'rgba(120,200,255,.7)'], [1, 'rgba(120,200,255,0)']]);
   ctx.fillStyle = tg;
   ctx.beginPath(); ctx.moveTo(-14, -4); ctx.lineTo(-44, 0); ctx.lineTo(-14, 4); ctx.closePath(); ctx.fill();
   ctx.restore();
@@ -2193,10 +2243,7 @@ function drawBoss(B) {
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const gg = ctx.createRadialGradient(0, 0, 30, 0, 0, 190);
-  gg.addColorStop(0, 'rgba(255,60,110,.24)');
-  gg.addColorStop(0.6, 'rgba(150,60,255,.12)');
-  gg.addColorStop(1, 'rgba(150,60,255,0)');
+  const gg = gRad('boss.glow', 0, 0, 30, 0, 0, 190, [[0, 'rgba(255,60,110,.24)'], [0.6, 'rgba(150,60,255,.12)'], [1, 'rgba(150,60,255,0)']]);
   ctx.fillStyle = gg;
   ctx.beginPath(); ctx.arc(0, 0, 190, 0, 7); ctx.fill();
   ctx.restore();
@@ -2294,10 +2341,7 @@ function drawMirror(mm) {
   /* 紅色警示圈 */
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const gg = ctx.createRadialGradient(0, 0, 10, 0, 0, 90);
-  gg.addColorStop(0, 'rgba(255,80,110,.28)');
-  gg.addColorStop(0.6, 'rgba(255,60,90,.10)');
-  gg.addColorStop(1, 'rgba(255,60,90,0)');
+  const gg = gRad('mirror.glow', 0, 0, 10, 0, 0, 90, [[0, 'rgba(255,80,110,.28)'], [0.6, 'rgba(255,60,90,.10)'], [1, 'rgba(255,60,90,0)']]);
   ctx.fillStyle = gg;
   ctx.beginPath(); ctx.arc(0, 0, 90, 0, 7); ctx.fill();
   ctx.restore();
@@ -2471,8 +2515,7 @@ function drawMoonHud() {
     const bw = Math.min(520, VW * 0.5), bx = VW / 2 - bw / 2, by = 46;
     ctx.fillStyle = 'rgba(0,0,0,.6)';
     ctx.beginPath(); ctx.roundRect(bx, by, bw, 14, 7); ctx.fill();
-    const bg = ctx.createLinearGradient(bx, 0, bx + bw, 0);
-    bg.addColorStop(0, '#ff3d5f'); bg.addColorStop(0.6, '#ff8a5c'); bg.addColorStop(1, '#ffd166');
+    const bg = gLin('hud.boss', bx, 0, bx + bw, 0, [[0, '#ff3d5f'], [0.6, '#ff8a5c'], [1, '#ffd166']]);
     ctx.fillStyle = bg;
     ctx.beginPath(); ctx.roundRect(bx, by, bw * clamp(M.boss.hp / M.boss.maxhp, 0, 1), 14, 7); ctx.fill();
     ctx.strokeStyle = 'rgba(255,140,170,.5)';
@@ -2481,8 +2524,7 @@ function drawMoonHud() {
     const bw = Math.min(520, VW * 0.5), bx = VW / 2 - bw / 2, by = 46;
     ctx.fillStyle = 'rgba(0,0,0,.6)';
     ctx.beginPath(); ctx.roundRect(bx, by, bw, 14, 7); ctx.fill();
-    const bg = ctx.createLinearGradient(bx, 0, bx + bw, 0);
-    bg.addColorStop(0, '#ff5d73'); bg.addColorStop(1, '#ffb36b');
+    const bg = gLin('hud.mirror', bx, 0, bx + bw, 0, [[0, '#ff5d73'], [1, '#ffb36b']]);
     ctx.fillStyle = bg;
     ctx.beginPath(); ctx.roundRect(bx, by, bw * clamp(M.mirror.hp / Math.max(1, M.mirror.maxhp), 0, 1), 14, 7); ctx.fill();
     ctx.strokeStyle = 'rgba(255,140,170,.6)';

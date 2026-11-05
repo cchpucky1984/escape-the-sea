@@ -65,6 +65,8 @@ const I18N_EXTRA = {
   'chal.diffNormal': ['一般', 'Normal'],
   'settings.colorblind': ['色盲友善', 'Colorblind friendly'],
   'settings.fontScale': ['字級', 'Text size'],
+  'qa.marked': ['已標記卡點 #{n}（{time}）', 'Pinned issue #{n} ({time})'],
+  'qa.export': ['匯出測試紀錄', 'Export QA log'],
   'radar.giant': ['巨獸 {dist}', 'Leviathan {dist}'],
   'dir.北': ['北', 'N'], 'dir.東北': ['東北', 'NE'], 'dir.東': ['東', 'E'], 'dir.東南': ['東南', 'SE'],
   'dir.南': ['南', 'S'], 'dir.西南': ['西南', 'SW'], 'dir.西': ['西', 'W'], 'dir.西北': ['西北', 'NW']
@@ -735,6 +737,7 @@ const game = {
   ng: 0,
   seed: (Math.floor(Math.random() * 1000000000) || 1),
   challenge: null,
+  diag: { marks: [], fps: { avg: 0, min: 0, p1: 0 }, errors: [] },
   tut: { step: 1, t: 0, done: false, doneIds: [] },
   settings: { musicVol: 55, sfxVol: 80, reduceMotion: false, colorblind: false, fontScale: 1, lang: 'zh' }
 };
@@ -1206,6 +1209,149 @@ function toast(msg, cls) {
   while (box.children.length > 4) box.removeChild(box.firstChild);
   setTimeout(() => { d.style.transition = 'opacity .4s, transform .4s'; d.style.opacity = '0'; d.style.transform = 'translateX(20px)'; }, 2300);
   setTimeout(() => d.remove(), 2900);
+}
+
+/* ---------- v0.10 QA／封測工具（BETA-KIT §6：F2/F3／匯出／錯誤收集） ---------- */
+const QA_LOG_KEY = 'etsea-qa-log';
+function qaStorageList() {
+  try { const a = JSON.parse(localStorage.getItem(QA_LOG_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+}
+function qaDiag() {
+  if (!game.diag) game.diag = { marks: [], fps: { avg: 0, min: 0, p1: 0 }, errors: [] };
+  return game.diag;
+}
+function qaPushError(msg) {
+  const d = qaDiag();
+  d.errors.push({ t: +(game.stats.time || 0).toFixed(2), msg: String(msg || 'unknown').slice(0, 240) });
+  while (d.errors.length > 20) d.errors.shift();
+}
+function initQaDiag() {
+  const d = qaDiag();
+  d.marks = qaStorageList().slice(-50);
+  qaInstallErrorHooks();
+}
+function qaInstallErrorHooks() {
+  if (window.__qaErrorHooks) return;
+  window.__qaErrorHooks = true;
+  const prev = window.onerror;
+  window.onerror = function (msg, src, line, col, err) {
+    qaPushError((err && err.message) || msg);
+    return prev ? prev.apply(this, arguments) : false;
+  };
+  window.addEventListener('unhandledrejection', (e) => qaPushError(e && e.reason ? (e.reason.message || e.reason) : 'unhandledrejection'));
+}
+function qaLog() { return qaDiag().marks; }
+function qaMark() {
+  const P = (typeof sea !== 'undefined' && sea.player) ? sea.player : null;
+  const d = qaDiag();
+  const entry = {
+    t: +(game.stats.time || 0).toFixed(2),
+    wall: Date.now(),
+    scene: game.scene,
+    x: P ? Math.round(P.x) : null,
+    y: P ? Math.round(P.y) : null,
+    hp: P ? +(P.hp || 0).toFixed(1) : null,
+    ox: P ? +(P.ox || 0).toFixed(1) : null,
+    /* 保留 Lead 工單要求的欄位，方便舊工具讀 */
+    res: { plastic: game.res.plastic, wood: game.res.wood, metal: game.res.metal, alloy: game.res.alloy },
+    challenge: game.challenge ? { id: game.challenge.id, ended: !!game.challenge.ended } : null,
+    ng: game.ng || 0,
+    note: ''
+  };
+  d.marks.push(entry);
+  while (d.marks.length > 50) d.marks.shift();
+  const stored = qaStorageList();
+  stored.push(entry);
+  while (stored.length > 200) stored.shift();
+  try { localStorage.setItem(QA_LOG_KEY, JSON.stringify(stored)); } catch (e) {}
+  toast(t('qa.marked', { n: d.marks.length, time: fmtTime(entry.t) }), 'gold');
+  return entry;
+}
+function qaVersion() {
+  const s = document.querySelector('script[src*="main.js"]');
+  const m = s && s.src.match(/[?&]v=([^&]+)/);
+  if (m) return decodeURIComponent(m[1]);
+  const ver = document.querySelector('#title .ver');
+  return ver ? ver.textContent.trim() : 'unknown';
+}
+function buildQAExport() {
+  const d = qaDiag();
+  return {
+    version: qaVersion(),
+    exportedAt: new Date().toISOString(),
+    ua: (navigator.userAgent || '').slice(0, 240),
+    screen: window.innerWidth + 'x' + window.innerHeight,
+    settings: Object.assign({}, game.settings),
+    stats: Object.assign({}, game.stats),
+    ng: game.ng || 0,
+    ach: (game.ach || []).slice(),
+    tut: { step: game.tut.step, done: !!game.tut.done, doneIds: (game.tut.doneIds || []).slice() },
+    challenge: game.challenge ? { id: game.challenge.id, tLeft: game.challenge.tLeft, ended: !!game.challenge.ended } : null,
+    marks: d.marks.slice(),
+    fps: Object.assign({}, d.fps),
+    errors: d.errors.slice(),
+    saveRaw: (() => { try { return localStorage.getItem(SAVE_KEY) || ''; } catch (e) { return ''; } })()
+  };
+}
+function exportQA() {
+  const data = buildQAExport();
+  try {
+    const dt = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const name = 'escape-the-sea-log-' + dt.getFullYear() + pad(dt.getMonth() + 1) + pad(dt.getDate()) + '-' + pad(dt.getHours()) + pad(dt.getMinutes()) + '.json';
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    return data;
+  } catch (e) { return data; }
+}
+let qaFpsOn = false, qaFpsFrames = 0, qaFpsAcc = 0, qaFpsWindow = 0;
+let qaFpsSamples = [];
+function ensureQaFpsPanel() {
+  let el = document.getElementById('fps');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'fps'; el.className = 'fps-panel';
+    el.style.cssText = 'position:fixed;right:12px;top:12px;z-index:9999;display:none;padding:6px 8px;border-radius:6px;background:rgba(2,7,13,.82);color:#9fe8ff;font:11px/1.5 ui-monospace,Consolas,monospace;white-space:nowrap;pointer-events:none';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function toggleQaFps(force) {
+  qaFpsOn = (force === undefined) ? !qaFpsOn : !!force;
+  const el = ensureQaFpsPanel();
+  el.style.display = qaFpsOn ? 'block' : 'none';
+  el.hidden = !qaFpsOn;
+  if (!qaFpsOn) { qaFpsFrames = 0; qaFpsAcc = 0; qaFpsWindow = 0; qaFpsSamples = []; }
+  return qaFpsOn;
+}
+function qaFpsTick(rawDt) {
+  if (!qaFpsOn) return;
+  qaFpsFrames++; qaFpsAcc += rawDt; qaFpsWindow += rawDt;
+  if (qaFpsAcc < 0.25) return;
+  const fps = qaFpsFrames / qaFpsAcc;
+  const ms = (qaFpsAcc / qaFpsFrames) * 1000;
+  const fxStats = (window.fx && typeof window.fx.stats === 'function') ? window.fx.stats() : null;
+  const parts = fxStats ? (fxStats.parts || 0) : 0;
+  const entities = ((typeof sea !== 'undefined' && sea.hazards) ? sea.hazards.length : 0) +
+    ((typeof sea !== 'undefined' && sea.ebullets) ? sea.ebullets.length : 0) + parts;
+  ensureQaFpsPanel().textContent = `FPS ${fps.toFixed(1)} / ${ms.toFixed(1)} ms / E ${entities}`;
+  qaFpsSamples.push(fps);
+  if (qaFpsSamples.length > 40) qaFpsSamples.shift();
+  qaFpsFrames = 0; qaFpsAcc = 0;
+  if (qaFpsWindow >= 5) {
+    const sorted = qaFpsSamples.slice().sort((a, b) => a - b);
+    const avg = qaFpsSamples.reduce((a, b) => a + b, 0) / Math.max(1, qaFpsSamples.length);
+    qaDiag().fps = {
+      avg: +avg.toFixed(1),
+      min: +(sorted[0] || 0).toFixed(1),
+      p1: +(sorted[Math.max(0, Math.floor(sorted.length * 0.01))] || sorted[0] || 0).toFixed(1)
+    };
+    qaFpsWindow = 0;
+  }
 }
 
 /* ---------- HUD ---------- */
@@ -1811,6 +1957,7 @@ function openSettings() {
         <button class="seg" data-lang="zh-Hant" aria-pressed="${s.lang !== 'en'}">${t('settings.langZh')}</button>
         <button class="seg" data-lang="en" aria-pressed="${s.lang === 'en'}">EN</button>
       </div></div>
+      <div class="settings-row"><label>QA</label><button class="ghost qa-export" data-qa-export>${t('qa.export')}</button></div>
     </div>
     <p class="settings-note">${t('settings.note')}</p>
   </div>`;
@@ -1861,6 +2008,8 @@ function openSettings() {
     fsBtn.setAttribute('aria-checked', String(game.settings.fontScale === 1.2));
     fsBtn.textContent = game.settings.fontScale === 1.2 ? '1.2×' : '1.0×';
   };
+  const exportBtn = modalBody.querySelector('[data-qa-export]');
+  if (exportBtn) exportBtn.onclick = () => { initAudio(); exportQA(); };
 }
 
 function openPause() {
@@ -1870,7 +2019,8 @@ function openPause() {
     { label: muted ? t('pause.soundOff') : t('pause.soundOn'), keepOpen: true,
       onClick: () => { muted = !muted; game.muted = muted; applyMute(); saveGame(); openPause(); } },
     { label: t('pause.settings'), onClick: () => setTimeout(openSettings, 10) },
-    { label: t('pause.help'), onClick: () => setTimeout(openHelp, 10) }
+    { label: t('pause.help'), onClick: () => setTimeout(openHelp, 10) },
+    { label: t('qa.export'), keepOpen: true, onClick: () => exportQA() }
   ];
   if (game.cheat) btns.push({ label: t('pause.cheat'), onClick: () => setTimeout(openCheat, 10) });
   btns.push({ label: t('pause.restart'), cls: 'danger', onClick: () => { game.cheat = false; resetGame(); location.reload(); } });

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>逃出大海 — 玩法 3 步驟（商店資訊圖）</title>
+<style>
+  html,body{margin:0;width:1280px;height:720px;overflow:hidden;background:#02070d;color:#e8f8ff;
+    font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",system-ui,sans-serif}
+  .stage{position:relative;width:1280px;height:720px;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;
+    background:
+      radial-gradient(ellipse at 50% -10%,rgba(111,227,255,.20),transparent 55%),
+      radial-gradient(ellipse at 12% 105%,rgba(255,209,102,.10),transparent 55%),
+      linear-gradient(180deg,#06131e,#02070d 60%,#01060b)}
+  .stage::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.10) 0 1px,transparent 1px 3px);
+    opacity:.35}
+  .grid{position:absolute;inset:0;pointer-events:none;opacity:.18;
+    background-image:linear-gradient(rgba(111,227,255,.12) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(111,227,255,.12) 1px,transparent 1px);
+    background-size:64px 64px;mask-image:radial-gradient(ellipse at 50% 40%,#000 20%,transparent 75%)}
+  header{position:relative;z-index:2;display:flex;flex-direction:column;justify-content:space-between;align-items:center;padding:26px 0 0}
+  .logo{width:430px;height:auto;filter:drop-shadow(0 6px 18px rgba(0,0,0,.55))}
+  .sub{margin-top:6px;font-size:12px;letter-spacing:.42em;text-transform:uppercase;color:#8adff4}
+  .zh-sub{margin-top:6px;font-size:14px;letter-spacing:.24em;color:#bfe6f5}
+  .steps{position:relative;z-index:2;display:grid;grid-template-columns:repeat(3,1fr);
+    gap:20px;margin:0 54px}
+  .step{position:relative;padding:16px 18px 14px;border-radius:16px;
+    background:linear-gradient(180deg,rgba(8,28,41,.9),rgba(3,10,17,.86));
+    border:1px solid rgba(111,227,255,.20);
+    box-shadow:0 18px 40px rgba(0,0,0,.35),inset 0 0 30px rgba(111,227,255,.03)}
+  .step::before{content:"";position:absolute;left:0;top:18px;bottom:18px;width:3px;border-radius:3px;
+    background:var(--c);box-shadow:0 0 12px var(--c)}
+  .step-top{display:flex;align-items:center;gap:10px}
+  .num{font-family:"Bahnschrift","DIN Alternate","Segoe UI",sans-serif;font-size:26px;
+    font-weight:800;color:var(--c);line-height:1}
+  .en{font-size:10px;letter-spacing:.22em;color:var(--c);text-transform:uppercase}
+  .zh{font-size:20px;font-weight:800;letter-spacing:.08em;margin-top:5px}
+  .desc{font-size:12.5px;line-height:1.65;color:#9fc0d0;margin-top:6px}
+  .ico{position:absolute;right:16px;top:14px;width:46px;height:46px;opacity:.9}
+  .ico::before,.ico::after{content:"";position:absolute;border:2px solid var(--c)}
+  .s1{--c:#6fe3ff}.s2{--c:#ffd166}.s3{--c:#ff8fa0}
+  /* 01 泡泡 */
+  .s1 .ico::before{left:8px;top:4px;width:18px;height:18px;border-radius:50%}
+  .s1 .ico::after{right:4px;bottom:6px;width:12px;height:12px;border-radius:50%}
+  /* 02 格線 */
+  .s2 .ico::before{left:5px;top:5px;width:34px;height:34px;border-radius:6px;
+    box-shadow:inset 0 0 0 6px #02070d, inset 0 0 0 8px var(--c)}
+  .s2 .ico::after{display:none}
+  /* 03 火箭 */
+  .s3 .ico::before{left:17px;top:2px;width:14px;height:26px;border-radius:9px 9px 3px 3px;
+    border-width:2px;transform:rotate(45deg)}
+  .s3 .ico::after{left:6px;bottom:4px;width:12px;height:12px;border:0;border-left:2px solid var(--c);
+    border-bottom:2px solid var(--c);transform:rotate(-45deg)}
+  .shots{position:relative;z-index:2;display:grid;grid-template-columns:repeat(3,1fr);
+    gap:20px;margin:0 54px}
+  .shot{position:relative;height:152px;border-radius:10px;overflow:hidden;
+    border:1px solid rgba(111,227,255,.16);background:#04121c}
+  .shot img{width:100%;height:100%;object-fit:cover;display:block;opacity:.9}
+  .shot span{position:absolute;left:8px;bottom:7px;font-size:10px;letter-spacing:.12em;
+    color:#dff6ff;background:rgba(2,7,13,.7);border:1px solid rgba(111,227,255,.25);
+    border-radius:999px;padding:2px 8px}
+  .facts{position:relative;z-index:2;display:flex;gap:30px;margin:0 54px;
+    font-size:11.5px;color:#9fc0d0;letter-spacing:.06em}
+  .facts b{font-family:"Bahnschrift","DIN Alternate","Segoe UI",sans-serif;font-size:18px;
+    color:#ffd166;margin-right:5px}
+  footer{position:relative;z-index:2;margin:0 54px 22px;display:flex;justify-content:space-between;
+    align-items:center;font-size:11.5px;color:#6f8fa3;letter-spacing:.06em}
+  footer b{color:#ffd166;font-weight:700}
+  .badge{border:1px solid rgba(255,209,102,.45);color:#ffd166;border-radius:999px;
+    padding:3px 10px;font-size:10px;letter-spacing:.14em}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="grid"></div>
+  <header>
+    <img class="logo" src="../wordmark/wordmark-1280.png" alt="逃出大海 Escape the Sea">
+    <div class="sub">3 Steps · From Castaway to Avenger</div>
+    <div class="zh-sub">從漂流者，到把帳算清的人</div>
+  </header>
+
+  <section class="steps">
+    <article class="step s1">
+      <div class="step-top"><span class="num">01</span><span class="en">Collect</span></div>
+      <div class="ico"></div>
+      <div class="zh">收集物資</div>
+      <p class="desc">潛入海中，收集漂流塑膠、木材、金屬與外星合金。越深越危險，也越肥。</p>
+    </article>
+    <article class="step s2">
+      <div class="step-top"><span class="num">02</span><span class="en">Build</span></div>
+      <div class="ico"></div>
+      <div class="zh">建造基地</div>
+      <p class="desc">自動收集網、BOT 船塢、裝備房與防禦砲塔。讓基地替你工作，越長越大。</p>
+    </article>
+    <article class="step s3">
+      <div class="step-top"><span class="num">03</span><span class="en">Launch</span></div>
+      <div class="ico"></div>
+      <div class="zh">升空復仇</div>
+      <p class="desc">造一艘太空船，攻入母船機庫，擊毀核心——再打贏你自己的鏡像。</p>
+    </article>
+  </section>
+
+  <section class="shots">
+    <div class="shot"><img src="shot-sea.webp" alt=""><span>海面探索</span></div>
+    <div class="shot"><img src="shot-dock.webp" alt=""><span>機庫突入</span></div>
+    <div class="shot"><img src="shot-boss.webp" alt=""><span>最終決戰</span></div>
+  </section>
+
+  <div class="facts">
+    <span><b>4</b>海域</span><span><b>24</b>成就</span><span><b>3</b>挑戰</span>
+    <span><b>NG+9</b>極限</span><span><b>8</b>海域事件</span>
+  </div>
+
+  <footer>
+    <span>單機 · HTML5 · 繁體中文 / English</span>
+    <span class="badge">BETA v0.10</span>
+  </footer>
+</div>
+</body>
+</html>

@@ -335,11 +335,40 @@
   };
 
   /* ---------------- 9. 更新 ---------------- */
+  /* v0.10：FPS 自動降級（<40 連續 3s → tier2；<28 → tier3；只降不升） */
+  var perfT = 0, perfN = 0, perfFps = 60, perfLast = 0;
+  function autoTierCheck(realDt) {
+    if (realDt <= 0 || realDt > 0.5) return;
+    perfT += realDt;
+    perfN++;
+    if (perfT < 3) return;
+    perfFps = perfN / perfT;
+    perfT = 0; perfN = 0;
+    var want = perfFps < 28 ? 3 : (perfFps < 40 ? 2 : 1);
+    if (want > tier) setTier(want);   /* 自動只降級；手動 setTier 仍可上調 */
+  }
+  function feedFps(fps, seconds) {
+    fps = +fps || 60; seconds = +seconds || 3;
+    perfT += seconds; perfN += Math.round(fps * seconds);
+    if (perfT >= 3) {
+      perfFps = perfN / perfT;
+      perfT = 0; perfN = 0;
+      var want = perfFps < 28 ? 3 : (perfFps < 40 ? 2 : 1);
+      if (want > tier) setTier(want);
+    }
+    return { tier: tier, fps: +perfFps.toFixed(1) };
+  }
+
   function update(raw) {
     raw = +raw || 0;
     if (raw <= 0) raw = 1 / 60;
     if (raw > 0.05) raw = 0.05;
-    lastUpdAt = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    var nowMs = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (perfLast > 0) autoTierCheck((nowMs - perfLast) / 1000);
+    perfLast = nowMs;
+    lastUpdAt = nowMs;
+    /* __T.fxStats：QA 讀 tier/cap/fps/stopSpent */
+    if (window.__T && typeof window.__T.fxStats !== 'function') window.__T.fxStats = function () { return stats(); };
     updCount++;
     drawToken++;
     sfxFrame = 0;
@@ -600,6 +629,8 @@
       tier: tier, cap: pCap, mul: mul,
       parts: livePart, rings: liveRing, texts: liveText, beams: liveBeam,
       shake: +shakeAmp.toFixed(2), stop: +stopT.toFixed(3),
+      stopSpent: +(0.35 - stopBudget).toFixed(3), stopBudget: +stopBudget.toFixed(3),
+      fps: +perfFps.toFixed(1),
       slow: slowT > 0 ? slowScale : 1,
       grad: gradLin.size + gradRad.size,
       updates: updCount
@@ -632,6 +663,9 @@
   };
   api.damageText = text;          /* AUDIT §4.8 相容命名 */
   api.tier = function () { return tier; };
+  /* v0.10 QA 測試鉤子（non-enumerable，不影響正式介面） */
+  Object.defineProperty(api, '_feedFps', { enumerable: false, value: feedFps });
+  Object.defineProperty(api, '_perf', { enumerable: false, value: function () { return { tier: tier, fps: +perfFps.toFixed(1), cap: pCap, stopSpent: +(0.35 - stopBudget).toFixed(3) }; } });
 
   setTier(detectTier());
   window.fx = api;

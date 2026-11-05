@@ -1128,3 +1128,91 @@ body:is(.text-lg,.font-large) .nextstep span{font-size:.95rem}
   .card.challenge-card .cost span{font-size:.68rem}
   .card.challenge-card button[data-challenge]{min-height:34px;font-size:.78rem}
 }
+
+/* =========================================================
+   v0.10：封測 UI（F3 FPS／F2 標記／匯出測試紀錄）
+   CSS 不含中文；文字由 B 的 t() 或 JS 填。
+   ========================================================= */
+
+/* F3 FPS 面板（DOM #fps；B 可用 .fps-row/.fps-label/.fps-val/.fps-tier） */
+#fps{position:fixed;right:16px;top:16px;z-index:15;min-width:176px;
+  padding:8px 10px 7px;border-radius:10px;pointer-events:none;
+  background:rgba(2,7,13,.82);border:1px solid rgba(111,227,255,.26);
+  box-shadow:0 10px 30px rgba(0,0,0,.45),inset 0 0 20px rgba(111,227,255,.04);
+  backdrop-filter:blur(8px);font-family:var(--font-num);font-size:11px;
+  color:var(--c-ink-2);line-height:1.6}
+#fps[hidden]{display:none}
+#fps.fps-panel{white-space:nowrap;color:var(--c-cy);font-size:11.5px;letter-spacing:.04em;
+  line-height:1.5;padding:8px 11px}
+#fps.fps-panel[data-tier="good"]{color:var(--c-green)}
+#fps.fps-panel[data-tier="ok"]{color:var(--c-gold)}
+#fps.fps-panel[data-tier="bad"]{color:var(--c-danger)}
+#fps .fps-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+#fps .fps-label{font-size:9px;letter-spacing:.16em;color:var(--c-muted);text-transform:uppercase}
+#fps .fps-val{font-size:14px;font-weight:700;color:var(--c-cy);font-variant-numeric:tabular-nums;
+  letter-spacing:.02em}
+#fps .fps-tier{font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;
+  border-radius:999px;padding:1px 6px;border:1px solid rgba(255,255,255,.18);color:var(--c-ink-2)}
+#fps[data-tier="good"] .fps-val,#fps .fps-val.good{color:var(--c-green)}
+#fps[data-tier="ok"] .fps-val,#fps .fps-val.ok{color:var(--c-gold)}
+#fps[data-tier="bad"] .fps-val,#fps .fps-val.bad{color:var(--c-danger)}
+#fps[data-tier="good"] .fps-tier{color:var(--c-green);border-color:rgba(142,230,164,.4)}
+#fps[data-tier="ok"] .fps-tier{color:var(--c-gold);border-color:rgba(255,209,102,.45)}
+#fps[data-tier="bad"] .fps-tier{color:var(--c-danger);border-color:rgba(255,93,115,.5)}
+#fps .fps-close{position:absolute;right:5px;top:5px;pointer-events:auto;width:20px;height:20px;
+  border-radius:50%;background:rgba(255,255,255,.05);border:1px solid var(--line-2);
+  color:var(--c-ink-2);font-size:10px;line-height:1;display:flex;align-items:center;justify-content:center}
+#fps .fps-close:hover{background:rgba(255,93,115,.15);border-color:rgba(255,93,115,.4);color:#ffd9e0}
+#fps .fps-extra{font-size:9.5px;color:var(--c-muted);margin-top:2px;letter-spacing:.03em}
+
+/* F2 卡點標記 toast：沿用 .toast，另加 .qa-mark（或 #qa-toast） */
+.toast.qa-mark,#qa-toast{border-left-color:var(--c-gold);
+  background:linear-gradient(90deg,rgba(38,28,6,.96),rgba(20,20,26,.94));
+  color:#ffe9b3;letter-spacing:.03em}
+.toast.qa-mark::before,#qa-toast::before{content:"\26A0";display:inline-block;
+  margin-right:6px;color:var(--c-gold);text-shadow:0 0 8px rgba(255,209,102,.55);font-weight:700}
+.toast.qa-mark::after,#qa-toast::after{content:"";display:inline-block;width:5px;height:5px;
+  border-radius:50%;background:var(--c-gold);margin-left:8px;vertical-align:middle;
+  box-shadow:0 0 8px rgba(255,209,102,.7)}
+
+/* 設定面板「匯出測試紀錄」次要按鈕（B 產生 .settings-export 或 data-action=export-qa） */
+.settings-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:8px}
+.settings-export,button[data-action="export-qa"],.settings-row button.qa-export,.settings-row button[data-qa-export]{display:inline-flex;align-items:center;gap:7px;
+  min-height:34px;padding:7px 12px;border-radius:8px;white-space:nowrap;
+  background:rgba(111,227,255,.08);border:1px solid var(--line);color:var(--c-cy);
+  font-family:inherit;font-size:12px;letter-spacing:.04em;line-height:1.4;
+  transition:background var(--t-fast),border-color var(--t-fast),transform var(--t-fast)}
+.settings-export::before,button[data-action="export-qa"]::before{content:"\2913";
+  font-size:15px;line-height:1;color:var(--c-gold);font-weight:700}
+.settings-export:hover,button[data-action="export-qa"]:hover{background:rgba(111,227,255,.15);
+  border-color:rgba(111,227,255,.42)}
+.settings-export:active,button[data-action="export-qa"]:active{transform:translateY(1px)}
+.settings-export:disabled,button[data-action="export-qa"]:disabled{opacity:.45;cursor:not-allowed}
+.settings-export .qa-export-meta{font-size:9px;color:var(--c-muted);letter-spacing:.02em}
+.settings-export-done{color:var(--c-green)!important;border-color:rgba(142,230,164,.5)!important}
+
+@media (min-width:769px){
+  body:has(#fps:not([hidden])) #toasts{top:108px}
+}
+
+/* 390：FPS 面板縮小，設定匯出按鈕可全寬 */
+@media (max-width:430px){
+  #fps{right:8px;top:8px;min-width:150px;font-size:10px;padding:7px 9px 6px}
+  #fps.fps-panel{font-size:10.5px;max-width:calc(100vw - 16px)}
+  #fps .fps-val{font-size:12.5px}
+  .settings-actions{display:block}
+  .settings-export,button[data-action="export-qa"],.settings-row button.qa-export,.settings-row button[data-qa-export]{width:100%;justify-content:center}
+}
+
+
+
+/* v0.10 修正：B 實際匯出按鈕 .settings-row > button.qa-export[data-qa-export] */
+.settings-row button.qa-export,.settings-row button[data-qa-export]{margin-left:auto;flex:0 0 auto}
+.settings-row button.qa-export::before,.settings-row button[data-qa-export]::before{content:"\2913";
+  font-size:15px;line-height:1;color:var(--c-gold);font-weight:700}
+.settings-row button.qa-export:hover,.settings-row button[data-qa-export]:hover{
+  background:rgba(111,227,255,.15);border-color:rgba(111,227,255,.42)}
+.settings-row button.qa-export:active,.settings-row button[data-qa-export]:active{transform:translateY(1px)}
+@media (max-width:430px){
+  .settings-row button.qa-export,.settings-row button[data-qa-export]{margin-left:0}
+}

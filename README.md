@@ -3,7 +3,7 @@
 單機 HTML5 網頁遊戲：在海灘被外星飛船巨炮打落海，被暗湧沖到大海中央。
 收集海上垃圾 → 建造會長大的自動化基地 → 派出 BOT 出海 → 升級裝備 → 造太空船飛上月球 → 與外星母船決戰。
 
-目前版本 **v0.8.0-alpha**（v1.0 為發售目標）；**v0.9 開發中**：挑戰模式 3、NG+、可及性（減少動態／色盲輔助／字級）與平衡（核心 1800）。v0.8 已完成難度提升與最終戰重做，見文末〈v0.9〉／〈v0.8〉。
+目前版本 **v0.9.0-alpha**（v1.0 為發售目標）；**v0.10 開發中**：封測工具（F2 標記／F3 FPS／匯出測試紀錄）、itch 上架彩排、封測隱私與 AI 揭露、效能收尾。v0.9 已完成挑戰 3／NG+／可及性／核心 1800，見文末〈v0.10〉／〈v0.9〉。
 
 ## 開始玩
 
@@ -32,6 +32,7 @@
 | J | 任務清單與成就 |
 | Esc | 關閉面板 / 暫停選單（含音量設定） |
 | M | 總靜音（音效＋音樂） |
+| F2／F3（僅封測版） | F2 標記卡點、F3 顯示 FPS；Esc → 匯出測試紀錄 |
 | 標題畫面 | 挑戰模式／NG+（通關後解鎖；Esc → 可及性設定） |
 
 ## 生存規則（2026 平衡版）
@@ -111,15 +112,23 @@
 
 死亡：在基地復活，失去 15% 塑膠。升空／登艦失敗：回基地修理（金屬 -8）。母船戰敗：可再次出擊。
 
-## v0.9（本輪）
+## v0.10（本輪）
+
+- **封測工具**：F2 標記卡點、F3 顯示 FPS、Esc → 匯出 `testlog.json`（版本／進度／設定／標記／FPS；**不含個資**，見 `LEGAL.md` §2.5）。
+- **上架彩排**：`docs/marketing/ITCH-ROLLOUT.md`（逐步操作＋私密 beta 流程＋上線後 24h 清單）；外聯信在 `OUTREACH.md`（5 家 press 中英模板）。
+- **法務更新**：AI 揭露擴充到「美術／音樂／文字」三段（`LEGAL.md` §4.2）；封測資料邊界寫清楚（§2.5）。
+- **i18n**：`STRINGS.js` 增至 **555 條**（新增封測工具／QA 面板 21 條）。
+- **效能**：headless 30–37fps；實機 60fps 與 iOS/Android 觸控仍是上架 gate（見 HANDOFF §4）。
+
+## v0.9（上一輪）
 
 - **挑戰模式 3**：通關一次後從標題進入——一命深海（死亡即結束）、限時 45（45 分鐘內攻入核心）、赤手空拳（不建砲塔／不裝模組／四裝備不可升級）。不能存檔，最佳分寫在獨立 key。
 - **NG+**：通關後進下一輪（上限 NG+9）；重置資源／裝備／基地／零件，保留成就、挑戰最佳分、巨獸擊殺。敵人 HP +25%·ng、傷害 +10%·ng、產出 +15%·ng。
 - **可及性**：減少動態（震動／閃光／粒子）、色盲輔助（形狀＋文字）、字級 100%／120%，重開保留。
 - **平衡**：最終核心 HP 900 → 1800，核心 TTK 目標 70–100 秒、含波次＋逃生＋鏡像的整場決戰 5–7 分鐘；首輪 90–150 分鐘用 `balance.mjs` 長跑驗。
-- **i18n**：`docs/i18n/STRINGS.js` 增至 541 條（挑戰／NG+／可及性／canvas 海域名短版）。
+- **i18n**：`docs/i18n/STRINGS.js` 增至 540 條（挑戰／NG+／可及性／canvas 海域名短版）；v0.10 再加封測工具 21 條至 555。
 
-## v0.8（上一輪）
+## v0.8（更早）
 
 - **難度提升**：海域密度（深海同屏上限 6→10、遠洋 8→12）；四巨獸四模式（光束／追蹤／衝撞／洋流）；子彈四型（快／慢／追蹤／雷射）各附前搖與躲法。
 - **最終戰重做**：升空可手動瞄準；母船第 2 波 10→24；核心 900HP 四階段（重力→光束→導彈→衝撞）；核心死後 90 秒逃生倒數＋鏡像 BOSS（同型態、技能 +1，擊敗才通關）；`#dockcue` 轉場提示與雙血條。
@@ -161,6 +170,7 @@
 - [docs/design/GDD-v0.4.md](docs/design/GDD-v0.4.md) — v0.4 企劃定案：賞金海域、數值、驗收
 - [docs/design/CONTENT-v0.5.md](docs/design/CONTENT-v0.5.md) — 內容深度：成就 24／挑戰 3／事件 8／教學／NG+ 規格
 - [docs/design/DIFFICULTY-v0.8.md](docs/design/DIFFICULTY-v0.8.md) — 難度與最終戰施工規格（四巨獸／彈幕／核心四階段／鏡像）
+- [docs/design/BETA-PLAN.md](docs/design/BETA-PLAN.md) — 8 人封測計劃（招募／腳本／問卷／指標）
 - [docs/tech/AUDIT-v0.4.md](docs/tech/AUDIT-v0.4.md) — 架構與技術債審查
 - [docs/art/STYLE-v0.4.md](docs/art/STYLE-v0.4.md) — 視覺風格與 HUD／面板規格
 - [docs/art/TITLE-ART.md](docs/art/TITLE-ART.md) — 標題 key art 接線規格；素材見 [AI-ASSETS-v0.5.md](docs/art/AI-ASSETS-v0.5.md)
@@ -174,9 +184,11 @@
 - [docs/marketing/DEVLOG-03.md](docs/marketing/DEVLOG-03.md) — Devlog #3（觸控／PWA／英文）
 - [docs/marketing/DEVLOG-04.md](docs/marketing/DEVLOG-04.md) — Devlog #4（挑戰／NG+／可及性／核心 1800）
 - [docs/marketing/LAUNCH-KIT.md](docs/marketing/LAUNCH-KIT.md) — 上架檢查表、Steam 待補、社群貼文、press 名單
+- [docs/marketing/ITCH-ROLLOUT.md](docs/marketing/ITCH-ROLLOUT.md) — itch 上架逐步彩排、私密 beta 流程、上線後 24h 清單
+- [docs/marketing/OUTREACH.md](docs/marketing/OUTREACH.md) — 5 家 press／KOL 中英模板信、寄送時程、追蹤表
 - [docs/marketing/PRESSKIT.md](docs/marketing/PRESSKIT.md) — 媒體素材包與事實表
 - [docs/marketing/LEGAL.md](docs/marketing/LEGAL.md) — 隱私、AI 揭露、字型／音樂／模型授權清單
-- [docs/i18n/STRINGS.js](docs/i18n/STRINGS.js) — zh-Hant → en 字典（541 條，可直接載入）
+- [docs/i18n/STRINGS.js](docs/i18n/STRINGS.js) — zh-Hant → en 字典（555 條，可直接載入）
 - [docs/i18n/EN-REVIEW.md](docs/i18n/EN-REVIEW.md) — 英文用語一致性（50 條）＋20 條過長字串縮短版
 - [docs/i18n/STRINGS.md](docs/i18n/STRINGS.md) — 翻譯慣例與歷史對照
 - [docs/qa/QA-BASELINE.md](docs/qa/QA-BASELINE.md) — QA 基準線與已知問題
@@ -190,5 +202,6 @@
 - **Play locally**: open `index.html` (or run `start.bat`). No install, no network, no account.
 - **Controls**: WASD/Arrows swim · Shift sprint · Mouse aim/fire · B base · C gear · H bounties · J quests · Esc pause/settings · M mute.
 - **Loop**: collect trash → grow the platform base → send out BOTs → upgrade gear → build a spacecraft → storm the mothership.
-- **Status**: v0.8.0-alpha is playable (difficulty rework + final battle: 4 leviathan modes, bullet types, 24-enemy wave 2, 900 HP four-phase core, 90 s escape countdown + Mirror Core). v0.9 adds 3 challenge modes, NG+ (up to 9) and accessibility (reduce motion / colorblind assist / text size), with the core raised to 1800 HP.
+- **Status**: v0.9.0-alpha is playable (3 challenge modes, NG+ up to 9, accessibility set, 1800 HP final core). v0.10 adds beta tools (F2 stuck-point marks, F3 FPS, JSON test-log export), an itch rollout rehearsal and updated AI/privacy disclosures.
+- **Beta builds**: optional diagnostic export (`testlog.json`) contains game state only — no names, emails, IPs or device fingerprints. See [LEGAL.md](docs/marketing/LEGAL.md) §2.5.
 - **Privacy**: no accounts, no tracking; progress stays in your browser's `localStorage`. See [LEGAL.md](docs/marketing/LEGAL.md).

@@ -46,6 +46,13 @@ window.addEventListener('keydown', (e) => {
   /* 設定面板的 range slider 需要原生方向鍵操作，不能被遊戲快捷鍵吃掉 */
   const isRange = !!(e.target && e.target.matches && e.target.matches('input[type="range"]'));
   if (!isRange && [' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
+  /* 封測工具：F2 卡點標記、F3 FPS（預設關） */
+  if (k === 'f2' || k === 'f3') {
+    e.preventDefault();
+    if (e.repeat) return;
+    if (k === 'f2') qaMark(); else toggleQaFps();
+    return;
+  }
   if (e.repeat) { KEYS[k] = true; return; }
   KEYS[k] = true;
   initAudio();
@@ -296,6 +303,7 @@ $('end-again').onclick = () => {
 /* ---------- 主迴圈 ---------- */
 let lastT = performance.now();
 let saveT = 0;
+let qaTimeScale = 1;   /* 僅供 QA／balance：只放大更新 dt，不動 rAF／存檔／音效 */
 
 /* 失敗 modal 被 X／Esc 關掉時的復活／返回基地（原本在 closeModal 的補救移來這裡，避免與按鈕重複執行） */
 function recoverClosedFailureModal() {
@@ -310,9 +318,11 @@ function recoverClosedFailureModal() {
 function frame(now) {
   const rawDt = Math.min(0.05, (now - lastT) / 1000);
   lastT = now;
+  qaFpsTick(rawDt);
   /* v0.4 fx 掛鉤（D 的 js/fx.js；缺席時完全走原邏輯） */
   const FX = window.fx;
-  const dt = (FX && typeof FX.update === 'function') ? FX.update(rawDt) : rawDt;
+  const baseDt = (FX && typeof FX.update === 'function') ? FX.update(rawDt) : rawDt;
+  const dt = baseDt * qaTimeScale;
 
   recoverClosedFailureModal();
   updateQuests(dt);
@@ -356,6 +366,7 @@ setScene('title');
 refreshStaticUI();
 ensureChallengeBtn();
 refreshStaticUI();
+initQaDiag();
 installFxAccessibility();
 requestAnimationFrame(frame);
 
@@ -405,6 +416,11 @@ window.__T = {
   achNew: () => achNewRun,
   SEA_EVENTS: window.SEA_EVENTS,
   t, setLang, i18nMissing,
+  qaLog: () => qaLog(), exportQA: () => exportQA(), qaMark: () => qaMark(),
+  toggleFps: (force) => toggleQaFps(force),
+  get fps() { return qaFpsOn; },
+  get timeScale() { return qaTimeScale; },
+  set timeScale(v) { qaTimeScale = Math.max(1, Math.min(10, Number(v) || 1)); },
   get tut() { return game.tut; },
   skipTut() { game.tut.done = true; },
   music: () => MUSIC.status(), MUSIC,

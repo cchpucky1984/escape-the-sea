@@ -1,4 +1,4 @@
-// QA regression suite for escape-the-sea (rebuilt 2026-11-05 after an encoding accident).
+﻿// QA regression suite for escape-the-sea (rebuilt 2026-11-05 after an encoding accident).
 // Versioned copy lives in the repo at escape-the-sea/tools/qa.mjs — keep them in sync.
 //
 // Prereqs:
@@ -45,7 +45,8 @@ const q = async (expr) => {
 };
 const KEYMAP = { escape: ['Escape', 'Escape', 27], enter: ['Enter', 'Enter', 13], ' ': [' ', 'Space', 32], shift: ['Shift', 'ShiftLeft', 16] };
 const key = async (k, type = 'keyDown') => {
-  const [name, code, vk] = KEYMAP[k] || [k, 'Key' + k.toUpperCase(), k.toUpperCase().charCodeAt(0)];
+  const fn = /^f([1-9]|1[0-2])$/.test(k) ? [k.toUpperCase(), k.toUpperCase(), 111 + Number(k.slice(1))] : null;
+  const [name, code, vk] = KEYMAP[k] || fn || [k, 'Key' + k.toUpperCase(), k.toUpperCase().charCodeAt(0)];
   await send('Input.dispatchKeyEvent', { type, key: name, code, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk });
 };
 const tap = async (k, ms = 140) => { await key(k); await sleep(ms); await key(k, 'keyUp'); };
@@ -572,6 +573,35 @@ await check('a11y: reduce motion 包住 FX、色盲/字級 class 生效', async 
   })()`);
   const o = JSON.parse(r);
   return { ok: o.wrapped && o.shakeOk && o.reduce && o.cb && o.large, detail: r };
+});
+
+await check('diag: F2 標記／F3 FPS／timeScale／匯出 JSON', async () => {
+  await q(`(() => { setScene('sea'); initSea(true); window.__T.timeScale = 1; return true; })()`);
+  await sleep(500);
+  const before = await q(`__T.qaLog().length`);
+  await tap('f2'); await sleep(150); await tap('f2');
+  await sleep(300);
+  const after = await q(`__T.qaLog().length`);
+  // F3 FPS 面板
+  await q(`__T.toggleFps(true); 'ok'`);
+  await sleep(400);
+  const fpsShown = await q(`(() => { const el = document.getElementById('fps'); return !!el && el.style.display !== 'none' && !el.hidden; })()`);
+  const fpsText = await q(`(() => { const el = document.getElementById('fps'); return el ? el.innerText.slice(0, 80) : ''; })()`);
+  await q(`__T.toggleFps(false); 'ok'`);
+  // timeScale ×5：2 秒真實時間 ≈ 10 秒遊戲時間
+  const ts = JSON.parse(await q(`(() => { window.__T.timeScale = 5; return JSON.stringify({ v: __T.timeScale, t0: game.stats.time }); })()`));
+  await sleep(2200);
+  const t1 = await q(`game.stats.time`);
+  await q(`window.__T.timeScale = 1; 'ok'`);
+  const dtGame = t1 - ts.t0;
+  // 匯出 JSON（只驗內容，不驗實際下載）
+  const exp = await q(`(() => { const d = __T.exportQA(); return JSON.stringify({ version: d && d.version, marks: d && d.marks ? d.marks.length : -1, ua: !!(d && d.ua), hasSave: !!(d && d.saveRaw), stats: !!(d && d.stats) }); })()`);
+  const e = JSON.parse(exp);
+  const savedInMain = await q(`(localStorage.getItem('escape-the-sea-v2') || '').includes('etsea-qa-log')`);
+  return {
+    ok: after >= before + 2 && fpsShown === true && /fps/i.test(fpsText) && dtGame >= 6 && dtGame <= 16 && ts.v === 5 && e.marks >= 2 && e.ua === true && e.stats === true && savedInMain === false,
+    detail: JSON.stringify({ before, after, fpsShown, fpsText, dtGame: +dtGame.toFixed(2), exp: e })
+  };
 });
 
 await check('mobile: 390x844 直向沒有橫向溢出', async () => {

@@ -608,6 +608,29 @@ window.I18N_DATA = {
   "a11y.fontScale120": ["字級 120%","Text size 120%"], // DATA-v0.9.md:85
   "a11y.textSizeDesc": ["介面字級 100%／120%","UI text size 100% / 120%"], // DATA-v0.9.md:85
 
+  /* ── v0.10 封測工具（F2 標記／F3 FPS／匯出／隱私／QA 面板；B 落地後補行號） ── */
+  "beta.f2.hint": ["按 F2 標記卡點","Press F2 to mark a stuck point"], // v0.10-pending
+  "beta.f2.marked": ["已標記 #{n}（{time}）","Marked #{n} ({time})"], // v0.10-pending
+  "beta.f2.none": ["目前沒有標記","No marks yet"], // v0.10-pending
+  "beta.f3.hint": ["按 F3 顯示 FPS","Press F3 to show FPS"], // v0.10-pending
+  "beta.f3.label": ["FPS {n}（{ms} ms）","FPS {n} ({ms} ms)"], // v0.10-pending
+  "beta.export.button": ["匯出測試紀錄","Export test log"], // v0.10-pending
+  "beta.export.ok": ["已下載 {file}","Downloaded {file}"], // v0.10-pending
+  "beta.export.fail": ["匯出失敗，請再試一次","Export failed — try again"], // v0.10-pending
+  "beta.export.empty": ["目前沒有可匯出的紀錄","Nothing to export yet"], // v0.10-pending
+  "beta.export.note": ["只包含遊戲狀態，不含個資","Game state only — no personal data"], // v0.10-pending
+  "beta.privacy.title": ["封測資料說明","Beta data notice"], // v0.10-pending
+  "beta.privacy.body": ["我們只記錄遊戲內資訊（時間、座標、設定、成就）；不含姓名、email、IP 或裝置指紋。","We only record in-game data (time, position, settings, achievements) — no names, emails, IPs or device fingerprints."], // BETA-PLAN.md:10
+  "beta.privacy.local": ["檔案只存在你的裝置，不會自動上傳","The file stays on your device; nothing is uploaded automatically"], // v0.10-pending
+  "beta.privacy.delete": ["刪除檔案即撤回資料","Delete the file to withdraw your data"], // v0.10-pending
+  "qa.panel.title": ["QA 面板","QA Panel"], // v0.10-pending
+  "qa.panel.version": ["版本 {ver}","Version {ver}"], // v0.10-pending
+  "qa.panel.seed": ["種子 {n}","Seed {n}"], // v0.10-pending
+  "qa.panel.copy": ["複製","Copy"], // v0.10-pending
+  "qa.panel.copied": ["已複製","Copied"], // v0.10-pending
+  "qa.panel.records": ["紀錄 {n} 筆","{n} records"], // v0.10-pending
+  "qa.panel.close": ["關閉 (Esc)","Close (Esc)"], // v0.10-pending
+
 };
 
 /* ── 動態模板（含數字／名稱的句子） ─────────────────────────
