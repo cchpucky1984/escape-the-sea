@@ -1,6 +1,6 @@
 'use strict';
 /* =========================================================
-   sw.js — PWA Service Worker（v0.7，cache-first 離線可玩）
+   sw.js — PWA Service Worker（v0.11，cache-first 離線可玩）
    ---------------------------------------------------------
    為什麼在 js/ 但用根目錄 loader 註冊：
      Service Worker 的 scope 只能是「腳本所在目錄」；本機用 python http.server，
@@ -8,7 +8,7 @@
      解法：根目錄 `sw.js` 只有一行 `importScripts('js/sw.js')`（scope＝/），
      真正邏輯全部留在這個檔案；由 B 在 main.js 註冊 `sw.js`。
    策略（2026-11-04 依 B 的「QA 前要清 SW」提醒調整）：
-     - 版本 `etsea-v0.7.0`；install 逐項 precache（單項 404 不影響整體）
+     - 版本 `etsea-v0.11.0`；install 逐項 precache（單項 404 不影響整體）
      - activate 清掉舊版本快取＋clients.claim()
      - **本機開發環境（localhost/127.0.0.1）改用 network-first**：線上永遠拿最新檔，
        離線才回快取 → v0.7 QA 不必手動清 SW / bypass
@@ -17,7 +17,7 @@
      - 開發/QA 一鍵清：`navigator.serviceWorker.controller.postMessage({type:'sw-clear'})`
    ========================================================= */
 
-var VERSION = 'etsea-v0.7.0';
+var VERSION = 'etsea-v0.11.0';
 var SCOPE = (self.registration && self.registration.scope) || self.location.href.replace(/[^/]*$/, '');
 /* 本機＝開發環境：network-first，避免 cache-first 讓 QA 拿到舊 core/style */
 var DEV = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(self.location.hostname);
